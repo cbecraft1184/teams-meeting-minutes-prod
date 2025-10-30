@@ -27,6 +27,10 @@ export const meetingMinutes = pgTable("meeting_minutes", {
   decisions: jsonb("decisions").notNull().$type<string[]>(),
   attendeesPresent: jsonb("attendees_present").notNull().$type<string[]>(),
   processingStatus: text("processing_status").notNull().default("pending"), // pending, transcribing, generating, completed, failed
+  approvalStatus: text("approval_status").notNull().default("pending_review"), // pending_review, approved, rejected, revision_requested
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
   sharepointUrl: text("sharepoint_url"),
   docxUrl: text("docx_url"),
   pdfUrl: text("pdf_url"),
@@ -47,6 +51,20 @@ export const actionItems = pgTable("action_items", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Meeting Templates schema
+export const meetingTemplates = pgTable("meeting_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // briefing, planning, status_review, emergency_response
+  defaultDuration: text("default_duration").notNull(), // e.g., "1h 30m"
+  defaultClassification: text("default_classification").notNull().default("UNCLASSIFIED"),
+  suggestedAttendees: jsonb("suggested_attendees").$type<string[]>(),
+  agendaItems: jsonb("agenda_items").$type<string[]>(),
+  isSystem: text("is_system").notNull().default("false"), // true for default templates, false for custom
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
@@ -64,6 +82,11 @@ export const insertActionItemSchema = createInsertSchema(actionItems).omit({
   createdAt: true,
 });
 
+export const insertMeetingTemplateSchema = createInsertSchema(meetingTemplates).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -73,6 +96,9 @@ export type InsertMeetingMinutes = z.infer<typeof insertMeetingMinutesSchema>;
 
 export type ActionItem = typeof actionItems.$inferSelect;
 export type InsertActionItem = z.infer<typeof insertActionItemSchema>;
+
+export type MeetingTemplate = typeof meetingTemplates.$inferSelect;
+export type InsertMeetingTemplate = z.infer<typeof insertMeetingTemplateSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({

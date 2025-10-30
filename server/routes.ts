@@ -1,10 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema } from "@shared/schema";
+import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema } from "@shared/schema";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { requireAuth } from "./middleware/auth";
 import { documentExportService } from "./services/documentExport";
+import { emailDistributionService } from "./services/emailDistribution";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -170,6 +171,105 @@ export function registerRoutes(app: Express): Server {
       }
       console.error("Error updating minutes:", error);
       res.status(500).json({ error: "Failed to update minutes" });
+    }
+  });
+
+  // Approve minutes
+  app.post("/api/minutes/:id/approve", async (req, res) => {
+    try {
+      const { approvedBy } = req.body;
+      if (!approvedBy) {
+        return res.status(400).json({ error: "approvedBy is required" });
+      }
+
+      const minutes = await storage.getMinutes(req.params.id);
+      if (!minutes) {
+        return res.status(404).json({ error: "Minutes not found" });
+      }
+
+      // Update approval status
+      const updatedMinutes = await storage.updateMinutes(req.params.id, {
+        approvalStatus: "approved",
+        approvedBy,
+        approvedAt: new Date()
+      });
+
+      // Get full meeting details for email distribution
+      const meeting = await storage.getMeeting(minutes.meetingId);
+      if (meeting && meeting.minutes) {
+        // Generate document attachments
+        const docxBuffer = await documentExportService.generateDOCX(meeting);
+        const pdfBuffer = await documentExportService.generatePDF(meeting);
+
+        // Distribute via email
+        await emailDistributionService.distributeMinutes(meeting, [
+          {
+            filename: `meeting-minutes-${meeting.id}.docx`,
+            content: docxBuffer,
+            contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          },
+          {
+            filename: `meeting-minutes-${meeting.id}.pdf`,
+            content: pdfBuffer,
+            contentType: "application/pdf"
+          }
+        ]);
+      }
+
+      res.json(updatedMinutes);
+    } catch (error: any) {
+      console.error("Error approving minutes:", error);
+      res.status(500).json({ error: "Failed to approve minutes" });
+    }
+  });
+
+  // Reject minutes
+  app.post("/api/minutes/:id/reject", async (req, res) => {
+    try {
+      const { rejectedBy, reason } = req.body;
+      if (!rejectedBy || !reason) {
+        return res.status(400).json({ error: "rejectedBy and reason are required" });
+      }
+
+      const updatedMinutes = await storage.updateMinutes(req.params.id, {
+        approvalStatus: "rejected",
+        approvedBy: rejectedBy,
+        approvedAt: new Date(),
+        rejectionReason: reason
+      });
+
+      res.json(updatedMinutes);
+    } catch (error: any) {
+      if (error.message === "Minutes not found") {
+        return res.status(404).json({ error: "Minutes not found" });
+      }
+      console.error("Error rejecting minutes:", error);
+      res.status(500).json({ error: "Failed to reject minutes" });
+    }
+  });
+
+  // Request revision for minutes
+  app.post("/api/minutes/:id/request-revision", async (req, res) => {
+    try {
+      const { requestedBy, comments } = req.body;
+      if (!requestedBy) {
+        return res.status(400).json({ error: "requestedBy is required" });
+      }
+
+      const updatedMinutes = await storage.updateMinutes(req.params.id, {
+        approvalStatus: "revision_requested",
+        approvedBy: requestedBy,
+        approvedAt: new Date(),
+        rejectionReason: comments || "Revision requested"
+      });
+
+      res.json(updatedMinutes);
+    } catch (error: any) {
+      if (error.message === "Minutes not found") {
+        return res.status(404).json({ error: "Minutes not found" });
+      }
+      console.error("Error requesting revision:", error);
+      res.status(500).json({ error: "Failed to request revision" });
     }
   });
 
@@ -364,6 +464,116 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error searching:", error);
       res.status(500).json({ error: "Failed to perform search" });
+    }
+  });
+
+  // ========== MEETING TEMPLATES API ==========
+
+  // Get all templates
+  app.get("/api/templates", async (_req, res) => {
+    try {
+      const templates = await storage.getAllTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching templates:", error);
+      res.status(500).json({ error: "Failed to fetch templates" });
+    }
+  });
+
+  // Get system templates only
+  app.get("/api/templates/system", async (_req, res) => {
+    try {
+      const templates = await storage.getSystemTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching system templates:", error);
+      res.status(500).json({ error: "Failed to fetch system templates" });
+    }
+  });
+
+  // Get single template
+  app.get("/api/templates/:id", async (req, res) => {
+    try {
+      const template = await storage.getTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error fetching template:", error);
+      res.status(500).json({ error: "Failed to fetch template" });
+    }
+  });
+
+  // Create template
+  app.post("/api/templates", async (req, res) => {
+    try {
+      const validatedData = insertMeetingTemplateSchema.parse(req.body);
+      const template = await storage.createTemplate(validatedData);
+      res.status(201).json(template);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid template data", details: error.errors });
+      }
+      console.error("Error creating template:", error);
+      res.status(500).json({ error: "Failed to create template" });
+    }
+  });
+
+  // Update template
+  app.patch("/api/templates/:id", async (req, res) => {
+    try {
+      const template = await storage.updateTemplate(req.params.id, req.body);
+      res.json(template);
+    } catch (error: any) {
+      if (error.message === "Template not found") {
+        return res.status(404).json({ error: "Template not found" });
+      }
+      console.error("Error updating template:", error);
+      res.status(500).json({ error: "Failed to update template" });
+    }
+  });
+
+  // Delete template
+  app.delete("/api/templates/:id", async (req, res) => {
+    try {
+      await storage.deleteTemplate(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      console.error("Error deleting template:", error);
+      res.status(500).json({ error: "Failed to delete template" });
+    }
+  });
+
+  // Create meeting from template
+  app.post("/api/templates/:id/create-meeting", async (req, res) => {
+    try {
+      const template = await storage.getTemplate(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
+      const { scheduledAt, attendees, title } = req.body;
+      if (!scheduledAt || !attendees) {
+        return res.status(400).json({ error: "scheduledAt and attendees are required" });
+      }
+
+      const meeting = await storage.createMeeting({
+        title: title || template.name,
+        description: template.description || undefined,
+        scheduledAt: new Date(scheduledAt),
+        duration: template.defaultDuration,
+        attendees,
+        status: "scheduled",
+        classificationLevel: template.defaultClassification,
+        recordingUrl: null,
+        transcriptUrl: null
+      });
+
+      res.status(201).json(meeting);
+    } catch (error: any) {
+      console.error("Error creating meeting from template:", error);
+      res.status(500).json({ error: "Failed to create meeting from template" });
     }
   });
 

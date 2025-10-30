@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { StatsCard } from "@/components/stats-card";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
+import { NewMeetingDialog } from "@/components/new-meeting-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileText, Calendar, Archive, CheckCircle2, Plus, Search, AlertCircle } from "lucide-react";
@@ -10,6 +11,7 @@ import type { MeetingWithMinutes } from "@shared/schema";
 
 export default function Dashboard() {
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
+  const [newMeetingOpen, setNewMeetingOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: meetings, isLoading: meetingsLoading, isError: meetingsError } = useQuery<MeetingWithMinutes[]>({
@@ -36,9 +38,9 @@ export default function Dashboard() {
             Manage and archive DOD Teams meeting documentation
           </p>
         </div>
-        <Button data-testid="button-new-meeting">
+        <Button data-testid="button-new-meeting" onClick={() => setNewMeetingOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
-          New Meeting
+          Capture Teams Meeting
         </Button>
       </div>
 
@@ -134,6 +136,11 @@ export default function Dashboard() {
         meeting={selectedMeeting}
         open={!!selectedMeeting}
         onOpenChange={(open) => !open && setSelectedMeeting(null)}
+      />
+
+      <NewMeetingDialog
+        open={newMeetingOpen}
+        onOpenChange={setNewMeetingOpen}
       />
     </div>
   );

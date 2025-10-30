@@ -1,6 +1,6 @@
 // Seed database with sample DOD meeting data
 import { db } from "./db";
-import { meetings, meetingMinutes, actionItems } from "@shared/schema";
+import { meetings, meetingMinutes, actionItems, meetingTemplates } from "@shared/schema";
 
 async function seed() {
   console.log("🌱 Seeding database with sample DOD meeting data...");
@@ -12,6 +12,93 @@ async function seed() {
       console.log("✓ Database already seeded, skipping...");
       return;
     }
+
+    // Seed system meeting templates first
+    console.log("📋 Creating system meeting templates...");
+    await db.insert(meetingTemplates).values([
+      {
+        name: "Command Briefing",
+        description: "Standard briefing for command leadership on operational status",
+        type: "briefing",
+        defaultDuration: "1h",
+        defaultClassification: "CONFIDENTIAL",
+        suggestedAttendees: ["commanding.officer@dod.gov", "executive.officer@dod.gov", "operations.officer@dod.gov"],
+        agendaItems: [
+          "Operational Status Update",
+          "Personnel Readiness",
+          "Resource Allocation",
+          "Mission Planning",
+          "Questions and Discussion"
+        ],
+        isSystem: "true"
+      },
+      {
+        name: "Status Review Meeting",
+        description: "Weekly status review of ongoing projects and initiatives",
+        type: "status_review",
+        defaultDuration: "1h 30m",
+        defaultClassification: "UNCLASSIFIED",
+        suggestedAttendees: ["project.manager@dod.gov", "team.lead@dod.gov"],
+        agendaItems: [
+          "Review Previous Action Items",
+          "Project Status Updates",
+          "Risk Assessment",
+          "Resource Requirements",
+          "Next Steps and Assignments"
+        ],
+        isSystem: "true"
+      },
+      {
+        name: "Quarterly Planning Session",
+        description: "Strategic planning session for quarterly objectives",
+        type: "planning",
+        defaultDuration: "2h",
+        defaultClassification: "UNCLASSIFIED",
+        suggestedAttendees: ["division.chief@dod.gov", "department.head@dod.gov", "budget.officer@dod.gov"],
+        agendaItems: [
+          "Review Previous Quarter Performance",
+          "Strategic Objectives Discussion",
+          "Budget and Resource Planning",
+          "Timeline and Milestones",
+          "Risk Mitigation Strategies",
+          "Action Item Assignment"
+        ],
+        isSystem: "true"
+      },
+      {
+        name: "Emergency Response Coordination",
+        description: "Coordination meeting for emergency response procedures",
+        type: "emergency_response",
+        defaultDuration: "1h",
+        defaultClassification: "SECRET",
+        suggestedAttendees: ["emergency.coordinator@dod.gov", "operations.manager@dod.gov", "security.officer@dod.gov"],
+        agendaItems: [
+          "Situation Assessment",
+          "Response Team Coordination",
+          "Resource Deployment",
+          "Communication Protocols",
+          "Immediate Action Items"
+        ],
+        isSystem: "true"
+      },
+      {
+        name: "Security Review Board",
+        description: "Monthly security posture and compliance review",
+        type: "briefing",
+        defaultDuration: "1h 30m",
+        defaultClassification: "CONFIDENTIAL",
+        suggestedAttendees: ["security.officer@dod.gov", "compliance.officer@dod.gov", "it.security@dod.gov"],
+        agendaItems: [
+          "Security Incident Review",
+          "Compliance Status Update",
+          "Vulnerability Assessment Results",
+          "Policy Updates and Changes",
+          "Remediation Action Items"
+        ],
+        isSystem: "true"
+      }
+    ]);
+    console.log("✓ Created 5 system templates");
 
     // Sample meeting 1
     const [meeting1] = await db.insert(meetings).values({
@@ -109,6 +196,7 @@ async function seed() {
     });
 
     console.log("✓ Database seeded successfully!");
+    console.log(`  - ${5} meeting templates created`);
     console.log(`  - ${3} meetings created`);
     console.log(`  - ${3} minutes records created`);
     console.log(`  - ${2} action items created`);

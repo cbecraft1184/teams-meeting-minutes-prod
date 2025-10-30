@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +12,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Calendar, 
   Clock, 
@@ -18,12 +31,17 @@ import {
   Download, 
   ExternalLink,
   CheckCircle2,
-  User
+  User,
+  ThumbsUp,
+  ThumbsDown,
+  Mail
 } from "lucide-react";
 import { format } from "date-fns";
 import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
 import { ProcessingStatus } from "./processing-status";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { MeetingWithMinutes } from "@shared/schema";
 
 interface MeetingDetailsModalProps {
@@ -33,9 +51,70 @@ interface MeetingDetailsModalProps {
 }
 
 export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDetailsModalProps) {
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const { toast } = useToast();
+
+  const approveMutation = useMutation({
+    mutationFn: async (minutesId: string) => {
+      return await apiRequest(`/api/minutes/${minutesId}/approve`, {
+        method: "POST",
+        body: JSON.stringify({ approvedBy: "current.user@dod.gov" })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      toast({
+        title: "Minutes approved",
+        description: "Meeting minutes have been approved and distributed to all attendees via email."
+      });
+      setShowApproveDialog(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to approve minutes",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async ({ minutesId, reason }: { minutesId: string; reason: string }) => {
+      return await apiRequest(`/api/minutes/${minutesId}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ 
+          rejectedBy: "current.user@dod.gov",
+          reason 
+        })
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      toast({
+        title: "Minutes rejected",
+        description: "Meeting minutes have been rejected."
+      });
+      setShowRejectDialog(false);
+      setRejectionReason("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to reject minutes",
+        variant: "destructive"
+      });
+    }
+  });
+
   if (!meeting) return null;
 
+  const showApprovalActions = meeting.minutes?.processingStatus === "completed" && 
+    meeting.minutes?.approvalStatus === "pending_review";
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] p-0" data-testid="modal-meeting-details">
         <DialogHeader className="p-6 pb-4">
@@ -132,9 +211,48 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
               {meeting.minutes ? (
                 <>
                   <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <ProcessingStatus status={meeting.minutes.processingStatus} />
+                    <div className="flex items-center gap-2">
+                      <ProcessingStatus status={meeting.minutes.processingStatus} />
+                      {meeting.minutes.approvalStatus && (
+                        <Badge 
+                          variant={
+                            meeting.minutes.approvalStatus === "approved" ? "default" :
+                            meeting.minutes.approvalStatus === "rejected" ? "destructive" :
+                            "secondary"
+                          }
+                          data-testid="badge-approval-status"
+                        >
+                          {meeting.minutes.approvalStatus === "pending_review" ? "Pending Review" :
+                           meeting.minutes.approvalStatus === "approved" ? "Approved" :
+                           meeting.minutes.approvalStatus === "rejected" ? "Rejected" :
+                           "Revision Requested"}
+                        </Badge>
+                      )}
+                    </div>
                     {meeting.minutes.processingStatus === "completed" && (
                       <div className="flex items-center gap-2">
+                        {showApprovalActions && (
+                          <>
+                            <Button 
+                              variant="default" 
+                              size="sm" 
+                              data-testid="button-approve"
+                              onClick={() => setShowApproveDialog(true)}
+                            >
+                              <ThumbsUp className="w-4 h-4 mr-2" />
+                              Approve & Distribute
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              data-testid="button-reject"
+                              onClick={() => setShowRejectDialog(true)}
+                            >
+                              <ThumbsDown className="w-4 h-4 mr-2" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
                         <Button 
                           variant="outline" 
                           size="sm" 
@@ -142,7 +260,7 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                           onClick={() => window.open(`/api/meetings/${meeting.id}/export/docx`, '_blank')}
                         >
                           <Download className="w-4 h-4 mr-2" />
-                          Download DOCX
+                          DOCX
                         </Button>
                         <Button 
                           variant="outline" 
@@ -151,11 +269,28 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                           onClick={() => window.open(`/api/meetings/${meeting.id}/export/pdf`, '_blank')}
                         >
                           <Download className="w-4 h-4 mr-2" />
-                          Download PDF
+                          PDF
                         </Button>
                       </div>
                     )}
                   </div>
+                  
+                  {meeting.minutes.approvalStatus === "approved" && meeting.minutes.approvedBy && (
+                    <div className="bg-muted/50 border border-border rounded-lg p-3 flex items-center gap-2">
+                      <Mail className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-foreground">
+                        Approved by {meeting.minutes.approvedBy} on {format(new Date(meeting.minutes.approvedAt!), "PPp")}. 
+                        Minutes distributed to all attendees via email.
+                      </span>
+                    </div>
+                  )}
+                  
+                  {meeting.minutes.approvalStatus === "rejected" && meeting.minutes.rejectionReason && (
+                    <div className="bg-destructive/10 border border-destructive rounded-lg p-3">
+                      <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
+                      <p className="text-sm text-foreground">{meeting.minutes.rejectionReason}</p>
+                    </div>
+                  )}
 
                   {meeting.minutes.processingStatus === "completed" && (
                     <>
@@ -249,5 +384,62 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
         </Tabs>
       </DialogContent>
     </Dialog>
+
+    {/* Approve Confirmation Dialog */}
+    <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Approve Meeting Minutes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will approve the meeting minutes and automatically distribute them to all attendees via email 
+            with DOCX and PDF attachments. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => meeting.minutes && approveMutation.mutate(meeting.minutes.id)}
+            disabled={approveMutation.isPending}
+          >
+            {approveMutation.isPending ? "Approving..." : "Approve & Distribute"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
+    {/* Reject Confirmation Dialog */}
+    <AlertDialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Reject Meeting Minutes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Please provide a reason for rejecting these meeting minutes.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="py-4">
+          <Textarea
+            placeholder="Enter rejection reason..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            rows={4}
+            data-testid="input-rejection-reason"
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setRejectionReason("")}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => meeting.minutes && rejectMutation.mutate({
+              minutesId: meeting.minutes.id,
+              reason: rejectionReason
+            })}
+            disabled={rejectMutation.isPending || !rejectionReason.trim()}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {rejectMutation.isPending ? "Rejecting..." : "Reject Minutes"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

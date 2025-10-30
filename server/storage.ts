@@ -3,12 +3,15 @@ import {
   meetings,
   meetingMinutes,
   actionItems,
+  meetingTemplates,
   type Meeting,
   type InsertMeeting,
   type MeetingMinutes,
   type InsertMeetingMinutes,
   type ActionItem,
   type InsertActionItem,
+  type MeetingTemplate,
+  type InsertMeetingTemplate,
   type MeetingWithMinutes
 } from "@shared/schema";
 import { db } from "./db";
@@ -36,6 +39,14 @@ export interface IStorage {
   createActionItem(item: InsertActionItem): Promise<ActionItem>;
   updateActionItem(id: string, updates: Partial<ActionItem>): Promise<ActionItem>;
   deleteActionItem(id: string): Promise<void>;
+
+  // Meeting Templates
+  getTemplate(id: string): Promise<MeetingTemplate | undefined>;
+  getAllTemplates(): Promise<MeetingTemplate[]>;
+  getSystemTemplates(): Promise<MeetingTemplate[]>;
+  createTemplate(template: InsertMeetingTemplate): Promise<MeetingTemplate>;
+  updateTemplate(id: string, updates: Partial<MeetingTemplate>): Promise<MeetingTemplate>;
+  deleteTemplate(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -158,6 +169,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteActionItem(id: string): Promise<void> {
     await db.delete(actionItems).where(eq(actionItems.id, id));
+  }
+
+  // Meeting Templates
+  async getTemplate(id: string): Promise<MeetingTemplate | undefined> {
+    const [template] = await db.select().from(meetingTemplates).where(eq(meetingTemplates.id, id));
+    return template || undefined;
+  }
+
+  async getAllTemplates(): Promise<MeetingTemplate[]> {
+    return await db.select().from(meetingTemplates).orderBy(desc(meetingTemplates.createdAt));
+  }
+
+  async getSystemTemplates(): Promise<MeetingTemplate[]> {
+    return await db.select().from(meetingTemplates).where(eq(meetingTemplates.isSystem, "true"));
+  }
+
+  async createTemplate(insertTemplate: InsertMeetingTemplate): Promise<MeetingTemplate> {
+    const [template] = await db.insert(meetingTemplates).values(insertTemplate).returning();
+    return template;
+  }
+
+  async updateTemplate(id: string, updates: Partial<MeetingTemplate>): Promise<MeetingTemplate> {
+    const [template] = await db.update(meetingTemplates)
+      .set(updates)
+      .where(eq(meetingTemplates.id, id))
+      .returning();
+    
+    if (!template) throw new Error('Template not found');
+    return template;
+  }
+
+  async deleteTemplate(id: string): Promise<void> {
+    await db.delete(meetingTemplates).where(eq(meetingTemplates.id, id));
   }
 }
 

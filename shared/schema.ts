@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -73,6 +73,34 @@ export type InsertMeetingMinutes = z.infer<typeof insertMeetingMinutesSchema>;
 
 export type ActionItem = typeof actionItems.$inferSelect;
 export type InsertActionItem = z.infer<typeof insertActionItemSchema>;
+
+// Relations
+export const meetingsRelations = relations(meetings, ({ one, many }) => ({
+  minutes: one(meetingMinutes, {
+    fields: [meetings.id],
+    references: [meetingMinutes.meetingId],
+  }),
+  actionItems: many(actionItems),
+}));
+
+export const meetingMinutesRelations = relations(meetingMinutes, ({ one, many }) => ({
+  meeting: one(meetings, {
+    fields: [meetingMinutes.meetingId],
+    references: [meetings.id],
+  }),
+  actionItems: many(actionItems),
+}));
+
+export const actionItemsRelations = relations(actionItems, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [actionItems.meetingId],
+    references: [meetings.id],
+  }),
+  minutes: one(meetingMinutes, {
+    fields: [actionItems.minutesId],
+    references: [meetingMinutes.id],
+  }),
+}));
 
 // Extended types for frontend
 export type MeetingWithMinutes = Meeting & {

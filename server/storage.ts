@@ -1,4 +1,8 @@
+// Reference: blueprint:javascript_database
 import {
+  meetings,
+  meetingMinutes,
+  actionItems,
   type Meeting,
   type InsertMeeting,
   type MeetingMinutes,
@@ -7,7 +11,8 @@ import {
   type InsertActionItem,
   type MeetingWithMinutes
 } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Meetings
@@ -33,273 +38,127 @@ export interface IStorage {
   deleteActionItem(id: string): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private meetings: Map<string, Meeting>;
-  private minutes: Map<string, MeetingMinutes>;
-  private actionItems: Map<string, ActionItem>;
-
-  constructor() {
-    this.meetings = new Map();
-    this.minutes = new Map();
-    this.actionItems = new Map();
-    
-    // Add sample data
-    this.initializeSampleData();
-  }
-
-  private initializeSampleData() {
-    // Sample meeting 1
-    const meeting1Id = randomUUID();
-    const meeting1: Meeting = {
-      id: meeting1Id,
-      title: "Weekly Status Review",
-      description: "Review project progress and discuss any blockers",
-      scheduledAt: new Date("2025-10-25T14:00:00Z"),
-      duration: "1h 30m",
-      attendees: ["john.doe@dod.gov", "jane.smith@dod.gov", "bob.johnson@dod.gov"],
-      status: "completed",
-      classificationLevel: "UNCLASSIFIED",
-      recordingUrl: null,
-      transcriptUrl: null,
-      createdAt: new Date("2025-10-25T12:00:00Z")
-    };
-    this.meetings.set(meeting1Id, meeting1);
-
-    // Sample minutes for meeting 1
-    const minutes1Id = randomUUID();
-    const minutes1: MeetingMinutes = {
-      id: minutes1Id,
-      meetingId: meeting1Id,
-      summary: "Team discussed quarterly objectives and reviewed current sprint progress. All milestones are on track for Q4 delivery.",
-      keyDiscussions: [
-        "Q4 budget allocation and resource planning",
-        "Timeline review for upcoming deliverables",
-        "Risk assessment for critical path items"
-      ],
-      decisions: [
-        "Approved additional team member hire",
-        "Extended deadline for security review by 1 week",
-        "Increased travel budget for stakeholder meetings"
-      ],
-      attendeesPresent: ["john.doe@dod.gov", "jane.smith@dod.gov", "bob.johnson@dod.gov"],
-      processingStatus: "completed",
-      sharepointUrl: null,
-      docxUrl: null,
-      pdfUrl: null,
-      createdAt: new Date("2025-10-25T15:30:00Z"),
-      updatedAt: new Date("2025-10-25T15:45:00Z")
-    };
-    this.minutes.set(minutes1Id, minutes1);
-
-    // Sample action items
-    const action1Id = randomUUID();
-    this.actionItems.set(action1Id, {
-      id: action1Id,
-      meetingId: meeting1Id,
-      minutesId: minutes1Id,
-      task: "Prepare Q4 budget proposal with updated resource requirements",
-      assignee: "john.doe@dod.gov",
-      dueDate: new Date("2025-11-05T00:00:00Z"),
-      priority: "high",
-      status: "in_progress",
-      createdAt: new Date("2025-10-25T15:45:00Z")
-    });
-
-    const action2Id = randomUUID();
-    this.actionItems.set(action2Id, {
-      id: action2Id,
-      meetingId: meeting1Id,
-      minutesId: minutes1Id,
-      task: "Schedule security review meeting with compliance team",
-      assignee: "jane.smith@dod.gov",
-      dueDate: new Date("2025-11-01T00:00:00Z"),
-      priority: "high",
-      status: "pending",
-      createdAt: new Date("2025-10-25T15:45:00Z")
-    });
-
-    // Sample meeting 2
-    const meeting2Id = randomUUID();
-    const meeting2: Meeting = {
-      id: meeting2Id,
-      title: "Security Architecture Review",
-      description: "Quarterly security posture assessment and compliance check",
-      scheduledAt: new Date("2025-10-28T10:00:00Z"),
-      duration: "2h",
-      attendees: ["security.officer@dod.gov", "architect@dod.gov", "compliance@dod.gov"],
-      status: "completed",
-      classificationLevel: "CONFIDENTIAL",
-      recordingUrl: null,
-      transcriptUrl: null,
-      createdAt: new Date("2025-10-28T08:00:00Z")
-    };
-    this.meetings.set(meeting2Id, meeting2);
-
-    // Sample meeting 3 (pending minutes)
-    const meeting3Id = randomUUID();
-    const meeting3: Meeting = {
-      id: meeting3Id,
-      title: "Emergency Response Planning",
-      description: "Discuss and update emergency response procedures",
-      scheduledAt: new Date("2025-10-30T09:00:00Z"),
-      duration: "1h",
-      attendees: ["emergency.coord@dod.gov", "ops.manager@dod.gov"],
-      status: "in_progress",
-      classificationLevel: "SECRET",
-      recordingUrl: null,
-      transcriptUrl: null,
-      createdAt: new Date("2025-10-30T07:00:00Z")
-    };
-    this.meetings.set(meeting3Id, meeting3);
-
-    // Add pending minutes
-    const minutes3Id = randomUUID();
-    this.minutes.set(minutes3Id, {
-      id: minutes3Id,
-      meetingId: meeting3Id,
-      summary: "",
-      keyDiscussions: [],
-      decisions: [],
-      attendeesPresent: [],
-      processingStatus: "pending",
-      sharepointUrl: null,
-      docxUrl: null,
-      pdfUrl: null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
-  }
-
+export class DatabaseStorage implements IStorage {
   // Meetings
   async getMeeting(id: string): Promise<MeetingWithMinutes | undefined> {
-    const meeting = this.meetings.get(id);
+    const [meeting] = await db.select().from(meetings).where(eq(meetings.id, id));
     if (!meeting) return undefined;
 
-    const minutes = Array.from(this.minutes.values()).find(m => m.meetingId === id);
-    const actionItems = Array.from(this.actionItems.values()).filter(a => a.meetingId === id);
+    const [minutes] = await db.select().from(meetingMinutes).where(eq(meetingMinutes.meetingId, id));
+    const items = await db.select().from(actionItems).where(eq(actionItems.meetingId, id));
 
     return {
       ...meeting,
       minutes,
-      actionItems
+      actionItems: items
     };
   }
 
   async getAllMeetings(): Promise<MeetingWithMinutes[]> {
-    const meetings = Array.from(this.meetings.values());
-    return Promise.all(meetings.map(async m => {
-      const withMinutes = await this.getMeeting(m.id);
-      return withMinutes!;
+    const allMeetings = await db.select().from(meetings).orderBy(desc(meetings.scheduledAt));
+    
+    // Fetch all minutes and action items for these meetings
+    const allMinutes = await db.select().from(meetingMinutes);
+    const allActionItems = await db.select().from(actionItems);
+    
+    // Build a map for quick lookup
+    const minutesMap = new Map(allMinutes.map(m => [m.meetingId, m]));
+    const actionItemsMap = new Map<string, ActionItem[]>();
+    
+    allActionItems.forEach(item => {
+      const existing = actionItemsMap.get(item.meetingId) || [];
+      existing.push(item);
+      actionItemsMap.set(item.meetingId, existing);
+    });
+    
+    return allMeetings.map(meeting => ({
+      ...meeting,
+      minutes: minutesMap.get(meeting.id),
+      actionItems: actionItemsMap.get(meeting.id) || []
     }));
   }
 
   async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
-    const id = randomUUID();
-    const meeting: Meeting = {
-      ...insertMeeting,
-      id,
-      createdAt: new Date()
-    };
-    this.meetings.set(id, meeting);
+    const [meeting] = await db.insert(meetings).values(insertMeeting).returning();
     return meeting;
   }
 
   async updateMeeting(id: string, updates: Partial<Meeting>): Promise<Meeting> {
-    const existing = this.meetings.get(id);
-    if (!existing) throw new Error('Meeting not found');
+    const [meeting] = await db.update(meetings)
+      .set(updates)
+      .where(eq(meetings.id, id))
+      .returning();
     
-    const updated = { ...existing, ...updates };
-    this.meetings.set(id, updated);
-    return updated;
+    if (!meeting) throw new Error('Meeting not found');
+    return meeting;
   }
 
   async deleteMeeting(id: string): Promise<void> {
-    this.meetings.delete(id);
-    // Delete associated minutes and action items
-    Array.from(this.minutes.entries())
-      .filter(([_, m]) => m.meetingId === id)
-      .forEach(([minutesId]) => this.minutes.delete(minutesId));
-    
-    Array.from(this.actionItems.entries())
-      .filter(([_, a]) => a.meetingId === id)
-      .forEach(([actionId]) => this.actionItems.delete(actionId));
+    await db.delete(meetings).where(eq(meetings.id, id));
   }
 
   // Meeting Minutes
   async getMinutes(id: string): Promise<MeetingMinutes | undefined> {
-    return this.minutes.get(id);
+    const [minutes] = await db.select().from(meetingMinutes).where(eq(meetingMinutes.id, id));
+    return minutes || undefined;
   }
 
   async getMinutesByMeetingId(meetingId: string): Promise<MeetingMinutes | undefined> {
-    return Array.from(this.minutes.values()).find(m => m.meetingId === meetingId);
+    const [minutes] = await db.select().from(meetingMinutes).where(eq(meetingMinutes.meetingId, meetingId));
+    return minutes || undefined;
   }
 
   async getAllMinutes(): Promise<MeetingMinutes[]> {
-    return Array.from(this.minutes.values());
+    return await db.select().from(meetingMinutes).orderBy(desc(meetingMinutes.createdAt));
   }
 
   async createMinutes(insertMinutes: InsertMeetingMinutes): Promise<MeetingMinutes> {
-    const id = randomUUID();
-    const minutes: MeetingMinutes = {
-      ...insertMinutes,
-      id,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    this.minutes.set(id, minutes);
+    const [minutes] = await db.insert(meetingMinutes).values(insertMinutes).returning();
     return minutes;
   }
 
   async updateMinutes(id: string, updates: Partial<MeetingMinutes>): Promise<MeetingMinutes> {
-    const existing = this.minutes.get(id);
-    if (!existing) throw new Error('Minutes not found');
+    const [minutes] = await db.update(meetingMinutes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(meetingMinutes.id, id))
+      .returning();
     
-    const updated = {
-      ...existing,
-      ...updates,
-      updatedAt: new Date()
-    };
-    this.minutes.set(id, updated);
-    return updated;
+    if (!minutes) throw new Error('Minutes not found');
+    return minutes;
   }
 
   // Action Items
   async getActionItem(id: string): Promise<ActionItem | undefined> {
-    return this.actionItems.get(id);
+    const [item] = await db.select().from(actionItems).where(eq(actionItems.id, id));
+    return item || undefined;
   }
 
   async getActionItemsByMeetingId(meetingId: string): Promise<ActionItem[]> {
-    return Array.from(this.actionItems.values())
-      .filter(item => item.meetingId === meetingId);
+    return await db.select().from(actionItems).where(eq(actionItems.meetingId, meetingId));
   }
 
   async getAllActionItems(): Promise<ActionItem[]> {
-    return Array.from(this.actionItems.values());
+    return await db.select().from(actionItems).orderBy(desc(actionItems.createdAt));
   }
 
   async createActionItem(insertItem: InsertActionItem): Promise<ActionItem> {
-    const id = randomUUID();
-    const item: ActionItem = {
-      ...insertItem,
-      id,
-      createdAt: new Date()
-    };
-    this.actionItems.set(id, item);
+    const [item] = await db.insert(actionItems).values(insertItem).returning();
     return item;
   }
 
   async updateActionItem(id: string, updates: Partial<ActionItem>): Promise<ActionItem> {
-    const existing = this.actionItems.get(id);
-    if (!existing) throw new Error('Action item not found');
+    const [item] = await db.update(actionItems)
+      .set(updates)
+      .where(eq(actionItems.id, id))
+      .returning();
     
-    const updated = { ...existing, ...updates };
-    this.actionItems.set(id, updated);
-    return updated;
+    if (!item) throw new Error('Action item not found');
+    return item;
   }
 
   async deleteActionItem(id: string): Promise<void> {
-    this.actionItems.delete(id);
+    await db.delete(actionItems).where(eq(actionItems.id, id));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

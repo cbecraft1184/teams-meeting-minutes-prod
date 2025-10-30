@@ -1,17 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { StatsCard } from "@/components/stats-card";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
-import { NewMeetingDialog } from "@/components/new-meeting-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Archive, CheckCircle2, Plus, Search, AlertCircle } from "lucide-react";
+import { FileText, Calendar, Archive, CheckCircle2, Settings, Search, AlertCircle } from "lucide-react";
 import type { MeetingWithMinutes } from "@shared/schema";
 
 export default function Dashboard() {
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
-  const [newMeetingOpen, setNewMeetingOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: meetings, isLoading: meetingsLoading, isError: meetingsError } = useQuery<MeetingWithMinutes[]>({
@@ -35,13 +34,15 @@ export default function Dashboard() {
             Meeting Minutes Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage and archive DOD Teams meeting documentation
+            Meetings are automatically captured from Microsoft Teams
           </p>
         </div>
-        <Button data-testid="button-new-meeting" onClick={() => setNewMeetingOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Capture Teams Meeting
-        </Button>
+        <Link href="/settings">
+          <Button variant="outline" data-testid="button-settings">
+            <Settings className="w-4 h-4 mr-2" />
+            Teams Integration
+          </Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -136,11 +137,6 @@ export default function Dashboard() {
         meeting={selectedMeeting}
         open={!!selectedMeeting}
         onOpenChange={(open) => !open && setSelectedMeeting(null)}
-      />
-
-      <NewMeetingDialog
-        open={newMeetingOpen}
-        onOpenChange={setNewMeetingOpen}
       />
     </div>
   );

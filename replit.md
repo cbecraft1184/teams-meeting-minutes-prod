@@ -1,7 +1,9 @@
 # DOD Teams Meeting Minutes Management System
 
 ## Project Overview
-A fully autonomous Microsoft-native solution for creating, capturing, distributing, and archiving Microsoft Teams meeting minutes designed for DOD deployments. The system integrates with Microsoft Teams via Graph API, generates AI-powered meeting minutes, and archives documentation to SharePoint.
+A fully autonomous Microsoft-native solution for capturing, processing, distributing, and archiving Microsoft Teams meeting minutes designed for DOD deployments. 
+
+**IMPORTANT**: Meetings are scheduled and conducted in Microsoft Teams (NOT in this application). This app automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings/transcripts with AI, and distributes approved minutes to attendees.
 
 ## Deployment Requirements
 - **Hosting**: AWS Gov Cloud (no external dependencies)
@@ -31,13 +33,15 @@ A fully autonomous Microsoft-native solution for creating, capturing, distributi
 - **Document Generation**: DOCX and PDF export capabilities
 
 ### Key Features
-1. **Meeting Capture**: Webhook-based integration with Microsoft Teams
-2. **AI-Powered Minutes**: Automated transcription and minute generation using Azure OpenAI
-3. **Classification Support**: UNCLASSIFIED, CONFIDENTIAL, SECRET levels
-4. **SharePoint Archival**: Automatic document archival with metadata
-5. **Search & Filter**: Advanced search across archived meeting minutes
-6. **Action Item Tracking**: Automatic extraction and management of action items
-7. **DOD Compliance**: Security classifications, audit trails, proper formatting
+1. **Automatic Meeting Capture**: Webhook-based integration captures completed Teams meetings via Microsoft Graph API
+2. **AI-Powered Minutes**: Automated transcription and minute generation using Azure OpenAI (Gov Cloud)
+3. **Approval Workflow**: Pending review, approved, rejected states for quality control
+4. **Email Distribution**: Approved minutes automatically distributed to all attendees with DOCX/PDF attachments
+5. **Classification Support**: UNCLASSIFIED, CONFIDENTIAL, SECRET levels with proper document marking
+6. **SharePoint Archival**: Automatic document archival with metadata to DOD SharePoint
+7. **Action Item Tracking**: Automatic extraction and management of action items
+8. **Meeting Templates**: Pre-configured templates for briefings, status reviews, planning sessions, etc.
+9. **DOD Compliance**: Security classifications, audit trails, proper formatting per DOD standards
 
 ## Data Model
 
@@ -129,22 +133,28 @@ Connected via Replit SharePoint connector:
 ## Development Workflow
 
 ### Current Status
-- ✅ Data schemas defined
-- ✅ Frontend UI complete with all components
-- ✅ SharePoint integration configured
-- ⏳ Backend API implementation pending
-- ⏳ Azure OpenAI integration pending
-- ⏳ Microsoft Graph API integration pending
+- ✅ PostgreSQL database with Drizzle ORM
+- ✅ Data schemas defined (meetings, minutes, action items, templates)
+- ✅ Frontend UI with dashboard, meeting list, search, and settings
+- ✅ Meeting details modal with tabbed interface
+- ✅ Approval workflow (pending_review → approved/rejected)
+- ✅ Email distribution service (Microsoft Graph API for production, console logging for dev)
+- ✅ Document export (DOCX/PDF) with DOD-compliant classification headers/footers
+- ✅ Meeting templates system (5 default DOD templates)
+- ✅ SharePoint integration connector configured
+- ⏳ Microsoft Graph API webhook implementation (backend endpoint exists, needs production credentials)
+- ⏳ Azure OpenAI Service integration (service class exists, needs Gov Cloud credentials)
 
-### Next Steps
-1. Implement backend API endpoints
-2. Configure Microsoft Graph API for Teams webhooks
-3. Set up Azure OpenAI Service connection
-4. Implement document generation (DOCX/PDF)
-5. Add SharePoint upload functionality
-6. Test end-to-end meeting capture workflow
-7. Deploy to AWS Gov Cloud
-8. Package for DOD Teams installation
+### Next Steps (Production Deployment)
+1. Configure Microsoft Graph API credentials (Tenant ID, Client ID, Secret) in AWS Gov Cloud
+2. Register webhook subscriptions for Teams meeting events (created, started, ended)
+3. Configure Azure OpenAI Service endpoint and API key (Gov Cloud region)
+4. Set up SharePoint site and document library permissions
+5. Implement automatic SharePoint upload on approval
+6. Test end-to-end workflow with real Teams meetings
+7. Configure email SMTP settings for production (or use Graph API send mail)
+8. Deploy to AWS Gov Cloud with proper security hardening
+9. Package as Teams app for DOD Teams installation
 
 ## Environment Variables (Production)
 

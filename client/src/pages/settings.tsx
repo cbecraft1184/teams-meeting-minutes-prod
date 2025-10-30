@@ -4,17 +4,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Settings as SettingsIcon, Bell, Shield, Database, Save } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Settings as SettingsIcon, Bell, Shield, Database, Save, ExternalLink, Info, Webhook } from "lucide-react";
 
 export default function Settings() {
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-semibold text-foreground" data-testid="heading-settings">
-          Settings
+          Integration Settings
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Configure your meeting minutes management preferences
+          Configure Microsoft Teams, SharePoint, and Azure OpenAI integrations
         </p>
       </div>
 
@@ -23,38 +24,101 @@ export default function Settings() {
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                <Shield className="w-5 h-5 text-primary" />
+                <Webhook className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <CardTitle>Microsoft Teams Integration</CardTitle>
-                <CardDescription>Configure Teams webhook and API access</CardDescription>
+                <CardDescription>Automatically capture meetings from Microsoft Teams</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="teams-webhook">Teams Webhook URL</Label>
-              <Input
-                id="teams-webhook"
-                placeholder="https://your-domain.com/api/webhooks/teams"
-                data-testid="input-teams-webhook"
-              />
-              <p className="text-xs text-muted-foreground">
-                This webhook will receive meeting events from Microsoft Teams
-              </p>
+            <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="space-y-2 text-sm">
+                  <p className="text-foreground font-medium">How it works</p>
+                  <p className="text-muted-foreground">
+                    Meetings are <strong>scheduled and conducted in Microsoft Teams</strong>. This application automatically captures completed meetings via Microsoft Graph API webhooks to process recordings and transcripts.
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-2">
+                    <li>Users schedule meetings in Microsoft Teams (not in this app)</li>
+                    <li>When meetings end, Teams webhooks notify this application</li>
+                    <li>App downloads recordings/transcripts via Microsoft Graph API</li>
+                    <li>AI generates meeting minutes automatically</li>
+                    <li>Approved minutes are distributed via email and archived to SharePoint</li>
+                  </ol>
+                </div>
+              </div>
             </div>
+
+            <Separator />
+
             <div className="space-y-2">
-              <Label htmlFor="tenant-id">Microsoft Tenant ID</Label>
+              <Label htmlFor="tenant-id">Microsoft Tenant ID (DOD)</Label>
               <Input
                 id="tenant-id"
                 placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                 data-testid="input-tenant-id"
               />
             </div>
-            <Button className="w-full" data-testid="button-save-teams-config">
-              <Save className="w-4 h-4 mr-2" />
-              Save Teams Configuration
-            </Button>
+
+            <div className="space-y-2">
+              <Label htmlFor="client-id">Application (Client) ID</Label>
+              <Input
+                id="client-id"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                data-testid="input-client-id"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="client-secret">Client Secret</Label>
+              <Input
+                id="client-secret"
+                type="password"
+                placeholder="Enter client secret"
+                data-testid="input-client-secret"
+              />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <Label>Webhook Endpoint URL</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value="/api/webhooks/teams"
+                  readOnly
+                  className="font-mono text-xs bg-muted"
+                  data-testid="input-webhook-url"
+                />
+                <Button size="sm" variant="outline">Copy</Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Configure this endpoint in Microsoft Graph API to receive meeting notifications
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button data-testid="button-test-teams-connection">
+                Test Connection
+              </Button>
+              <Button variant="outline" data-testid="button-save-teams-config">
+                <Save className="w-4 h-4 mr-2" />
+                Save Configuration
+              </Button>
+            </div>
+
+            <a
+              href="https://learn.microsoft.com/en-us/graph/webhooks"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              Microsoft Graph Webhooks Documentation
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </CardContent>
         </Card>
 

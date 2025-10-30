@@ -133,20 +133,28 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                 <>
                   <div className="flex items-center justify-between gap-4 flex-wrap">
                     <ProcessingStatus status={meeting.minutes.processingStatus} />
-                    <div className="flex items-center gap-2">
-                      {meeting.minutes.docxUrl && (
-                        <Button variant="outline" size="sm" data-testid="button-download-docx">
+                    {meeting.minutes.processingStatus === "completed" && (
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          data-testid="button-download-docx"
+                          onClick={() => window.open(`/api/meetings/${meeting.id}/export/docx`, '_blank')}
+                        >
                           <Download className="w-4 h-4 mr-2" />
                           Download DOCX
                         </Button>
-                      )}
-                      {meeting.minutes.pdfUrl && (
-                        <Button variant="outline" size="sm" data-testid="button-download-pdf">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          data-testid="button-download-pdf"
+                          onClick={() => window.open(`/api/meetings/${meeting.id}/export/pdf`, '_blank')}
+                        >
                           <Download className="w-4 h-4 mr-2" />
                           Download PDF
                         </Button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {meeting.minutes.processingStatus === "completed" && (

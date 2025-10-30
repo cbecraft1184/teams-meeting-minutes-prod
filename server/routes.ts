@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema } from "@shared/schema";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { requireAuth } from "./middleware/auth";
+import { documentExportService } from "./services/documentExport";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -169,6 +170,54 @@ export function registerRoutes(app: Express): Server {
       }
       console.error("Error updating minutes:", error);
       res.status(500).json({ error: "Failed to update minutes" });
+    }
+  });
+
+  // ========== DOCUMENT EXPORT API ==========
+
+  // Export meeting minutes as DOCX
+  app.get("/api/meetings/:id/export/docx", async (req, res) => {
+    try {
+      const meeting = await storage.getMeeting(req.params.id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      if (!meeting.minutes) {
+        return res.status(404).json({ error: "Meeting has no minutes to export" });
+      }
+
+      const buffer = await documentExportService.generateDOCX(meeting);
+      const filename = `meeting-minutes-${meeting.id}-${Date.now()}.docx`;
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Error exporting DOCX:", error);
+      res.status(500).json({ error: "Failed to export document" });
+    }
+  });
+
+  // Export meeting minutes as PDF
+  app.get("/api/meetings/:id/export/pdf", async (req, res) => {
+    try {
+      const meeting = await storage.getMeeting(req.params.id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      if (!meeting.minutes) {
+        return res.status(404).json({ error: "Meeting has no minutes to export" });
+      }
+
+      const buffer = await documentExportService.generatePDF(meeting);
+      const filename = `meeting-minutes-${meeting.id}-${Date.now()}.pdf`;
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Error exporting PDF:", error);
+      res.status(500).json({ error: "Failed to export document" });
     }
   });
 

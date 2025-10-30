@@ -187,21 +187,25 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Minutes not found" });
       }
 
-      // Update approval status
-      const updatedMinutes = await storage.updateMinutes(req.params.id, {
-        approvalStatus: "approved",
-        approvedBy,
-        approvedAt: new Date()
-      });
-
       // Get full meeting details for email distribution
       const meeting = await storage.getMeeting(minutes.meetingId);
-      if (meeting && meeting.minutes) {
-        // Generate document attachments
-        const docxBuffer = await documentExportService.generateDOCX(meeting);
-        const pdfBuffer = await documentExportService.generatePDF(meeting);
+      if (!meeting || !meeting.minutes) {
+        return res.status(404).json({ error: "Meeting or minutes not found" });
+      }
 
-        // Distribute via email
+      // Generate document attachments BEFORE marking as approved
+      let docxBuffer: Buffer;
+      let pdfBuffer: Buffer;
+      try {
+        docxBuffer = await documentExportService.generateDOCX(meeting);
+        pdfBuffer = await documentExportService.generatePDF(meeting);
+      } catch (error: any) {
+        console.error("Error generating documents for approval:", error);
+        return res.status(500).json({ error: "Failed to generate documents for distribution" });
+      }
+
+      // Distribute via email BEFORE marking as approved
+      try {
         await emailDistributionService.distributeMinutes(meeting, [
           {
             filename: `meeting-minutes-${meeting.id}.docx`,
@@ -214,8 +218,19 @@ export function registerRoutes(app: Express): Server {
             contentType: "application/pdf"
           }
         ]);
+      } catch (error: any) {
+        console.error("Error distributing minutes:", error);
+        return res.status(500).json({ error: "Failed to distribute minutes via email" });
       }
 
+      // Only mark as approved AFTER successful document generation and distribution
+      const updatedMinutes = await storage.updateMinutes(req.params.id, {
+        approvalStatus: "approved",
+        approvedBy,
+        approvedAt: new Date()
+      });
+
+      console.log(`✅ Minutes ${req.params.id} successfully approved and distributed to ${meeting.attendees.length} attendees`);
       res.json(updatedMinutes);
     } catch (error: any) {
       console.error("Error approving minutes:", error);

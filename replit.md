@@ -118,16 +118,49 @@ Connected via Replit SharePoint connector:
 
 ## Security & Compliance
 
+### Access Control Model
+The system implements **multi-level access control** designed for 300,000+ DOD Teams users:
+
+#### Role-Based Access
+- **Viewer** (default): Can view meetings they attended, subject to clearance level
+- **Approver**: Same as viewer + can approve/reject meeting minutes
+- **Auditor**: Can view ALL meetings (entire archive), subject to clearance level
+- **Admin**: Full system access + user management + configuration
+
+#### Clearance-Based Filtering
+All users (including admin and auditor) can only view meetings at or below their clearance level:
+- **UNCLASSIFIED**: Can view UNCLASSIFIED meetings only
+- **CONFIDENTIAL**: Can view UNCLASSIFIED and CONFIDENTIAL meetings
+- **SECRET**: Can view UNCLASSIFIED, CONFIDENTIAL, and SECRET meetings
+- **TOP_SECRET**: Can view all classification levels
+
+#### Attendee-Based Filtering
+- **Regular users (viewer/approver)**: Can ONLY see meetings they attended
+- **Auditors**: Can see ALL meetings within their clearance level (full archive access)
+- **Admins**: Can see ALL meetings within their clearance level
+
+#### Authentication
+- Microsoft Teams SSO via Azure AD
+- JWT token validation with Microsoft Graph API
+- Automatic user provisioning on first login (default: viewer role, UNCLASSIFIED clearance)
+- Admins must manually assign clearance levels and roles
+
+#### Search & Archive Access
+- Search results automatically filtered by user's access level
+- Auditors can search entire archive (subject to clearance)
+- Regular users only search meetings they attended
+- All access attempts logged for audit trail
+
 ### Classification Handling
 - Visual classification indicators on all documents
 - Default classification levels configurable
 - Proper marking on exported documents
-- Classification-based access controls ready
+- Classification-based access controls enforced at API level
 
 ### Data Protection
 - All data remains within Gov Cloud
 - SharePoint integration for secure archival
-- Audit trail for all operations
+- Audit trail for all operations (access attempts logged)
 - No external API dependencies
 
 ## Development Workflow

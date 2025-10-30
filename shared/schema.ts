@@ -65,6 +65,21 @@ export const meetingTemplates = pgTable("meeting_templates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Users schema for access control
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  clearanceLevel: text("clearance_level").notNull().default("UNCLASSIFIED"), // UNCLASSIFIED, CONFIDENTIAL, SECRET, TOP_SECRET
+  role: text("role").notNull().default("viewer"), // admin, approver, auditor, viewer
+  department: text("department"),
+  organizationalUnit: text("organizational_unit"),
+  azureAdId: text("azure_ad_id").unique(), // Azure AD object ID
+  lastLogin: timestamp("last_login"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
@@ -87,6 +102,13 @@ export const insertMeetingTemplateSchema = createInsertSchema(meetingTemplates).
   createdAt: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastLogin: true,
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -99,6 +121,9 @@ export type InsertActionItem = z.infer<typeof insertActionItemSchema>;
 
 export type MeetingTemplate = typeof meetingTemplates.$inferSelect;
 export type InsertMeetingTemplate = z.infer<typeof insertMeetingTemplateSchema>;
+
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({

@@ -6,6 +6,8 @@ import { generateMeetingMinutes, extractActionItems } from "./services/azureOpen
 import { requireAuth } from "./middleware/auth";
 import { documentExportService } from "./services/documentExport";
 import { emailDistributionService } from "./services/emailDistribution";
+import { teamsAuthMiddleware, requireRole } from "./middleware/teamsAuth";
+import { accessControlService } from "./services/accessControl";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);

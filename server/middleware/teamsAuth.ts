@@ -39,7 +39,7 @@ declare global {
 /**
  * Validate Microsoft Teams SSO token (production implementation)
  * 
- * In production deployment:
+ * Production deployment:
  * 1. Extract JWT token from Authorization header
  * 2. Validate with Azure AD using Microsoft Graph API
  * 3. Extract user claims (email, name, object ID)
@@ -49,28 +49,32 @@ async function validateTeamsToken(token: string): Promise<{
   displayName: string;
   azureAdId: string;
 } | null> {
-  // Production implementation would look like:
-  /*
-  const response = await fetch('https://graph.microsoft.com/v1.0/me', {
-    headers: {
-      'Authorization': `Bearer ${token}`
+  try {
+    // Validate token by calling Microsoft Graph API /me endpoint
+    // The API will validate the token signature, issuer, audience, and expiration
+    const response = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      console.error(`[AUTH] Token validation failed: ${response.status} ${response.statusText}`);
+      return null;
     }
-  });
-  
-  if (!response.ok) {
+    
+    const userInfo = await response.json();
+    
+    // Extract user information from Microsoft Graph response
+    return {
+      email: userInfo.mail || userInfo.userPrincipalName,
+      displayName: userInfo.displayName,
+      azureAdId: userInfo.id
+    };
+  } catch (error: any) {
+    console.error("[AUTH] Error validating Teams token:", error);
     return null;
   }
-  
-  const userInfo = await response.json();
-  return {
-    email: userInfo.mail || userInfo.userPrincipalName,
-    displayName: userInfo.displayName,
-    azureAdId: userInfo.id
-  };
-  */
-  
-  // Development fallback - not used in production
-  return null;
 }
 
 /**
@@ -81,34 +85,56 @@ async function getOrCreateUser(userInfo: {
   displayName: string;
   azureAdId: string;
 }) {
-  // Try to find existing user by email or Azure AD ID
-  let user = await db.query.users.findFirst({
-    where: eq(users.email, userInfo.email)
-  });
+  try {
+    // Try to find existing user by email or Azure AD ID
+    let user = await db.query.users.findFirst({
+      where: eq(users.email, userInfo.email)
+    });
 
-  if (!user) {
-    // Create new user on first login
-    const [newUser] = await db.insert(users).values({
-      email: userInfo.email,
-      displayName: userInfo.displayName,
-      azureAdId: userInfo.azureAdId,
-      clearanceLevel: "UNCLASSIFIED", // Default clearance - admin must update
-      role: "viewer", // Default role
-      department: null,
-      organizationalUnit: null,
-      lastLogin: new Date(),
-    }).returning();
-    
-    user = newUser;
-    console.log(`[AUTH] New user created: ${userInfo.email}`);
-  } else {
-    // Update last login
-    await db.update(users)
-      .set({ lastLogin: new Date() })
-      .where(eq(users.id, user.id));
+    if (!user) {
+      // Create new user on first login
+      const [newUser] = await db.insert(users).values({
+        email: userInfo.email,
+        displayName: userInfo.displayName,
+        azureAdId: userInfo.azureAdId,
+        clearanceLevel: "UNCLASSIFIED", // Default clearance - admin must update
+        role: "viewer", // Default role
+        department: null,
+        organizationalUnit: null,
+        lastLogin: new Date(),
+      }).returning();
+      
+      user = newUser;
+      console.log(`[AUTH] New user created: ${userInfo.email}`);
+    } else {
+      // Update last login and Azure AD ID if needed
+      await db.update(users)
+        .set({ 
+          lastLogin: new Date(),
+          azureAdId: userInfo.azureAdId,
+          displayName: userInfo.displayName
+        })
+        .where(eq(users.id, user.id));
+      
+      // Refresh user data
+      user = await db.query.users.findFirst({
+        where: eq(users.id, user.id)
+      });
+    }
+
+    return user;
+  } catch (error: any) {
+    // If duplicate key error, try to fetch the user again
+    if (error.code === '23505') {
+      const user = await db.query.users.findFirst({
+        where: eq(users.email, userInfo.email)
+      });
+      if (user) {
+        return user;
+      }
+    }
+    throw error;
   }
-
-  return user;
 }
 
 /**

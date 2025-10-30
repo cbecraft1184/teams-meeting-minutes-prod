@@ -21,31 +21,55 @@ export function registerRoutes(app: Express): Server {
     });
   });
 
-  // Apply authentication middleware to all /api/* routes
-  // In development, this allows all requests
-  // In production, this MUST verify Azure AD JWT tokens
-  app.use("/api/*", requireAuth);
+  // Apply Teams SSO authentication middleware to all /api/* routes
+  // Validates Azure AD JWT tokens and attaches user to request
+  app.use("/api/*", teamsAuthMiddleware);
 
   // ========== MEETINGS API ==========
   
-  // Get all meetings (protected)
-  app.get("/api/meetings", async (_req, res) => {
+  // Get all meetings (filtered by user access)
+  app.get("/api/meetings", async (req, res) => {
     try {
-      const meetings = await storage.getAllMeetings();
-      res.json(meetings);
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const allMeetings = await storage.getAllMeetings();
+      
+      // Filter meetings based on user's access level
+      const accessibleMeetings = accessControlService.filterMeetings(req.user, allMeetings);
+      
+      console.log(`[ACCESS] User ${req.user.email} (${req.user.role}) viewing ${accessibleMeetings.length}/${allMeetings.length} meetings`);
+      
+      res.json(accessibleMeetings);
     } catch (error: any) {
       console.error("Error fetching meetings:", error);
       res.status(500).json({ error: "Failed to fetch meetings" });
     }
   });
 
-  // Get single meeting
+  // Get single meeting (with access control)
   app.get("/api/meetings/:id", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const meeting = await storage.getMeeting(req.params.id);
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
+
+      // Check if user has access to this meeting
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        // Log access denial for audit trail
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Insufficient clearance or not an attendee");
+        return res.status(403).json({ error: "Access denied: Insufficient clearance or not an attendee" });
+      }
+
+      // Log successful access
+      accessControlService.logAccessAttempt(req.user, meeting, true);
+      
       res.json(meeting);
     } catch (error: any) {
       console.error("Error fetching meeting:", error);
@@ -53,10 +77,37 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Create new meeting
+  // Create new meeting (admin only or Teams webhook)
+  // NOTE: In production, meetings are created via Teams webhooks, not by users
   app.post("/api/meetings", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only admins can manually create meetings
+      // In production, this endpoint would be restricted to webhook callbacks
+      if (!accessControlService.isAdmin(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only admins can manually create meetings",
+          note: "Meetings are normally captured automatically from Teams via webhooks"
+        });
+      }
+
       const validatedData = insertMeetingSchema.parse(req.body);
+
+      // Verify admin has clearance to create meeting at requested classification level
+      const requestedClassification = validatedData.classificationLevel || "UNCLASSIFIED";
+      if (!accessControlService.hasClassificationAccess(req.user, requestedClassification)) {
+        return res.status(403).json({ 
+          error: "Access denied: Cannot create meeting at classification level above your clearance",
+          requestedClassification,
+          userClearance: req.user.clearanceLevel
+        });
+      }
+
+      console.log(`[ACCESS] Admin ${req.user.email} creating ${requestedClassification} meeting`);
+
       const meeting = await storage.createMeeting(validatedData);
       res.status(201).json(meeting);
     } catch (error: any) {
@@ -68,9 +119,48 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Update meeting
+  // Update meeting (admin only with access verification)
   app.patch("/api/meetings/:id", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only admins can update meetings
+      if (!accessControlService.isAdmin(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only admins can update meetings",
+          currentRole: req.user.role
+        });
+      }
+
+      const existingMeeting = await storage.getMeeting(req.params.id);
+      if (!existingMeeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Verify admin has clearance to access existing meeting
+      if (!accessControlService.hasClassificationAccess(req.user, existingMeeting.classificationLevel)) {
+        return res.status(403).json({ 
+          error: "Access denied: Insufficient clearance to modify this meeting",
+          meetingClassification: existingMeeting.classificationLevel,
+          userClearance: req.user.clearanceLevel
+        });
+      }
+
+      // If updating classification level, verify admin has clearance for NEW level
+      if (req.body.classificationLevel) {
+        if (!accessControlService.hasClassificationAccess(req.user, req.body.classificationLevel)) {
+          return res.status(403).json({ 
+            error: "Access denied: Cannot escalate meeting to classification level above your clearance",
+            requestedClassification: req.body.classificationLevel,
+            userClearance: req.user.clearanceLevel
+          });
+        }
+      }
+
+      console.log(`[ACCESS] Admin ${req.user.email} updating meeting: ${existingMeeting.title}`);
+
       const meeting = await storage.updateMeeting(req.params.id, req.body);
       res.json(meeting);
     } catch (error: any) {
@@ -82,9 +172,37 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Delete meeting
+  // Delete meeting (admin only with access verification)
   app.delete("/api/meetings/:id", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only admins can delete meetings
+      if (!accessControlService.isAdmin(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only admins can delete meetings",
+          currentRole: req.user.role
+        });
+      }
+
+      const existingMeeting = await storage.getMeeting(req.params.id);
+      if (!existingMeeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Verify admin has clearance to delete this meeting
+      if (!accessControlService.hasClassificationAccess(req.user, existingMeeting.classificationLevel)) {
+        return res.status(403).json({ 
+          error: "Access denied: Insufficient clearance to delete this meeting",
+          meetingClassification: existingMeeting.classificationLevel,
+          userClearance: req.user.clearanceLevel
+        });
+      }
+
+      console.log(`[ACCESS] Admin ${req.user.email} deleting meeting: ${existingMeeting.title}`);
+
       await storage.deleteMeeting(req.params.id);
       res.status(204).send();
     } catch (error: any) {
@@ -95,24 +213,58 @@ export function registerRoutes(app: Express): Server {
 
   // ========== MEETING MINUTES API ==========
 
-  // Get all minutes
-  app.get("/api/minutes", async (_req, res) => {
+  // Get all minutes (filtered by user access to meetings)
+  app.get("/api/minutes", async (req, res) => {
     try {
-      const minutes = await storage.getAllMinutes();
-      res.json(minutes);
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const allMinutes = await storage.getAllMinutes();
+      
+      // Filter minutes based on user's access to associated meetings
+      const accessibleMinutes = [];
+      for (const minute of allMinutes) {
+        const meeting = await storage.getMeeting(minute.meetingId);
+        if (meeting && accessControlService.canViewMeeting(req.user, meeting)) {
+          accessibleMinutes.push(minute);
+        }
+      }
+      
+      console.log(`[ACCESS] User ${req.user.email} viewing ${accessibleMinutes.length}/${allMinutes.length} minutes`);
+      res.json(accessibleMinutes);
     } catch (error: any) {
       console.error("Error fetching minutes:", error);
       res.status(500).json({ error: "Failed to fetch minutes" });
     }
   });
 
-  // Get single minutes
+  // Get single minutes (with access control)
   app.get("/api/minutes/:id", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const minutes = await storage.getMinutes(req.params.id);
       if (!minutes) {
         return res.status(404).json({ error: "Minutes not found" });
       }
+
+      // Verify user has access to the associated meeting
+      const meeting = await storage.getMeeting(minutes.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Associated meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to access minutes without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot view minutes for meetings you cannot access" });
+      }
+
+      // Log successful access
+      accessControlService.logAccessAttempt(req.user, meeting, true);
+      
       res.json(minutes);
     } catch (error: any) {
       console.error("Error fetching minutes:", error);
@@ -120,9 +272,13 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Generate minutes for a meeting
+  // Generate minutes for a meeting (with access control)
   app.post("/api/minutes/generate", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const { meetingId, transcript } = req.body;
       
       if (!meetingId || !transcript) {
@@ -133,6 +289,14 @@ export function registerRoutes(app: Express): Server {
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
+
+      // Verify user has access to this meeting
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to generate minutes without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot generate minutes for meetings you cannot access" });
+      }
+
+      console.log(`[ACCESS] User ${req.user.email} generating minutes for meeting: ${meeting.title}`);
 
       // Create pending minutes record
       const pendingMinutes = await storage.createMinutes({
@@ -162,9 +326,40 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Update minutes
+  // Update minutes (with access control)
   app.patch("/api/minutes/:id", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only approvers and admins can update minutes
+      if (!accessControlService.canApproveMinutes(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only approvers and admins can update minutes",
+          requiredRole: "approver or admin",
+          currentRole: req.user.role
+        });
+      }
+
+      const existingMinutes = await storage.getMinutes(req.params.id);
+      if (!existingMinutes) {
+        return res.status(404).json({ error: "Minutes not found" });
+      }
+
+      // Verify user has access to the associated meeting
+      const meeting = await storage.getMeeting(existingMinutes.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Associated meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to update minutes without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot update minutes for meetings you cannot access" });
+      }
+
+      console.log(`[ACCESS] User ${req.user.email} (${req.user.role}) updating minutes for meeting: ${meeting.title}`);
+
       const minutes = await storage.updateMinutes(req.params.id, req.body);
       res.json(minutes);
     } catch (error: any) {
@@ -176,9 +371,22 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Approve minutes
+  // Approve minutes (requires approver or admin role)
   app.post("/api/minutes/:id/approve", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Check if user has permission to approve
+      if (!accessControlService.canApproveMinutes(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only approvers and admins can approve minutes",
+          requiredRole: "approver or admin",
+          currentRole: req.user.role
+        });
+      }
+
       const { approvedBy } = req.body;
       if (!approvedBy) {
         return res.status(400).json({ error: "approvedBy is required" });
@@ -194,6 +402,14 @@ export function registerRoutes(app: Express): Server {
       if (!meeting || !meeting.minutes) {
         return res.status(404).json({ error: "Meeting or minutes not found" });
       }
+
+      // Verify user has access to the associated meeting
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to approve minutes without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot approve minutes for meetings you cannot access" });
+      }
+
+      console.log(`[APPROVAL] User ${req.user.email} (${req.user.role}) approving minutes for meeting: ${meeting.title}`);
 
       // Generate document attachments BEFORE marking as approved
       let docxBuffer: Buffer;
@@ -240,13 +456,44 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Reject minutes
+  // Reject minutes (requires approver or admin role)
   app.post("/api/minutes/:id/reject", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only approvers and admins can reject minutes
+      if (!accessControlService.canApproveMinutes(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only approvers and admins can reject minutes",
+          requiredRole: "approver or admin",
+          currentRole: req.user.role
+        });
+      }
+
       const { rejectedBy, reason } = req.body;
       if (!rejectedBy || !reason) {
         return res.status(400).json({ error: "rejectedBy and reason are required" });
       }
+
+      const existingMinutes = await storage.getMinutes(req.params.id);
+      if (!existingMinutes) {
+        return res.status(404).json({ error: "Minutes not found" });
+      }
+
+      // Verify user has access to the associated meeting
+      const meeting = await storage.getMeeting(existingMinutes.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Associated meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to reject minutes without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot reject minutes for meetings you cannot access" });
+      }
+
+      console.log(`[ACCESS] User ${req.user.email} (${req.user.role}) rejecting minutes for meeting: ${meeting.title}`);
 
       const updatedMinutes = await storage.updateMinutes(req.params.id, {
         approvalStatus: "rejected",
@@ -265,13 +512,44 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Request revision for minutes
+  // Request revision for minutes (requires approver or admin role)
   app.post("/api/minutes/:id/request-revision", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only approvers and admins can request revisions
+      if (!accessControlService.canApproveMinutes(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only approvers and admins can request revisions",
+          requiredRole: "approver or admin",
+          currentRole: req.user.role
+        });
+      }
+
       const { requestedBy, comments } = req.body;
       if (!requestedBy) {
         return res.status(400).json({ error: "requestedBy is required" });
       }
+
+      const existingMinutes = await storage.getMinutes(req.params.id);
+      if (!existingMinutes) {
+        return res.status(404).json({ error: "Minutes not found" });
+      }
+
+      // Verify user has access to the associated meeting
+      const meeting = await storage.getMeeting(existingMinutes.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Associated meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to request revision without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot request revision for meetings you cannot access" });
+      }
+
+      console.log(`[ACCESS] User ${req.user.email} (${req.user.role}) requesting revision for meeting: ${meeting.title}`);
 
       const updatedMinutes = await storage.updateMinutes(req.params.id, {
         approvalStatus: "revision_requested",
@@ -292,16 +570,30 @@ export function registerRoutes(app: Express): Server {
 
   // ========== DOCUMENT EXPORT API ==========
 
-  // Export meeting minutes as DOCX
+  // Export meeting minutes as DOCX (with access control)
   app.get("/api/meetings/:id/export/docx", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const meeting = await storage.getMeeting(req.params.id);
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
+
+      // Verify user has access to this meeting
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to export DOCX without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot export minutes for meetings you cannot access" });
+      }
+
       if (!meeting.minutes) {
         return res.status(404).json({ error: "Meeting has no minutes to export" });
       }
+
+      console.log(`[ACCESS] User ${req.user.email} exporting DOCX for meeting: ${meeting.title}`);
+      accessControlService.logAccessAttempt(req.user, meeting, true, "DOCX export");
 
       const buffer = await documentExportService.generateDOCX(meeting);
       const filename = `meeting-minutes-${meeting.id}-${Date.now()}.docx`;
@@ -315,16 +607,30 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Export meeting minutes as PDF
+  // Export meeting minutes as PDF (with access control)
   app.get("/api/meetings/:id/export/pdf", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
       const meeting = await storage.getMeeting(req.params.id);
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
+
+      // Verify user has access to this meeting
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to export PDF without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot export minutes for meetings you cannot access" });
+      }
+
       if (!meeting.minutes) {
         return res.status(404).json({ error: "Meeting has no minutes to export" });
       }
+
+      console.log(`[ACCESS] User ${req.user.email} exporting PDF for meeting: ${meeting.title}`);
+      accessControlService.logAccessAttempt(req.user, meeting, true, "PDF export");
 
       const buffer = await documentExportService.generatePDF(meeting);
       const filename = `meeting-minutes-${meeting.id}-${Date.now()}.pdf`;
@@ -591,6 +897,35 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error creating meeting from template:", error);
       res.status(500).json({ error: "Failed to create meeting from template" });
+    }
+  });
+
+  // ========== USER & PERMISSIONS API ==========
+
+  // Get current user info and permissions
+  app.get("/api/user/me", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const permissions = accessControlService.getUserPermissions(req.user);
+      
+      res.json({
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          displayName: req.user.displayName,
+          role: req.user.role,
+          clearanceLevel: req.user.clearanceLevel,
+          department: req.user.department,
+          organizationalUnit: req.user.organizationalUnit,
+        },
+        permissions
+      });
+    } catch (error: any) {
+      console.error("Error fetching user info:", error);
+      res.status(500).json({ error: "Failed to fetch user info" });
     }
   });
 

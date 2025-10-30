@@ -6,11 +6,24 @@ A fully autonomous Microsoft-native solution for capturing, processing, distribu
 **IMPORTANT**: Meetings are scheduled and conducted in Microsoft Teams (NOT in this application). This app automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings/transcripts with AI, and distributes approved minutes to attendees.
 
 ## Deployment Requirements
-- **Hosting**: AWS Gov Cloud (no external dependencies)
+- **Hosting**: AWS (commercial) or AWS Gov Cloud (for DOD production)
 - **Microsoft Teams**: DOD internal Teams deployment
-- **AI Processing**: Azure OpenAI Service (deployed in Gov Cloud)
+- **AI Processing**: Azure OpenAI Service (Azure Gov Cloud for production)
 - **Document Storage**: SharePoint (DOD instance)
+- **Database**: PostgreSQL (AWS RDS or Replit-hosted)
 - **Packaging**: Must be installable in pre-existing DOD Teams environments
+
+## Deployment Options
+1. **AWS Deployment** (Production): See `AWS_DEPLOYMENT_GUIDE.md`
+   - AWS ECS Fargate or Elastic Beanstalk
+   - AWS RDS PostgreSQL
+   - AWS Secrets Manager
+   - Application Load Balancer with HTTPS
+   - Supports AWS Gov Cloud for DOD compliance
+2. **Replit Deployment** (Testing/Dev): See `IMPLEMENTATION_GUIDE.md`
+   - Quick deployment for testing
+   - Built-in PostgreSQL and secrets management
+   - Auto-scaling deployment
 
 ## Architecture
 

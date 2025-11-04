@@ -7,6 +7,7 @@
 
 import type { Request, Response, Router } from 'express';
 import { graphSubscriptionManager } from '../services/graphSubscriptionManager';
+import { callRecordEnrichmentService } from '../services/callRecordEnrichment';
 import { db } from '../db';
 import { graphWebhookSubscriptions, meetings } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -266,22 +267,37 @@ async function upsertMeetingFromGraph(onlineMeetingId: string, resourceData: any
 
     if (existingMeeting) {
       // Update existing meeting
+      const updatedStatus = existingMeeting.status === 'archived' ? 'archived' : meetingData.status;
+      
       await db
         .update(meetings)
         .set({
           ...meetingData,
-          status: existingMeeting.status === 'archived' ? 'archived' : meetingData.status, // Don't un-archive
+          status: updatedStatus,
         })
         .where(eq(meetings.onlineMeetingId, onlineMeetingId));
       
       console.log(`✅ Updated meeting: ${onlineMeetingId}`);
+      
+      // Trigger enrichment if meeting just completed
+      if (updatedStatus === 'completed' && existingMeeting.status !== 'completed') {
+        console.log(`🎬 [Enrichment Trigger] Meeting completed, enqueuing enrichment: ${onlineMeetingId}`);
+        await callRecordEnrichmentService.enqueueMeetingEnrichment(existingMeeting.id, onlineMeetingId);
+      }
     } else {
       // Insert new meeting
-      await db
+      const [newMeeting] = await db
         .insert(meetings)
-        .values(meetingData);
+        .values(meetingData)
+        .returning({ id: meetings.id });
       
       console.log(`✅ Created meeting: ${onlineMeetingId}`);
+      
+      // Trigger enrichment if meeting is already completed
+      if (meetingData.status === 'completed') {
+        console.log(`🎬 [Enrichment Trigger] New meeting already completed, enqueuing enrichment: ${onlineMeetingId}`);
+        await callRecordEnrichmentService.enqueueMeetingEnrichment(newMeeting.id, onlineMeetingId);
+      }
     }
   } catch (error) {
     console.error(`Error upserting meeting ${onlineMeetingId}:`, error);

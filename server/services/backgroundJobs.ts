@@ -8,6 +8,7 @@
  */
 
 import { graphSubscriptionManager } from './graphSubscriptionManager';
+import { callRecordEnrichmentService } from './callRecordEnrichment';
 import { getConfig } from './configValidator';
 
 // Job intervals (in milliseconds)
@@ -31,11 +32,11 @@ export function startBackgroundJobs(): void {
   // Job 1: Webhook subscription renewal
   startWebhookRenewalJob();
   
-  // Job 2: Azure AD group sync (future - Task 4)
-  // startADGroupSyncJob();
+  // Job 2: CallRecord enrichment catch-up
+  startCallRecordEnrichmentJob();
   
-  // Job 3: CallRecord enrichment (future - Task 3.6)
-  // startCallRecordEnrichmentJob();
+  // Job 3: Azure AD group sync (future - Task 4)
+  // startADGroupSyncJob();
   
   console.log('✅ Background jobs started');
 }
@@ -46,11 +47,15 @@ export function startBackgroundJobs(): void {
 export function stopBackgroundJobs(): void {
   console.log('🛑 Stopping background jobs...');
   
+  // Clear all interval timers
   for (const interval of runningIntervals) {
     clearInterval(interval);
   }
-  
   runningIntervals.length = 0;
+  
+  // Clear all enrichment retry timers
+  callRecordEnrichmentService.clearAllRetryTimers();
+  
   console.log('✅ Background jobs stopped');
 }
 
@@ -97,12 +102,32 @@ function startADGroupSyncJob(): void {
 }
 
 /**
- * Job: Enrich meetings with callRecord data (future implementation - Task 3.6)
- * Runs every 30 minutes, fetches callRecord data for completed meetings
+ * Job: Enrich meetings with callRecord data
+ * Runs every 30 minutes, catches stuck enrichments and retries them
  */
 function startCallRecordEnrichmentJob(): void {
-  console.log('⚠️  CallRecord enrichment job not yet implemented (Task 3.6)');
-  // Will be implemented in Task 3.6
+  // Run immediately on startup
+  processStuckEnrichments();
+  
+  // Then run every 30 minutes
+  const interval = setInterval(async () => {
+    await processStuckEnrichments();
+  }, INTERVALS.CALL_RECORD_ENRICHMENT);
+  
+  runningIntervals.push(interval);
+  
+  console.log(`✅ CallRecord enrichment job scheduled (every ${INTERVALS.CALL_RECORD_ENRICHMENT / 1000 / 60} minutes)`);
+}
+
+/**
+ * Process stuck enrichments (catch-up job)
+ */
+async function processStuckEnrichments(): Promise<void> {
+  try {
+    await callRecordEnrichmentService.processStuckEnrichments();
+  } catch (error) {
+    console.error('❌ [Background Job] Error processing stuck enrichments:', error);
+  }
 }
 
 // Graceful shutdown handler

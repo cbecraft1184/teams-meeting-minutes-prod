@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -22,6 +22,12 @@ export const meetings = pgTable("meetings", {
   teamsJoinLink: text("teams_join_link"), // Teams meeting join URL
   callRecordId: text("call_record_id"), // Call record ID for post-meeting enrichment
   graphSyncStatus: text("graph_sync_status").default("pending"), // pending, synced, enriched, failed
+  
+  // Post-meeting enrichment tracking (callRecord, recordings, transcripts)
+  enrichmentStatus: text("enrichment_status").default("pending"), // pending, enriching, enriched, failed
+  enrichmentAttempts: integer("enrichment_attempts").default(0), // Number of enrichment attempts
+  lastEnrichmentAt: timestamp("last_enrichment_at"), // Last enrichment attempt timestamp
+  callRecordRetryAt: timestamp("call_record_retry_at"), // When to retry enrichment (exponential backoff)
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

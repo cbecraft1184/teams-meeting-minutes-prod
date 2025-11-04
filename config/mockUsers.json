@@ -1,0 +1,82 @@
+{
+  "comment": "Mock users for development and testing. Used when USE_MOCK_SERVICES=true",
+  "users": [
+    {
+      "id": "mock-admin-001",
+      "email": "admin@dod.test",
+      "displayName": "Admin User",
+      "clearanceLevel": "TOP_SECRET",
+      "role": "admin",
+      "department": "IT Operations",
+      "organizationalUnit": "Technology Division",
+      "azureAdId": "00000000-0000-0000-0000-000000000001",
+      "azureUserPrincipalName": "admin@dod.test",
+      "tenantId": "mock-tenant-001"
+    },
+    {
+      "id": "mock-approver-001",
+      "email": "approver@dod.test",
+      "displayName": "Approver User",
+      "clearanceLevel": "SECRET",
+      "role": "approver",
+      "department": "Operations",
+      "organizationalUnit": "Command Center",
+      "azureAdId": "00000000-0000-0000-0000-000000000002",
+      "azureUserPrincipalName": "approver@dod.test",
+      "tenantId": "mock-tenant-001"
+    },
+    {
+      "id": "mock-auditor-001",
+      "email": "auditor@dod.test",
+      "displayName": "Auditor User",
+      "clearanceLevel": "SECRET",
+      "role": "auditor",
+      "department": "Compliance",
+      "organizationalUnit": "Security Division",
+      "azureAdId": "00000000-0000-0000-0000-000000000003",
+      "azureUserPrincipalName": "auditor@dod.test",
+      "tenantId": "mock-tenant-001"
+    },
+    {
+      "id": "mock-viewer-001",
+      "email": "john.doe@dod.gov",
+      "displayName": "John Doe",
+      "clearanceLevel": "CONFIDENTIAL",
+      "role": "viewer",
+      "department": "Logistics",
+      "organizationalUnit": "Supply Chain",
+      "azureAdId": "00000000-0000-0000-0000-000000000004",
+      "azureUserPrincipalName": "john.doe@dod.gov",
+      "tenantId": "mock-tenant-001"
+    },
+    {
+      "id": "mock-viewer-002",
+      "email": "jane.smith@dod.gov",
+      "displayName": "Jane Smith",
+      "clearanceLevel": "UNCLASSIFIED",
+      "role": "viewer",
+      "department": "Administration",
+      "organizationalUnit": "Human Resources",
+      "azureAdId": "00000000-0000-0000-0000-000000000005",
+      "azureUserPrincipalName": "jane.smith@dod.gov",
+      "tenantId": "mock-tenant-001"
+    }
+  ],
+  "defaultUser": "john.doe@dod.gov",
+  "instructions": {
+    "description": "Mock users for testing different access control scenarios",
+    "usage": "Select user in development mode to test different clearance levels and roles",
+    "clearanceLevels": {
+      "TOP_SECRET": "Can view all classification levels",
+      "SECRET": "Can view SECRET, CONFIDENTIAL, UNCLASSIFIED",
+      "CONFIDENTIAL": "Can view CONFIDENTIAL, UNCLASSIFIED",
+      "UNCLASSIFIED": "Can view UNCLASSIFIED only"
+    },
+    "roles": {
+      "admin": "Full system access + user management",
+      "approver": "Can approve/reject meeting minutes",
+      "auditor": "Can view entire archive (within clearance level)",
+      "viewer": "Can view meetings they attended"
+    }
+  }
+}

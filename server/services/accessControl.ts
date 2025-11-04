@@ -7,7 +7,19 @@
  * 3. Role-based permissions (admin, approver, viewer)
  */
 
-import type { User, Meeting } from "@shared/schema";
+import type { Meeting } from "@shared/schema";
+
+// Simplified user type for access control (matches req.user from authentication middleware)
+export type AuthenticatedUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  clearanceLevel: string;
+  role: string;
+  department: string | null;
+  organizationalUnit: string | null;
+  azureAdId: string | null;
+};
 
 // Classification level hierarchy (higher number = higher clearance)
 const CLEARANCE_LEVELS = {
@@ -21,7 +33,7 @@ export class AccessControlService {
   /**
    * Check if user has sufficient clearance to view meeting
    */
-  canViewMeeting(user: User, meeting: Meeting): boolean {
+  canViewMeeting(user: AuthenticatedUser, meeting: Meeting): boolean {
     // Admins and auditors can view ALL meetings (subject to clearance)
     const hasFullAccess = user.role === "admin" || user.role === "auditor";
 
@@ -47,35 +59,35 @@ export class AccessControlService {
   /**
    * Filter meetings array to only include meetings the user can access
    */
-  filterMeetings(user: User, meetings: Meeting[]): Meeting[] {
+  filterMeetings(user: AuthenticatedUser, meetings: Meeting[]): Meeting[] {
     return meetings.filter(meeting => this.canViewMeeting(user, meeting));
   }
 
   /**
    * Check if user can approve minutes (must be approver or admin role)
    */
-  canApproveMinutes(user: User): boolean {
+  canApproveMinutes(user: AuthenticatedUser): boolean {
     return user.role === "approver" || user.role === "admin";
   }
 
   /**
    * Check if user is an admin
    */
-  isAdmin(user: User): boolean {
+  isAdmin(user: AuthenticatedUser): boolean {
     return user.role === "admin";
   }
 
   /**
    * Check if user can view all meetings (not just their own)
    */
-  canViewAllMeetings(user: User): boolean {
+  canViewAllMeetings(user: AuthenticatedUser): boolean {
     return user.role === "admin" || user.role === "auditor";
   }
 
   /**
    * Get user permissions summary
    */
-  getUserPermissions(user: User) {
+  getUserPermissions(user: AuthenticatedUser) {
     return {
       canView: true, // All users can view their own meetings
       canViewAll: this.canViewAllMeetings(user), // Admin/auditor can view all meetings
@@ -90,7 +102,7 @@ export class AccessControlService {
   /**
    * Validate if user has access to specific classification level
    */
-  hasClassificationAccess(user: User, classificationLevel: string): boolean {
+  hasClassificationAccess(user: AuthenticatedUser, classificationLevel: string): boolean {
     const userClearance = CLEARANCE_LEVELS[user.clearanceLevel as keyof typeof CLEARANCE_LEVELS] || 0;
     const requiredClearance = CLEARANCE_LEVELS[classificationLevel as keyof typeof CLEARANCE_LEVELS] || 0;
     return userClearance >= requiredClearance;
@@ -99,7 +111,7 @@ export class AccessControlService {
   /**
    * Get maximum classification level user can access
    */
-  getMaxAccessibleClassification(user: User): string {
+  getMaxAccessibleClassification(user: AuthenticatedUser): string {
     return user.clearanceLevel;
   }
 
@@ -107,7 +119,7 @@ export class AccessControlService {
    * Build SQL where clause for database-level filtering
    * This prevents loading meetings the user cannot access
    */
-  buildMeetingWhereClause(user: User): { userEmail: string; maxClearance: number } {
+  buildMeetingWhereClause(user: AuthenticatedUser): { userEmail: string; maxClearance: number } {
     const maxClearance = CLEARANCE_LEVELS[user.clearanceLevel as keyof typeof CLEARANCE_LEVELS] || 0;
     
     return {
@@ -119,7 +131,7 @@ export class AccessControlService {
   /**
    * Generate audit log entry for access attempt
    */
-  logAccessAttempt(user: User, meeting: Meeting, granted: boolean, reason?: string) {
+  logAccessAttempt(user: AuthenticatedUser, meeting: Meeting, granted: boolean, reason?: string) {
     const logEntry = {
       timestamp: new Date().toISOString(),
       userId: user.id,

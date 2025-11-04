@@ -74,7 +74,14 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("viewer"), // admin, approver, auditor, viewer
   department: text("department"),
   organizationalUnit: text("organizational_unit"),
-  azureAdId: text("azure_ad_id").unique(), // Azure AD object ID
+  
+  // Azure AD Integration
+  azureAdId: text("azure_ad_id").unique(), // Azure AD object ID (canonical identifier)
+  azureUserPrincipalName: text("azure_user_principal_name"), // UPN from Azure AD (e.g., user@domain.com)
+  tenantId: text("tenant_id"), // Azure AD tenant ID
+  refreshTokenVersion: text("refresh_token_version"), // Token version for invalidation
+  lastGraphSync: timestamp("last_graph_sync"), // Last Azure AD group sync timestamp
+  
   lastLogin: timestamp("last_login"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

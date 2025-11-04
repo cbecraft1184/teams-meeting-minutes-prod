@@ -3,10 +3,10 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema } from "@shared/schema";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
-import { requireAuth } from "./middleware/auth";
+import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
+import { requireWebhookAuth } from "./middleware/requireServiceAuth";
 import { documentExportService } from "./services/documentExport";
 import { emailDistributionService } from "./services/emailDistribution";
-import { teamsAuthMiddleware, requireRole } from "./middleware/teamsAuth";
 import { accessControlService } from "./services/accessControl";
 
 export function registerRoutes(app: Express): Server {
@@ -21,9 +21,10 @@ export function registerRoutes(app: Express): Server {
     });
   });
 
-  // Apply Teams SSO authentication middleware to all /api/* routes
-  // Validates Azure AD JWT tokens and attaches user to request
-  app.use("/api/*", teamsAuthMiddleware);
+  // Apply authentication middleware to all /api/* routes
+  // In mock mode: Uses config/mockUsers.json
+  // In real mode: Validates Azure AD JWT tokens from Teams SSO
+  app.use("/api/*", authenticateUser);
 
   // ========== MEETINGS API ==========
   

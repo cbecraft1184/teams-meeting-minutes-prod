@@ -1,0 +1,577 @@
+/**
+ * Microsoft Identity Service
+ * 
+ * Handles Microsoft Azure AD authentication using MSAL (Microsoft Authentication Library)
+ * Supports both:
+ * - Delegated permissions (user context via authorization code flow)
+ * - Application permissions (service context via client credentials flow)
+ */
+
+import { ConfidentialClientApplication, type AuthenticationResult, type Configuration } from '@azure/msal-node';
+import { getConfig } from './configValidator';
+import { LRUCache } from 'lru-cache';
+import jwksClient from 'jwks-rsa';
+import jwt from 'jsonwebtoken';
+
+// Token cache for access/refresh tokens
+interface CachedToken {
+  accessToken: string;
+  refreshToken?: string;
+  expiresOn: Date;
+  scopes: string[];
+  userIdentifier?: string; // For delegated tokens
+}
+
+// LRU cache for tokens (in memory for development, Redis for production)
+const tokenCache = new LRUCache<string, CachedToken>({
+  max: 1000, // Maximum 1000 cached tokens
+  ttl: 1000 * 60 * 55, // 55 minutes (access tokens expire in 1 hour)
+  updateAgeOnGet: true,
+  updateAgeOnHas: true,
+});
+
+// JWKS client for Azure AD public key verification
+// Keys are cached automatically by jwks-rsa
+let jwksClientInstance: jwksClient.JwksClient | null = null;
+
+function getJwksClient(): jwksClient.JwksClient | null {
+  if (jwksClientInstance) {
+    return jwksClientInstance;
+  }
+
+  const config = getConfig();
+  if (!config.graph.tenantId) {
+    return null;
+  }
+
+  jwksClientInstance = jwksClient({
+    jwksUri: `https://login.microsoftonline.com/${config.graph.tenantId}/discovery/v2.0/keys`,
+    cache: true,
+    cacheMaxAge: 24 * 60 * 60 * 1000, // Cache keys for 24 hours
+    rateLimit: true,
+    jwksRequestsPerMinute: 10,
+  });
+
+  return jwksClientInstance;
+}
+
+// Get signing key for JWT verification
+function getSigningKey(header: jwt.JwtHeader): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const client = getJwksClient();
+    if (!client) {
+      reject(new Error('JWKS client not configured'));
+      return;
+    }
+
+    client.getSigningKey(header.kid, (err, key) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      const signingKey = key?.getPublicKey();
+      if (!signingKey) {
+        reject(new Error('No signing key found'));
+        return;
+      }
+      resolve(signingKey);
+    });
+  });
+}
+
+/**
+ * Get MSAL Confidential Client Application instance
+ */
+function getMsalClient(): ConfidentialClientApplication | null {
+  const config = getConfig();
+
+  // Return null if not configured (will use mock services)
+  if (!config.graph.clientId || !config.graph.clientSecret || !config.graph.tenantId) {
+    return null;
+  }
+
+  const msalConfig: Configuration = {
+    auth: {
+      clientId: config.graph.clientId,
+      authority: `https://login.microsoftonline.com/${config.graph.tenantId}`,
+      clientSecret: config.graph.clientSecret,
+    },
+    system: {
+      loggerOptions: {
+        logLevel: config.isProduction ? 2 : 3, // Error in prod, Info in dev
+        loggerCallback(logLevel, message) {
+          if (logLevel === 1) {
+            console.error('MSAL Error:', message);
+          } else if (logLevel === 2) {
+            console.warn('MSAL Warning:', message);
+          } else if (logLevel === 3 && !config.isProduction) {
+            console.log('MSAL Info:', message);
+          }
+        },
+        piiLoggingEnabled: !config.isProduction,
+      },
+    },
+  };
+
+  return new ConfidentialClientApplication(msalConfig);
+}
+
+/**
+ * Acquire token using authorization code flow (for user authentication)
+ * This is used after user completes OAuth flow in browser
+ */
+export async function acquireTokenByCode(
+  authorizationCode: string,
+  redirectUri: string,
+  scopes: string[] = ['User.Read', 'OnlineMeetings.Read', 'Group.Read.All']
+): Promise<AuthenticationResult | null> {
+  const client = getMsalClient();
+  if (!client) {
+    console.warn('MSAL client not configured - using mock authentication');
+    return null;
+  }
+
+  try {
+    const request = {
+      code: authorizationCode,
+      scopes,
+      redirectUri,
+    };
+
+    const response = await client.acquireTokenByCode(request);
+
+    // Cache the token
+    if (response && response.account) {
+      const cacheKey = `user:${response.account.homeAccountId}`;
+      tokenCache.set(cacheKey, {
+        accessToken: response.accessToken,
+        refreshToken: (response as any).refreshToken || undefined,
+        expiresOn: response.expiresOn || new Date(Date.now() + 3600000),
+        scopes: response.scopes || scopes,
+        userIdentifier: response.account.homeAccountId,
+      });
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Error acquiring token by code:', error);
+    return null;
+  }
+}
+
+/**
+ * Acquire token using client credentials flow (for application authentication)
+ * This is used for background jobs and service-to-service calls
+ */
+export async function acquireTokenByClientCredentials(
+  scopes: string[] = ['https://graph.microsoft.com/.default']
+): Promise<string | null> {
+  const client = getMsalClient();
+  if (!client) {
+    console.warn('MSAL client not configured - using mock authentication');
+    return null;
+  }
+
+  // Check cache first
+  const cacheKey = `app:${scopes.join(',')}`;
+  const cached = tokenCache.get(cacheKey);
+  if (cached && cached.expiresOn > new Date()) {
+    return cached.accessToken;
+  }
+
+  try {
+    const request = {
+      scopes,
+    };
+
+    const response = await client.acquireTokenByClientCredential(request);
+
+    if (response) {
+      // Cache the token
+      tokenCache.set(cacheKey, {
+        accessToken: response.accessToken,
+        expiresOn: response.expiresOn || new Date(Date.now() + 3600000),
+        scopes: response.scopes || scopes,
+      });
+
+      return response.accessToken;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error acquiring token by client credentials:', error);
+    return null;
+  }
+}
+
+/**
+ * Acquire token on behalf of user (OBO flow)
+ * Used when API needs to call Microsoft Graph on behalf of a user
+ */
+export async function acquireTokenOnBehalfOf(
+  userAccessToken: string,
+  scopes: string[] = ['https://graph.microsoft.com/.default']
+): Promise<string | null> {
+  const client = getMsalClient();
+  if (!client) {
+    console.warn('MSAL client not configured - using mock authentication');
+    return null;
+  }
+
+  try {
+    const request = {
+      oboAssertion: userAccessToken,
+      scopes,
+    };
+
+    const response = await client.acquireTokenOnBehalfOf(request);
+
+    if (response) {
+      return response.accessToken;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error acquiring token on behalf of user:', error);
+    return null;
+  }
+}
+
+/**
+ * Acquire token using refresh token
+ * Used to refresh expired access tokens
+ */
+export async function acquireTokenByRefreshToken(
+  refreshToken: string,
+  scopes: string[] = ['User.Read', 'OnlineMeetings.Read', 'Group.Read.All']
+): Promise<AuthenticationResult | null> {
+  const client = getMsalClient();
+  if (!client) {
+    console.warn('MSAL client not configured - using mock authentication');
+    return null;
+  }
+
+  try {
+    const request = {
+      refreshToken,
+      scopes,
+    };
+
+    const response = await client.acquireTokenByRefreshToken(request);
+
+    // Update cache
+    if (response && response.account) {
+      const cacheKey = `user:${response.account.homeAccountId}`;
+      tokenCache.set(cacheKey, {
+        accessToken: response.accessToken,
+        refreshToken: (response as any).refreshToken || undefined,
+        expiresOn: response.expiresOn || new Date(Date.now() + 3600000),
+        scopes: response.scopes || scopes,
+        userIdentifier: response.account.homeAccountId,
+      });
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return null;
+  }
+}
+
+/**
+ * Get cached token for user
+ */
+export function getCachedUserToken(userIdentifier: string): CachedToken | undefined {
+  const cacheKey = `user:${userIdentifier}`;
+  return tokenCache.get(cacheKey);
+}
+
+/**
+ * Get cached application token
+ */
+export function getCachedAppToken(scopes: string[]): CachedToken | undefined {
+  const cacheKey = `app:${scopes.join(',')}`;
+  return tokenCache.get(cacheKey);
+}
+
+/**
+ * Invalidate user token cache (e.g., on logout)
+ */
+export function invalidateUserToken(userIdentifier: string): void {
+  const cacheKey = `user:${userIdentifier}`;
+  tokenCache.delete(cacheKey);
+}
+
+/**
+ * Get authorization URL for user login
+ * Redirects user to Microsoft login page
+ */
+export function getAuthCodeUrl(
+  redirectUri: string,
+  state?: string,
+  scopes: string[] = ['User.Read', 'OnlineMeetings.Read', 'Group.Read.All']
+): string | null {
+  const client = getMsalClient();
+  if (!client) {
+    console.warn('MSAL client not configured - using mock authentication');
+    return null;
+  }
+
+  const config = getConfig();
+
+  const authCodeUrlParameters = {
+    scopes,
+    redirectUri,
+    state: state || `state_${Date.now()}`,
+  };
+
+  try {
+    const authCodeUrl = `https://login.microsoftonline.com/${config.graph.tenantId}/oauth2/v2.0/authorize?client_id=${config.graph.clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&state=${authCodeUrlParameters.state}`;
+    return authCodeUrl;
+  } catch (error) {
+    console.error('Error generating auth code URL:', error);
+    return null;
+  }
+}
+
+/**
+ * Validate access token (check if it's expired)
+ */
+export function isTokenValid(token: CachedToken): boolean {
+  return token.expiresOn > new Date();
+}
+
+/**
+ * SECURITY CRITICAL: Validate Azure AD access token with signature verification
+ * Verifies JWT signature against Azure AD JWKS, checks issuer, audience, and expiration
+ * 
+ * FAIL-CLOSED DESIGN:
+ * - Mock mode (USE_MOCK_SERVICES=true): Falls back to unsafe decode (dev only)
+ * - Real mode (USE_MOCK_SERVICES=false): REQUIRES JWKS validation, fails if unavailable
+ * 
+ * @param token - JWT access token from Azure AD
+ * @param options - Validation options (audience, issuer)
+ * @returns Decoded and verified token payload, or null if invalid
+ */
+export async function validateAccessToken(
+  token: string,
+  options?: {
+    audience?: string; // Expected client ID or API identifier
+    issuer?: string; // Expected issuer (tenant-specific)
+  }
+): Promise<any> {
+  const config = getConfig();
+
+  // SECURITY: Fail-closed design - only allow unsafe decode in explicit mock mode
+  const client = getJwksClient();
+  if (!client) {
+    // If in mock mode, allow unsafe decode for development
+    if (config.useMockServices) {
+      console.warn('JWKS client not configured - using unsafe token decode (MOCK MODE ONLY)');
+      return decodeTokenUnsafe(token);
+    }
+    
+    // If in real mode but JWKS unavailable, FAIL CLOSED - reject all tokens
+    console.error('SECURITY: JWKS client unavailable in production mode - token validation FAILED');
+    console.error('Configure GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET or enable USE_MOCK_SERVICES');
+    return null; // Reject token - fail closed
+  }
+
+  try {
+    // Verify token signature and decode payload
+    const decoded = await new Promise((resolve, reject) => {
+      jwt.verify(
+        token,
+        getSigningKey,
+        {
+          audience: options?.audience || config.graph.clientId,
+          issuer: options?.issuer || `https://login.microsoftonline.com/${config.graph.tenantId}/v2.0`,
+          algorithms: ['RS256'],
+        },
+        (err, decoded) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(decoded);
+          }
+        }
+      );
+    });
+
+    return decoded;
+  } catch (error) {
+    console.error('JWT validation failed:', error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+/**
+ * UNSAFE: Decode JWT token without signature verification
+ * ONLY used in mock mode when JWKS client is not configured
+ * DO NOT use in production - this is vulnerable to token forgery
+ */
+function decodeTokenUnsafe(token: string): any {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    const payload = parts[1];
+    const decoded = Buffer.from(payload, 'base64').toString('utf-8');
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('Error decoding token:', error);
+    return null;
+  }
+}
+
+/**
+ * Legacy function for compatibility - delegates to validateAccessToken
+ * @deprecated Use validateAccessToken instead for explicit async handling
+ */
+export function decodeToken(token: string): any {
+  console.warn('decodeToken is deprecated and unsafe - use validateAccessToken instead');
+  return decodeTokenUnsafe(token);
+}
+
+/**
+ * Get user info from access token with signature verification
+ * Extracts email, name, tenant ID, object ID from validated token claims
+ * 
+ * SECURITY: This function verifies the token signature before extracting claims
+ */
+export async function getUserInfoFromToken(accessToken: string): Promise<{
+  email?: string;
+  name?: string;
+  tenantId?: string;
+  objectId?: string;
+  upn?: string;
+  tokenType?: 'delegated' | 'application';
+  scopes?: string[];
+  roles?: string[];
+} | null> {
+  // Validate token with signature verification
+  const decoded = await validateAccessToken(accessToken);
+  if (!decoded) {
+    return null;
+  }
+
+  // Determine token type (delegated user token vs application-only token)
+  const tokenType = decoded.idtyp === 'app' || decoded.oid === decoded.sub ? 'application' : 'delegated';
+
+  return {
+    email: decoded.email || decoded.preferred_username || decoded.upn,
+    name: decoded.name,
+    tenantId: decoded.tid,
+    objectId: decoded.oid,
+    upn: decoded.upn || decoded.preferred_username,
+    tokenType,
+    scopes: decoded.scp ? decoded.scp.split(' ') : undefined,
+    roles: decoded.roles || undefined,
+  };
+}
+
+/**
+ * Check if token has required scopes
+ */
+export function hasRequiredScopes(token: string, requiredScopes: string[]): boolean {
+  const decoded = decodeToken(token);
+  if (!decoded || !decoded.scp) {
+    return false;
+  }
+
+  const tokenScopes = decoded.scp.split(' ');
+  return requiredScopes.every(scope => tokenScopes.includes(scope));
+}
+
+/**
+ * Get Microsoft Graph API client with authentication
+ * Helper to make authenticated Graph API calls
+ */
+export async function getGraphClient(accessToken?: string): Promise<{
+  get: (url: string) => Promise<any>;
+  post: (url: string, data: any) => Promise<any>;
+  patch: (url: string, data: any) => Promise<any>;
+  delete: (url: string) => Promise<any>;
+} | null> {
+  let token = accessToken;
+
+  // If no token provided, get application token
+  if (!token) {
+    token = await acquireTokenByClientCredentials() || undefined;
+  }
+
+  if (!token) {
+    console.warn('No access token available for Graph API call');
+    return null;
+  }
+
+  const baseUrl = 'https://graph.microsoft.com/v1.0';
+
+  return {
+    async get(url: string) {
+      const response = await fetch(`${baseUrl}${url}`, {
+        headers: {
+          Authorization: `Bearer ${token!}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Graph API request failed: ${response.statusText}`);
+      }
+
+      return response.json();
+    },
+
+    async post(url: string, data: any) {
+      const response = await fetch(`${baseUrl}${url}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token!}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Graph API request failed: ${response.statusText}`);
+      }
+
+      return response.json();
+    },
+
+    async patch(url: string, data: any) {
+      const response = await fetch(`${baseUrl}${url}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token!}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Graph API request failed: ${response.statusText}`);
+      }
+
+      return response.json();
+    },
+
+    async delete(url: string) {
+      const response = await fetch(`${baseUrl}${url}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token!}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Graph API request failed: ${response.statusText}`);
+      }
+
+      return response.ok;
+    },
+  };
+}

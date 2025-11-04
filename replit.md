@@ -1,9 +1,34 @@
 # DOD Teams Meeting Minutes Management System
 
 ## Project Overview
-A fully autonomous Microsoft-native solution for capturing, processing, distributing, and archiving Microsoft Teams meeting minutes designed for DOD deployments. 
+A fully autonomous Microsoft-native solution for capturing, processing, distributing, and archiving Microsoft Teams meeting minutes designed for DOD deployments with 300,000 users.
 
 **IMPORTANT**: Meetings are scheduled and conducted in Microsoft Teams (NOT in this application). This app automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings/transcripts with AI, and distributes approved minutes to attendees.
+
+**CRITICAL DISTINCTION**: This app is independent of CapraGPT/DON-GPT (Navy's general AI tools). This provides automated workflow for meeting minutes, not general AI assistance. Both systems coexist and serve different purposes.
+
+## Testing Strategy
+
+**Commercial Testing First** (Current Phase):
+- ✅ Test with Microsoft 365 commercial tenant (25 users, free trial)
+- ✅ Validate all Microsoft integrations (Teams, Azure AD, Graph API, SharePoint)
+- ✅ Prove technology stack works
+- ✅ Debug in open environment
+- ✅ Cost: ~$15-20/month
+
+**Philosophy**: If it doesn't work commercially, it will definitely not work in DOD.
+
+**DOD Testing** (After commercial validation):
+- Deploy to DOD test environment (50-100 users)
+- Validate security compliance (FedRAMP, FISMA)
+- Test with real DOD Teams tenant
+- Use Azure OpenAI Gov Cloud
+
+**DOD Production** (Final deployment):
+- AWS Gov Cloud infrastructure
+- 300,000 users organization-wide
+- Teams app in sidebar for all users
+- Cost: ~$1,700/month
 
 ## Deployment Requirements
 - **Hosting**: AWS (commercial) or AWS Gov Cloud (for DOD production)
@@ -132,35 +157,89 @@ Connected via Replit SharePoint connector:
 ## Security & Compliance
 
 ### Access Control Model
-The system implements **multi-level access control** designed for 300,000+ DOD Teams users:
+The system implements **Azure AD group-based multi-level access control** designed for 300,000+ DOD Teams users:
 
-#### Role-Based Access
-- **Viewer** (default): Can view meetings they attended, subject to clearance level
-- **Approver**: Same as viewer + can approve/reject meeting minutes
-- **Auditor**: Can view ALL meetings (entire archive), subject to clearance level
-- **Admin**: Full system access + user management + configuration
+#### Access Control Architecture (UPDATED)
+**Primary Method**: Azure AD security groups (scalable, centralized, real-time)
+**Fallback**: Database cache for performance (synced on login)
 
-#### Clearance-Based Filtering
-All users (including admin and auditor) can only view meetings at or below their clearance level:
-- **UNCLASSIFIED**: Can view UNCLASSIFIED meetings only
-- **CONFIDENTIAL**: Can view UNCLASSIFIED and CONFIDENTIAL meetings
-- **SECRET**: Can view UNCLASSIFIED, CONFIDENTIAL, and SECRET meetings
-- **TOP_SECRET**: Can view all classification levels
+**Why Azure AD Groups?**
+- ✅ Centralized management (IT manages groups, app reads membership)
+- ✅ Scalable to 300K+ users (no per-user database updates)
+- ✅ Real-time access control (group changes = immediate access changes)
+- ✅ Audit trail via Azure AD logs
+- ✅ Automatic provisioning via dynamic groups
+- ✅ Integrates with existing DOD identity systems
 
-#### Attendee-Based Filtering
-- **Regular users (viewer/approver)**: Can ONLY see meetings they attended
-- **Auditors**: Can see ALL meetings within their clearance level (full archive access)
-- **Admins**: Can see ALL meetings within their clearance level
+#### Azure AD Security Groups
+
+**Clearance-Level Groups**:
+- `DOD-Clearance-UNCLASSIFIED`: Can view UNCLASSIFIED meetings
+- `DOD-Clearance-CONFIDENTIAL`: Can view UNCLASSIFIED + CONFIDENTIAL
+- `DOD-Clearance-SECRET`: Can view UNCLASSIFIED + CONFIDENTIAL + SECRET
+- `DOD-Clearance-TOP_SECRET`: Can view all classification levels
+
+**Role Groups**:
+- `DOD-Role-Viewer`: Default role, view meetings attended
+- `DOD-Role-Approver`: Can approve/reject meeting minutes
+- `DOD-Role-Auditor`: Can view ALL meetings (entire archive)
+- `DOD-Role-Admin`: Full system access + user management
+
+#### Access Control Logic
+
+**Regular Users (viewer/approver)**:
+1. User attends meeting → Added to attendees list
+2. User opens app → App checks Azure AD groups via Graph API
+3. User sees meetings WHERE:
+   - They attended the meeting (in attendees list)
+   - AND they're in required clearance group
+   - AND meeting classification ≤ user's highest clearance group
+
+**Auditors**:
+1. User in `DOD-Role-Auditor` group
+2. Can see ALL meetings in organization
+3. Still filtered by clearance level groups
+
+**Admins**:
+1. User in `DOD-Role-Admin` group
+2. Can see ALL meetings + manage users
+3. Still filtered by clearance level groups
+
+#### Real-Time Access Control Flow
+```
+User logs in via Teams SSO
+    ↓
+App calls Microsoft Graph API: GET /users/{userId}/memberOf
+    ↓
+Returns user's Azure AD groups:
+    ["DOD-Clearance-SECRET", "DOD-Role-Approver", ...]
+    ↓
+App caches groups in session (15-minute TTL)
+    ↓
+Every API call checks:
+    - Is user in required clearance group?
+    - Did user attend meeting (or is auditor/admin)?
+    - Is user's role allowed for this action?
+    ↓
+Allow or deny access
+```
+
+#### Hybrid Approach (Performance Optimization)
+1. **Primary**: Check Azure AD groups (authoritative source)
+2. **Cache**: Store group membership in session (15-min expiry)
+3. **Refresh**: Force refresh on sensitive operations
+4. **Fallback**: Database cache updated on login (for offline queries)
 
 #### Authentication
 - Microsoft Teams SSO via Azure AD
 - JWT token validation with Microsoft Graph API
-- Automatic user provisioning on first login (default: viewer role, UNCLASSIFIED clearance)
-- Admins must manually assign clearance levels and roles
+- Automatic user provisioning on first login
+- Default: viewer role, UNCLASSIFIED clearance (via group assignment)
+- IT manages all clearance/role assignments via Azure AD groups
 
 #### Search & Archive Access
-- Search results automatically filtered by user's access level
-- Auditors can search entire archive (subject to clearance)
+- Search results automatically filtered by user's Azure AD group membership
+- Auditors can search entire archive (subject to clearance groups)
 - Regular users only search meetings they attended
 - All access attempts logged for audit trail
 

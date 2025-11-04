@@ -8,6 +8,7 @@ import { requireWebhookAuth } from "./middleware/requireServiceAuth";
 import { documentExportService } from "./services/documentExport";
 import { emailDistributionService } from "./services/emailDistribution";
 import { accessControlService } from "./services/accessControl";
+import { registerWebhookRoutes, registerAdminWebhookRoutes } from "./routes/webhooks";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -21,10 +22,16 @@ export function registerRoutes(app: Express): Server {
     });
   });
 
+  // Register public webhook routes (Microsoft Graph callbacks - no auth)
+  registerWebhookRoutes(app);
+
   // Apply authentication middleware to all /api/* routes
   // In mock mode: Uses config/mockUsers.json
   // In real mode: Validates Azure AD JWT tokens from Teams SSO
   app.use("/api/*", authenticateUser);
+  
+  // Register admin webhook routes AFTER authentication middleware
+  registerAdminWebhookRoutes(app);
 
   // ========== MEETINGS API ==========
   

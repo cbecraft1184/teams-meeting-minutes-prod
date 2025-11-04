@@ -15,6 +15,14 @@ export const meetings = pgTable("meetings", {
   classificationLevel: text("classification_level").notNull().default("UNCLASSIFIED"), // UNCLASSIFIED, CONFIDENTIAL, SECRET
   recordingUrl: text("recording_url"),
   transcriptUrl: text("transcript_url"),
+  
+  // Microsoft Graph Integration
+  onlineMeetingId: text("online_meeting_id").unique(), // Teams online meeting ID from Graph API
+  organizerAadId: text("organizer_aad_id"), // Azure AD object ID of meeting organizer
+  teamsJoinLink: text("teams_join_link"), // Teams meeting join URL
+  callRecordId: text("call_record_id"), // Call record ID for post-meeting enrichment
+  graphSyncStatus: text("graph_sync_status").default("pending"), // pending, synced, enriched, failed
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -87,6 +95,33 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Graph Webhook Subscriptions schema
+export const graphWebhookSubscriptions = pgTable("graph_webhook_subscriptions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Microsoft Graph subscription details
+  subscriptionId: text("subscription_id").notNull().unique(), // Graph API subscription ID
+  resource: text("resource").notNull(), // Graph resource path (e.g., "/communications/onlineMeetings")
+  changeType: text("change_type").notNull(), // created, updated, deleted
+  notificationUrl: text("notification_url").notNull(), // Webhook callback URL
+  clientState: text("client_state").notNull(), // Secret for validation
+  
+  // Subscription lifecycle
+  expirationDateTime: timestamp("expiration_date_time").notNull(), // When subscription expires (max 3 days for onlineMeetings)
+  createdDateTime: timestamp("created_date_time").defaultNow().notNull(), // When subscription was created
+  lastRenewedAt: timestamp("last_renewed_at"), // Last successful renewal
+  
+  // Status tracking
+  status: text("status").notNull().default("active"), // active, expired, failed, disabled
+  lastFailureReason: text("last_failure_reason"), // Error message from last failure
+  failureCount: text("failure_count").default("0"), // Number of consecutive failures
+  
+  // Metadata
+  tenantId: text("tenant_id"), // Azure AD tenant (for multi-tenant scenarios)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
@@ -116,6 +151,12 @@ export const insertUserSchema = createInsertSchema(users).omit({
   lastLogin: true,
 });
 
+export const insertGraphWebhookSubscriptionSchema = createInsertSchema(graphWebhookSubscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -131,6 +172,9 @@ export type InsertMeetingTemplate = z.infer<typeof insertMeetingTemplateSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type GraphWebhookSubscription = typeof graphWebhookSubscriptions.$inferSelect;
+export type InsertGraphWebhookSubscription = z.infer<typeof insertGraphWebhookSubscriptionSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({

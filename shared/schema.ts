@@ -1,7 +1,86 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, pgEnum, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Postgres ENUMs for data integrity and type safety
+export const classificationLevelEnum = pgEnum("classification_level", [
+  "UNCLASSIFIED",
+  "CONFIDENTIAL",
+  "SECRET",
+  "TOP_SECRET"
+]);
+
+export const meetingStatusEnum = pgEnum("meeting_status", [
+  "scheduled",
+  "in_progress",
+  "completed",
+  "archived"
+]);
+
+export const graphSyncStatusEnum = pgEnum("graph_sync_status", [
+  "pending",
+  "synced",
+  "enriched",
+  "failed",
+  "archived"
+]);
+
+export const enrichmentStatusEnum = pgEnum("enrichment_status", [
+  "pending",
+  "enriching",
+  "enriched",
+  "failed"
+]);
+
+export const processingStatusEnum = pgEnum("processing_status", [
+  "pending",
+  "transcribing",
+  "generating",
+  "completed",
+  "failed"
+]);
+
+export const approvalStatusEnum = pgEnum("approval_status", [
+  "pending_review",
+  "approved",
+  "rejected",
+  "revision_requested"
+]);
+
+export const priorityEnum = pgEnum("priority", [
+  "high",
+  "medium",
+  "low"
+]);
+
+export const actionItemStatusEnum = pgEnum("action_item_status", [
+  "pending",
+  "in_progress",
+  "completed"
+]);
+
+export const userRoleEnum = pgEnum("user_role", [
+  "admin",
+  "approver",
+  "auditor",
+  "viewer"
+]);
+
+export const templateTypeEnum = pgEnum("template_type", [
+  "briefing",
+  "planning",
+  "status_review",
+  "emergency_response",
+  "custom"
+]);
+
+export const webhookStatusEnum = pgEnum("webhook_status", [
+  "active",
+  "expired",
+  "failed",
+  "disabled"
+]);
 
 // Meeting schema
 export const meetings = pgTable("meetings", {
@@ -11,8 +90,8 @@ export const meetings = pgTable("meetings", {
   scheduledAt: timestamp("scheduled_at").notNull(),
   duration: text("duration").notNull(), // e.g., "1h 30m"
   attendees: jsonb("attendees").notNull().$type<string[]>(),
-  status: text("status").notNull().default("scheduled"), // scheduled, in_progress, completed, archived
-  classificationLevel: text("classification_level").notNull().default("UNCLASSIFIED"), // UNCLASSIFIED, CONFIDENTIAL, SECRET
+  status: meetingStatusEnum("status").notNull().default("scheduled"),
+  classificationLevel: classificationLevelEnum("classification_level").notNull().default("UNCLASSIFIED"),
   recordingUrl: text("recording_url"),
   transcriptUrl: text("transcript_url"),
   
@@ -21,10 +100,10 @@ export const meetings = pgTable("meetings", {
   organizerAadId: text("organizer_aad_id"), // Azure AD object ID of meeting organizer
   teamsJoinLink: text("teams_join_link"), // Teams meeting join URL
   callRecordId: text("call_record_id"), // Call record ID for post-meeting enrichment
-  graphSyncStatus: text("graph_sync_status").default("pending"), // pending, synced, enriched, failed
+  graphSyncStatus: graphSyncStatusEnum("graph_sync_status").default("pending"),
   
   // Post-meeting enrichment tracking (callRecord, recordings, transcripts)
-  enrichmentStatus: text("enrichment_status").default("pending"), // pending, enriching, enriched, failed
+  enrichmentStatus: enrichmentStatusEnum("enrichment_status").default("pending"),
   enrichmentAttempts: integer("enrichment_attempts").default(0), // Number of enrichment attempts
   lastEnrichmentAt: timestamp("last_enrichment_at"), // Last enrichment attempt timestamp
   callRecordRetryAt: timestamp("call_record_retry_at"), // When to retry enrichment (exponential backoff)
@@ -40,8 +119,8 @@ export const meetingMinutes = pgTable("meeting_minutes", {
   keyDiscussions: jsonb("key_discussions").notNull().$type<string[]>(),
   decisions: jsonb("decisions").notNull().$type<string[]>(),
   attendeesPresent: jsonb("attendees_present").notNull().$type<string[]>(),
-  processingStatus: text("processing_status").notNull().default("pending"), // pending, transcribing, generating, completed, failed
-  approvalStatus: text("approval_status").notNull().default("pending_review"), // pending_review, approved, rejected, revision_requested
+  processingStatus: processingStatusEnum("processing_status").notNull().default("pending"),
+  approvalStatus: approvalStatusEnum("approval_status").notNull().default("pending_review"),
   approvedBy: text("approved_by"),
   approvedAt: timestamp("approved_at"),
   rejectionReason: text("rejection_reason"),
@@ -60,8 +139,8 @@ export const actionItems = pgTable("action_items", {
   task: text("task").notNull(),
   assignee: text("assignee").notNull(),
   dueDate: timestamp("due_date"),
-  priority: text("priority").notNull().default("medium"), // high, medium, low
-  status: text("status").notNull().default("pending"), // pending, in_progress, completed
+  priority: priorityEnum("priority").notNull().default("medium"),
+  status: actionItemStatusEnum("status").notNull().default("pending"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -70,12 +149,12 @@ export const meetingTemplates = pgTable("meeting_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   description: text("description"),
-  type: text("type").notNull(), // briefing, planning, status_review, emergency_response
+  type: templateTypeEnum("type").notNull(),
   defaultDuration: text("default_duration").notNull(), // e.g., "1h 30m"
-  defaultClassification: text("default_classification").notNull().default("UNCLASSIFIED"),
+  defaultClassification: classificationLevelEnum("default_classification").notNull().default("UNCLASSIFIED"),
   suggestedAttendees: jsonb("suggested_attendees").$type<string[]>(),
   agendaItems: jsonb("agenda_items").$type<string[]>(),
-  isSystem: text("is_system").notNull().default("false"), // true for default templates, false for custom
+  isSystem: boolean("is_system").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -84,8 +163,8 @@ export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   displayName: text("display_name").notNull(),
-  clearanceLevel: text("clearance_level").notNull().default("UNCLASSIFIED"), // UNCLASSIFIED, CONFIDENTIAL, SECRET, TOP_SECRET
-  role: text("role").notNull().default("viewer"), // admin, approver, auditor, viewer
+  clearanceLevel: classificationLevelEnum("clearance_level").notNull().default("UNCLASSIFIED"),
+  role: userRoleEnum("role").notNull().default("viewer"),
   department: text("department"),
   organizationalUnit: text("organizational_unit"),
   
@@ -118,9 +197,9 @@ export const graphWebhookSubscriptions = pgTable("graph_webhook_subscriptions", 
   lastRenewedAt: timestamp("last_renewed_at"), // Last successful renewal
   
   // Status tracking
-  status: text("status").notNull().default("active"), // active, expired, failed, disabled
+  status: webhookStatusEnum("status").notNull().default("active"),
   lastFailureReason: text("last_failure_reason"), // Error message from last failure
-  failureCount: text("failure_count").default("0"), // Number of consecutive failures
+  failureCount: integer("failure_count").default(0), // Number of consecutive failures
   
   // Metadata
   tenantId: text("tenant_id"), // Azure AD tenant (for multi-tenant scenarios)
@@ -136,8 +215,8 @@ export const userGroupCache = pgTable("user_group_cache", {
   groupNames: jsonb("group_names").notNull().$type<string[]>(), // Raw group display names
   
   // Normalized clearance level and role (extracted from groups)
-  clearanceLevel: text("clearance_level").notNull().default("UNCLASSIFIED"), // UNCLASSIFIED, CONFIDENTIAL, SECRET, TOP_SECRET
-  role: text("role").notNull().default("viewer"), // admin, approver, auditor, viewer
+  clearanceLevel: classificationLevelEnum("clearance_level").notNull().default("UNCLASSIFIED"),
+  role: userRoleEnum("role").notNull().default("viewer"),
   
   // TTL tracking (15-minute cache)
   fetchedAt: timestamp("fetched_at").defaultNow().notNull(), // When groups were fetched

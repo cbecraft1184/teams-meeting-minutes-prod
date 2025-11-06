@@ -123,8 +123,8 @@ async function authenticateWithMock(
         .values({
           email: mockUser.email,
           displayName: mockUser.displayName,
-          clearanceLevel: mockUser.clearanceLevel,
-          role: mockUser.role,
+          clearanceLevel: mockUser.clearanceLevel as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
+          role: mockUser.role as "admin" | "approver" | "auditor" | "viewer",
           department: mockUser.department,
           organizationalUnit: mockUser.organizationalUnit,
           azureAdId: mockUser.azureAdId,
@@ -377,15 +377,15 @@ async function validateAndLoadUser(
             await db.insert(userGroupCache).values({
               azureAdId: user.azureAdId,
               groupNames: freshGroups.groupNames,
-              clearanceLevel: freshGroups.clearanceLevel || 'UNCLASSIFIED',
-              role: freshGroups.role || 'viewer',
+              clearanceLevel: (freshGroups.clearanceLevel || 'UNCLASSIFIED') as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
+              role: (freshGroups.role || 'viewer') as "admin" | "approver" | "auditor" | "viewer",
               expiresAt: new Date(Date.now() + 15 * 60 * 1000)
             }).onConflictDoUpdate({
               target: userGroupCache.azureAdId,
               set: {
                 groupNames: freshGroups.groupNames,
-                clearanceLevel: freshGroups.clearanceLevel || 'UNCLASSIFIED',
-                role: freshGroups.role || 'viewer',
+                clearanceLevel: (freshGroups.clearanceLevel || 'UNCLASSIFIED') as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
+                role: (freshGroups.role || 'viewer') as "admin" | "approver" | "auditor" | "viewer",
                 fetchedAt: new Date(),
                 expiresAt: new Date(Date.now() + 15 * 60 * 1000)
               }

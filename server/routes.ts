@@ -44,10 +44,14 @@ export function registerRoutes(app: Express): Server {
 
       const allMeetings = await storage.getAllMeetings();
       
-      // Filter meetings based on user's access level
+      // Filter meetings based on user's access level (Azure AD groups or database fallback)
       const accessibleMeetings = accessControlService.filterMeetings(req.user, allMeetings);
       
-      console.log(`[ACCESS] User ${req.user.email} (${req.user.role}) viewing ${accessibleMeetings.length}/${allMeetings.length} meetings`);
+      // Log access with Azure AD group status
+      const permissions = accessControlService.getUserPermissions(req.user);
+      const authSource = permissions.azureAdGroupsActive ? "Azure AD groups" : "database fallback";
+      
+      console.log(`[ACCESS] User ${req.user.email} (${permissions.role}/${permissions.clearanceLevel}) viewing ${accessibleMeetings.length}/${allMeetings.length} meetings [${authSource}]`);
       
       res.json(accessibleMeetings);
     } catch (error: any) {
@@ -75,8 +79,9 @@ export function registerRoutes(app: Express): Server {
         return res.status(403).json({ error: "Access denied: Insufficient clearance or not an attendee" });
       }
 
-      // Log successful access
-      accessControlService.logAccessAttempt(req.user, meeting, true);
+      // Log successful access with Azure AD group status
+      const usingAzureAD = req.user.azureAdGroups ? "Azure AD groups" : "database fallback";
+      accessControlService.logAccessAttempt(req.user, meeting, true, `Granted access via ${usingAzureAD}`);
       
       res.json(meeting);
     } catch (error: any) {
@@ -417,7 +422,9 @@ export function registerRoutes(app: Express): Server {
         return res.status(403).json({ error: "Access denied: Cannot approve minutes for meetings you cannot access" });
       }
 
-      console.log(`[APPROVAL] User ${req.user.email} (${req.user.role}) approving minutes for meeting: ${meeting.title}`);
+      const permissions = accessControlService.getUserPermissions(req.user);
+      const authSource = permissions.azureAdGroupsActive ? "Azure AD groups" : "database fallback";
+      console.log(`[APPROVAL] User ${req.user.email} (${permissions.role}) approving minutes for meeting: ${meeting.title} [${authSource}]`);
 
       // Generate document attachments BEFORE marking as approved
       let docxBuffer: Buffer;
@@ -501,7 +508,9 @@ export function registerRoutes(app: Express): Server {
         return res.status(403).json({ error: "Access denied: Cannot reject minutes for meetings you cannot access" });
       }
 
-      console.log(`[ACCESS] User ${req.user.email} (${req.user.role}) rejecting minutes for meeting: ${meeting.title}`);
+      const permissions = accessControlService.getUserPermissions(req.user);
+      const authSource = permissions.azureAdGroupsActive ? "Azure AD groups" : "database fallback";
+      console.log(`[REJECT] User ${req.user.email} (${permissions.role}) rejecting minutes for meeting: ${meeting.title} [${authSource}]`);
 
       const updatedMinutes = await storage.updateMinutes(req.params.id, {
         approvalStatus: "rejected",

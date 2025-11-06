@@ -228,11 +228,21 @@ Every API call checks:
 Allow or deny access
 ```
 
-#### Hybrid Approach (Performance Optimization)
-1. **Primary**: Check Azure AD groups (authoritative source)
-2. **Cache**: Store group membership in session (15-min expiry)
-3. **Refresh**: Force refresh on sensitive operations
-4. **Fallback**: Database cache updated on login (for offline queries)
+#### Security Model: Fail-Closed with Performance Caching
+
+**Production (Fail-Closed)**:
+1. **Primary**: Check Azure AD groups via Microsoft Graph API (authoritative source)
+2. **Session Cache**: Store group membership in session (15-min TTL for performance)
+3. **Database Cache**: Use cached Azure AD groups if session expired but DB cache valid (15-min TTL)
+4. **Fail-Closed**: If Azure AD unreachable AND no valid cache → DENY ACCESS (HTTP 503)
+   - No fallback to database clearance/role in production
+   - Only cached Azure AD data accepted (within TTL)
+   - Ensures security decisions always based on recent Azure AD state
+
+**Development (Mock Mode)**:
+- Uses config/mockUsers.json with database storage
+- Simulates Azure AD group membership
+- Allows testing without Microsoft credentials
 
 #### Authentication
 - Microsoft Teams SSO via Azure AD

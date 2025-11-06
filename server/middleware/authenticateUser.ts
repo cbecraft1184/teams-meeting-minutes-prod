@@ -395,12 +395,28 @@ async function validateAndLoadUser(
             if (session) {
               session.azureAdGroups = azureAdGroups;
             }
+          } else {
+            // FAIL-CLOSED: Azure AD fetch failed and no valid cache - deny access
+            console.error(`🔒 [SECURITY] Azure AD groups unavailable for ${user.email} - DENYING ACCESS (fail-closed)`);
+            res.status(403).json({ 
+              message: 'Access denied: Unable to verify security clearance. Please try again later.',
+              code: 'AZURE_AD_UNAVAILABLE'
+            });
+            return;
           }
         }
       }
     } catch (error) {
       console.error(`❌ [Auth] Failed to fetch Azure AD groups for ${user.email}:`, error);
-      // Don't fail auth - fall back to database clearance/role
+      
+      // FAIL-CLOSED: If Azure AD is completely unreachable, deny access
+      // Database clearance/role are NOT authoritative in production - only Azure AD groups are
+      console.error(`🔒 [SECURITY] Azure AD unreachable for ${user.email} - DENYING ACCESS (fail-closed)`);
+      res.status(503).json({ 
+        message: 'Service temporarily unavailable: Unable to verify security clearance. Please try again later.',
+        code: 'AZURE_AD_SERVICE_UNAVAILABLE'
+      });
+      return;
     }
   }
 

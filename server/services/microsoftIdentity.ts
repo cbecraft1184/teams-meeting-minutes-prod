@@ -519,7 +519,15 @@ export async function getGraphClient(accessToken?: string): Promise<{
       });
 
       if (!response.ok) {
-        throw new Error(`Graph API request failed: ${response.statusText}`);
+        const error = new Error(`Graph API request failed: ${response.statusText}`) as any;
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
+      }
+
+      // Handle 204 No Content (no JSON body)
+      if (response.status === 204) {
+        return null;
       }
 
       return response.json();
@@ -536,7 +544,15 @@ export async function getGraphClient(accessToken?: string): Promise<{
       });
 
       if (!response.ok) {
-        throw new Error(`Graph API request failed: ${response.statusText}`);
+        const error = new Error(`Graph API request failed: ${response.statusText}`) as any;
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
+      }
+
+      // Handle 204 No Content (no JSON body)
+      if (response.status === 204) {
+        return null;
       }
 
       return response.json();
@@ -553,7 +569,15 @@ export async function getGraphClient(accessToken?: string): Promise<{
       });
 
       if (!response.ok) {
-        throw new Error(`Graph API request failed: ${response.statusText}`);
+        const error = new Error(`Graph API request failed: ${response.statusText}`) as any;
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
+      }
+
+      // Handle 204 No Content (no JSON body)
+      if (response.status === 204) {
+        return null;
       }
 
       return response.json();
@@ -568,7 +592,10 @@ export async function getGraphClient(accessToken?: string): Promise<{
       });
 
       if (!response.ok) {
-        throw new Error(`Graph API request failed: ${response.statusText}`);
+        const error = new Error(`Graph API request failed: ${response.statusText}`) as any;
+        error.status = response.status;
+        error.statusText = response.statusText;
+        throw error;
       }
 
       return response.ok;

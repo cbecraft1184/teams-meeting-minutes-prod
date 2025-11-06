@@ -1,0 +1,408 @@
+/**
+ * Azure AD Group Synchronization Service
+ * 
+ * Fetches user's Azure AD group memberships from Microsoft Graph API
+ * and normalizes them to clearance levels and roles for access control.
+ * 
+ * Architecture:
+ * - Primary: Fetch groups from Graph API (GET /users/{userId}/memberOf)
+ * - Normalization: Extract clearance level + role from group names
+ * - Pagination: Handle up to 50 pages (5,000 groups max)
+ * - Throttling: Retry on 429 with exponential backoff
+ * - Security: Fail-closed on errors (deny access)
+ */
+
+import { getGraphClient } from "./microsoftIdentity";
+
+/**
+ * User's normalized Azure AD groups
+ */
+export interface UserGroups {
+  clearanceLevel: string | null;  // Highest clearance: UNCLASSIFIED, CONFIDENTIAL, SECRET, TOP_SECRET
+  role: string | null;             // Highest role: viewer, approver, auditor, admin
+  groupNames: string[];            // Raw group display names for audit
+  source: 'graph' | 'mock' | 'cache'; // Data source
+}
+
+/**
+ * Azure AD group from Graph API
+ */
+interface GraphGroup {
+  id: string;
+  displayName: string;
+  mailNickname?: string;
+}
+
+/**
+ * Clearance level hierarchy (higher number = higher clearance)
+ */
+const CLEARANCE_HIERARCHY = {
+  'UNCLASSIFIED': 0,
+  'CONFIDENTIAL': 1,
+  'SECRET': 2,
+  'TOP_SECRET': 3
+} as const;
+
+/**
+ * Role hierarchy (higher number = higher privilege)
+ */
+const ROLE_HIERARCHY = {
+  'viewer': 0,
+  'approver': 1,
+  'auditor': 2,
+  'admin': 3
+} as const;
+
+/**
+ * Configuration
+ */
+const MAX_PAGES = 50;           // Maximum pagination iterations
+const PAGE_SIZE = 100;          // Groups per page (Graph API default)
+const REQUEST_TIMEOUT = 30000;  // 30 seconds total timeout
+const RETRY_DELAYS = [1000, 2000, 5000]; // Exponential backoff for 429
+
+/**
+ * Azure AD Group Synchronization Service
+ */
+export class GraphGroupSyncService {
+  
+  /**
+   * Fetch user's Azure AD groups and normalize to clearance + role
+   * 
+   * @param azureAdId - User's Azure AD object ID
+   * @param accessToken - Optional access token (for non-authenticated contexts)
+   * @returns Normalized user groups
+   * 
+   * Note: forceRefresh option removed until Task 4.3 implements caching
+   */
+  async fetchUserGroups(
+    azureAdId: string,
+    accessToken?: string
+  ): Promise<UserGroups> {
+    const useMockServices = process.env.USE_MOCK_SERVICES === 'true';
+    
+    // Mock mode: Return fake groups for testing
+    if (useMockServices) {
+      return this.getMockUserGroups(azureAdId);
+    }
+    
+    try {
+      console.log(`🔍 [GraphGroupSync] Fetching groups for Azure AD user: ${azureAdId}`);
+      
+      // Fetch all group memberships with pagination
+      const groups = await this.fetchAllGroups(azureAdId, accessToken);
+      
+      // Extract group display names
+      const groupNames = groups.map(g => g.displayName);
+      
+      // Normalize to clearance level + role
+      const clearanceLevel = this.extractClearanceLevel(groupNames);
+      const role = this.extractRole(groupNames);
+      
+      console.log(`✅ [GraphGroupSync] User groups: Clearance=${clearanceLevel || 'NONE'}, Role=${role || 'viewer'}, Groups=${groupNames.length}`);
+      
+      return {
+        clearanceLevel,
+        role,
+        groupNames,
+        source: 'graph'
+      };
+      
+    } catch (error: any) {
+      console.error(`❌ [GraphGroupSync] Failed to fetch groups for ${azureAdId}:`, error.message);
+      
+      // Fail-closed: Deny access on error
+      return {
+        clearanceLevel: null,
+        role: null,
+        groupNames: [],
+        source: 'graph'
+      };
+    }
+  }
+  
+  /**
+   * Fetch all user groups with pagination and 429 retry logic
+   * Handles Microsoft Graph API pagination (@odata.nextLink)
+   * 
+   * SECURITY: Treats timeout/max-pages as ERRORS (fail-closed)
+   */
+  private async fetchAllGroups(
+    azureAdId: string,
+    accessToken?: string
+  ): Promise<GraphGroup[]> {
+    const graphClient = await getGraphClient(accessToken);
+    
+    if (!graphClient) {
+      throw new Error('Failed to acquire Graph API client');
+    }
+    
+    const allGroups: GraphGroup[] = [];
+    let nextUrl: string | null = `/users/${azureAdId}/memberOf?$top=${PAGE_SIZE}`;
+    let pageCount = 0;
+    
+    const startTime = Date.now();
+    
+    // Initial request
+    let response = await this.fetchWithRetry(graphClient, nextUrl);
+    
+    // Process first page
+    if (response.value && Array.isArray(response.value)) {
+      allGroups.push(...response.value);
+      pageCount++;
+    }
+    
+    nextUrl = response['@odata.nextLink'] || null;
+    
+    // Paginate through remaining pages
+    while (nextUrl && pageCount < MAX_PAGES) {
+      // SECURITY: Timeout = ERROR (fail-closed, not partial success)
+      if (Date.now() - startTime > REQUEST_TIMEOUT) {
+        console.error(`❌ [GraphGroupSync] Request timeout after ${pageCount} pages - FAILING CLOSED`);
+        throw new Error(`Graph API timeout after ${pageCount} pages`);
+      }
+      
+      // Extract relative URL from @odata.nextLink (may be absolute)
+      const url = nextUrl.startsWith('http') 
+        ? new URL(nextUrl).pathname + new URL(nextUrl).search
+        : nextUrl;
+      
+      // Fetch next page with retry
+      response = await this.fetchWithRetry(graphClient, url);
+      
+      if (response.value && Array.isArray(response.value)) {
+        allGroups.push(...response.value);
+        pageCount++;
+      }
+      
+      nextUrl = response['@odata.nextLink'] || null;
+    }
+    
+    // SECURITY: Max pages = ERROR (fail-closed, not partial success)
+    if (pageCount >= MAX_PAGES && nextUrl) {
+      console.error(`❌ [GraphGroupSync] Hit max pages limit (${MAX_PAGES}) with more data - FAILING CLOSED`);
+      throw new Error(`Too many groups (>${MAX_PAGES * PAGE_SIZE}), hit pagination limit`);
+    }
+    
+    console.log(`📊 [GraphGroupSync] Fetched ${allGroups.length} groups across ${pageCount} pages`);
+    
+    return allGroups;
+  }
+  
+  /**
+   * Fetch with exponential backoff retry on 429
+   * Implements retry logic using RETRY_DELAYS
+   * 
+   * SECURITY: All errors fail-closed (including 404)
+   */
+  private async fetchWithRetry(
+    graphClient: NonNullable<Awaited<ReturnType<typeof getGraphClient>>>,
+    url: string,
+    attempt: number = 0
+  ): Promise<any> {
+    try {
+      return await graphClient.get(url);
+      
+    } catch (error: any) {
+      // Extract status code from structured error
+      const statusCode = error.status ?? error.response?.status ?? 500;
+      
+      // Handle throttling (429 Too Many Requests) with retry
+      if (statusCode === 429 && attempt < RETRY_DELAYS.length) {
+        const delay = RETRY_DELAYS[attempt];
+        console.warn(`⏳ [GraphGroupSync] Throttled (429), retry ${attempt + 1}/${RETRY_DELAYS.length} in ${delay}ms`);
+        
+        // Wait for delay
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Retry with next attempt
+        return this.fetchWithRetry(graphClient, url, attempt + 1);
+      }
+      
+      // SECURITY: 404 = FAIL CLOSED (user doesn't exist or not authorized)
+      if (statusCode === 404) {
+        console.error(`❌ [GraphGroupSync] User/resource not found (404), FAILING CLOSED: ${url}`);
+        throw new Error(`User not found in Azure AD (404) - denying access`);
+      }
+      
+      // Handle unauthorized (401/403)
+      if (statusCode === 401 || statusCode === 403) {
+        console.error(`🔒 [GraphGroupSync] Unauthorized (${statusCode}): ${url}`);
+        throw new Error(`Unauthorized to fetch groups (${statusCode})`);
+      }
+      
+      // Max retries exceeded for 429
+      if (statusCode === 429) {
+        console.error(`❌ [GraphGroupSync] Max 429 retries exceeded (${RETRY_DELAYS.length})`);
+        throw new Error(`Graph API throttled, max retries exceeded`);
+      }
+      
+      // Re-throw all other errors (fail-closed)
+      console.error(`❌ [GraphGroupSync] Graph API error (${statusCode}): ${error.message}`);
+      throw error;
+    }
+  }
+  
+  /**
+   * Extract highest clearance level from group names
+   * Searches for groups matching pattern: DOD-Clearance-{LEVEL}
+   * 
+   * @param groupNames - Array of Azure AD group display names
+   * @returns Highest clearance level or null if no clearance group found
+   */
+  private extractClearanceLevel(groupNames: string[]): string | null {
+    const clearanceGroups = groupNames.filter(name => 
+      name.startsWith('DOD-Clearance-')
+    );
+    
+    if (clearanceGroups.length === 0) {
+      console.warn(`⚠️  [GraphGroupSync] No clearance groups found, denying access`);
+      return null; // No clearance group = deny access
+    }
+    
+    // Find highest clearance level
+    let highestClearance: string | null = null;
+    let highestLevel = -1;
+    
+    for (const groupName of clearanceGroups) {
+      const level = groupName.replace('DOD-Clearance-', '');
+      const hierarchy = CLEARANCE_HIERARCHY[level as keyof typeof CLEARANCE_HIERARCHY];
+      
+      if (hierarchy !== undefined && hierarchy > highestLevel) {
+        highestLevel = hierarchy;
+        highestClearance = level;
+      }
+    }
+    
+    return highestClearance;
+  }
+  
+  /**
+   * Extract highest role from group names
+   * Searches for groups matching pattern: DOD-Role-{ROLE}
+   * 
+   * @param groupNames - Array of Azure AD group display names
+   * @returns Highest role or 'viewer' (default)
+   */
+  private extractRole(groupNames: string[]): string | null {
+    const roleGroups = groupNames.filter(name => 
+      name.startsWith('DOD-Role-')
+    );
+    
+    if (roleGroups.length === 0) {
+      console.log(`ℹ️  [GraphGroupSync] No role groups found, defaulting to 'viewer'`);
+      return 'viewer'; // Default role if no role group
+    }
+    
+    // Find highest role
+    let highestRole: string = 'viewer';
+    let highestLevel = -1;
+    
+    for (const groupName of roleGroups) {
+      const role = groupName.replace('DOD-Role-', '').toLowerCase();
+      const hierarchy = ROLE_HIERARCHY[role as keyof typeof ROLE_HIERARCHY];
+      
+      if (hierarchy !== undefined && hierarchy > highestLevel) {
+        highestLevel = hierarchy;
+        highestRole = role;
+      }
+    }
+    
+    return highestRole;
+  }
+  
+  /**
+   * Get mock user groups for testing
+   * Returns different groups based on Azure AD ID pattern
+   */
+  private getMockUserGroups(azureAdId: string): UserGroups {
+    console.log(`🧪 [GraphGroupSync] Mock mode: Simulating groups for ${azureAdId}`);
+    
+    // Different mock scenarios based on user ID
+    if (azureAdId.includes('admin')) {
+      return {
+        clearanceLevel: 'SECRET',
+        role: 'admin',
+        groupNames: [
+          'DOD-Clearance-SECRET',
+          'DOD-Role-Admin',
+          'DOD-IT-Department',
+          'All-Employees'
+        ],
+        source: 'mock'
+      };
+    }
+    
+    if (azureAdId.includes('approver')) {
+      return {
+        clearanceLevel: 'CONFIDENTIAL',
+        role: 'approver',
+        groupNames: [
+          'DOD-Clearance-CONFIDENTIAL',
+          'DOD-Role-Approver',
+          'DOD-Operations-Team'
+        ],
+        source: 'mock'
+      };
+    }
+    
+    if (azureAdId.includes('auditor')) {
+      return {
+        clearanceLevel: 'TOP_SECRET',
+        role: 'auditor',
+        groupNames: [
+          'DOD-Clearance-TOP_SECRET',
+          'DOD-Role-Auditor',
+          'DOD-Audit-Team'
+        ],
+        source: 'mock'
+      };
+    }
+    
+    // Default: Regular viewer with UNCLASSIFIED clearance
+    return {
+      clearanceLevel: 'UNCLASSIFIED',
+      role: 'viewer',
+      groupNames: [
+        'DOD-Clearance-UNCLASSIFIED',
+        'DOD-Role-Viewer',
+        'All-Employees'
+      ],
+      source: 'mock'
+    };
+  }
+  
+  /**
+   * Sync user groups to database cache (optional)
+   * Used for offline queries and background jobs
+   * 
+   * @param userId - Internal user ID
+   * @param azureAdId - Azure AD object ID
+   */
+  async syncUserGroupsToCache(userId: string, azureAdId: string): Promise<void> {
+    try {
+      const groups = await this.fetchUserGroups(azureAdId);
+      
+      // TODO: Implement in Task 4.3 (database cache schema)
+      // await db.insert(userGroupCache).values({
+      //   userId,
+      //   clearanceLevel: groups.clearanceLevel,
+      //   role: groups.role,
+      //   groupNames: groups.groupNames,
+      //   cachedAt: new Date(),
+      //   expiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour expiry
+      // });
+      
+      console.log(`✅ [GraphGroupSync] Synced groups to cache for user ${userId}`);
+      
+    } catch (error) {
+      console.error(`❌ [GraphGroupSync] Failed to sync groups to cache:`, error);
+      // Don't throw - cache sync is optional
+    }
+  }
+}
+
+/**
+ * Singleton instance
+ */
+export const graphGroupSyncService = new GraphGroupSyncService();

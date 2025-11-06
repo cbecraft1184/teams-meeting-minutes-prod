@@ -63,9 +63,15 @@ export async function uploadToSharePoint(
 ): Promise<string> {
   const client = await getUncachableSharePointClient();
   
-  // Extract site and library from environment or use defaults
-  const siteUrl = process.env.SHAREPOINT_SITE_URL || '';
-  const libraryName = process.env.SHAREPOINT_LIBRARY_NAME || 'Meeting Minutes';
+  // Extract site and library from environment
+  // SHAREPOINT_SITE_URL should be the full site URL (e.g., https://yourorg.sharepoint.com/sites/meetings)
+  // SHAREPOINT_LIBRARY should be the document library name (e.g., "Meeting Minutes" or "Documents")
+  const siteUrl = process.env.SHAREPOINT_SITE_URL;
+  const libraryName = process.env.SHAREPOINT_LIBRARY || 'Documents';
+  
+  if (!siteUrl) {
+    throw new Error('SHAREPOINT_SITE_URL environment variable not configured');
+  }
   
   // Create folder structure: YYYY/MM-Month/Classification
   const year = metadata.meetingDate.getFullYear();
@@ -74,15 +80,39 @@ export async function uploadToSharePoint(
   const folderPath = `${year}/${month}-${monthName}/${metadata.classificationLevel}`;
   
   try {
-    // Upload file
-    const uploadPath = `/sites/${siteUrl}/Shared Documents/${libraryName}/${folderPath}/${fileName}`;
+    // Parse site URL to get host and path
+    // Example: https://contoso.sharepoint.com/sites/meetings
+    const siteUrlObj = new URL(siteUrl);
+    const hostName = siteUrlObj.hostname; // contoso.sharepoint.com
+    const sitePath = siteUrlObj.pathname.replace(/^\//, ''); // sites/meetings
     
-    await client.api(uploadPath)
+    // Step 1: Get site ID
+    // GET /sites/{hostname}:/{server-relative-path}
+    const siteResponse = await client.api(`/sites/${hostName}:/${sitePath}`).get();
+    const siteId = siteResponse.id;
+    
+    // Step 2: Get drive ID for the document library
+    // GET /sites/{site-id}/drives
+    const drivesResponse = await client.api(`/sites/${siteId}/drives`).get();
+    const drive = drivesResponse.value.find((d: any) => d.name === libraryName);
+    
+    if (!drive) {
+      throw new Error(`Document library "${libraryName}" not found. Available libraries: ${drivesResponse.value.map((d: any) => d.name).join(', ')}`);
+    }
+    
+    const driveId = drive.id;
+    
+    // Step 3: Upload file using correct Graph API format
+    // PUT /drives/{drive-id}/root:/{folder-path}/{filename}:/content
+    const uploadPath = `/drives/${driveId}/root:/${folderPath}/${fileName}:/content`;
+    
+    const uploadResponse = await client.api(uploadPath)
       .put(fileContent);
     
-    // Set metadata
-    await client.api(`${uploadPath}:/listItem`)
-      .update({
+    // Step 4: Set metadata on the uploaded item
+    const itemId = uploadResponse.id;
+    await client.api(`/drives/${driveId}/items/${itemId}/listItem`)
+      .patch({
         fields: {
           Classification: metadata.classificationLevel,
           MeetingDate: metadata.meetingDate.toISOString(),
@@ -91,7 +121,7 @@ export async function uploadToSharePoint(
         }
       });
     
-    return uploadPath;
+    return uploadResponse.webUrl;
   } catch (error: any) {
     console.error('SharePoint upload error:', error);
     throw new Error(`Failed to upload to SharePoint: ${error.message}`);

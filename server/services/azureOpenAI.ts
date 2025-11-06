@@ -101,7 +101,7 @@ Output JSON format:
         if (usingAzure) {
           createParams.max_tokens = 8192;
         } else {
-          createParams.model = "gpt-5";
+          createParams.model = "gpt-4o";
           createParams.max_completion_tokens = 8192;
         }
 
@@ -178,7 +178,7 @@ Output as JSON array:
         if (usingAzure) {
           createParams.max_tokens = 4096;
         } else {
-          createParams.model = "gpt-5";
+          createParams.model = "gpt-4o";
           createParams.max_completion_tokens = 4096;
         }
 

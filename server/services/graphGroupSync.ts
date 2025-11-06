@@ -366,13 +366,13 @@ export class GraphGroupSyncService {
       };
     }
     
-    // Default: Regular viewer with UNCLASSIFIED clearance
+    // Default: Regular approver with UNCLASSIFIED clearance (for testing approval workflow)
     return {
       clearanceLevel: 'UNCLASSIFIED',
-      role: 'viewer',
+      role: 'approver',
       groupNames: [
         'DOD-Clearance-UNCLASSIFIED',
-        'DOD-Role-Viewer',
+        'DOD-Role-Approver',
         'All-Employees'
       ],
       source: 'mock'

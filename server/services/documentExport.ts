@@ -10,7 +10,9 @@ import {
   TableCell,
   WidthType,
   VerticalAlign,
-  Packer
+  Packer,
+  Header,
+  Footer
 } from "docx";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 import type { MeetingWithMinutes } from "@shared/schema";
@@ -60,33 +62,37 @@ export class DocumentExportService {
       sections: [{
         properties: {},
         headers: {
-          default: new Paragraph({
-            text: classification.label,
-            alignment: AlignmentType.CENTER,
-            border: {
-              bottom: {
-                color: "000000",
-                space: 1,
-                style: BorderStyle.SINGLE,
-                size: 6,
+          default: new Header({
+            children: [new Paragraph({
+              children: [new TextRun(classification.label)],
+              alignment: AlignmentType.CENTER,
+              border: {
+                bottom: {
+                  color: "000000",
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
               },
-            },
-            spacing: { after: 200 },
+              spacing: { after: 200 },
+            })],
           }),
         },
         footers: {
-          default: new Paragraph({
-            text: classification.label,
-            alignment: AlignmentType.CENTER,
-            border: {
-              top: {
-                color: "000000",
-                space: 1,
-                style: BorderStyle.SINGLE,
-                size: 6,
+          default: new Footer({
+            children: [new Paragraph({
+              children: [new TextRun(classification.label)],
+              alignment: AlignmentType.CENTER,
+              border: {
+                top: {
+                  color: "000000",
+                  space: 1,
+                  style: BorderStyle.SINGLE,
+                  size: 6,
+                },
               },
-            },
-            spacing: { before: 200 },
+              spacing: { before: 200 },
+            })],
           }),
         },
         children: [
@@ -105,7 +111,9 @@ export class DocumentExportService {
               new TableRow({
                 children: [
                   new TableCell({
-                    children: [new Paragraph({ text: "Meeting Title:", bold: true })],
+                    children: [new Paragraph({ 
+                      children: [new TextRun({ text: "Meeting Title:", bold: true })]
+                    })],
                     width: { size: 30, type: WidthType.PERCENTAGE },
                   }),
                   new TableCell({
@@ -117,7 +125,9 @@ export class DocumentExportService {
               new TableRow({
                 children: [
                   new TableCell({
-                    children: [new Paragraph({ text: "Date/Time:", bold: true })],
+                    children: [new Paragraph({
+                      children: [new TextRun({ text: "Date/Time:", bold: true })]
+                    })],
                   }),
                   new TableCell({
                     children: [new Paragraph({ 
@@ -129,7 +139,9 @@ export class DocumentExportService {
               new TableRow({
                 children: [
                   new TableCell({
-                    children: [new Paragraph({ text: "Duration:", bold: true })],
+                    children: [new Paragraph({
+                      children: [new TextRun({ text: "Duration:", bold: true })]
+                    })],
                   }),
                   new TableCell({
                     children: [new Paragraph({ text: meeting.duration })],
@@ -139,7 +151,9 @@ export class DocumentExportService {
               new TableRow({
                 children: [
                   new TableCell({
-                    children: [new Paragraph({ text: "Classification:", bold: true })],
+                    children: [new Paragraph({
+                      children: [new TextRun({ text: "Classification:", bold: true })]
+                    })],
                   }),
                   new TableCell({
                     children: [new Paragraph({ text: meeting.classificationLevel })],

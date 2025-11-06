@@ -387,6 +387,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Approve minutes (requires approver or admin role)
+  // NEW: Uses transactional orchestrator with automatic retry
   app.post("/api/minutes/:id/approve", async (req, res) => {
     try {
       if (!req.user) {
@@ -412,7 +413,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Minutes not found" });
       }
 
-      // Get full meeting details for email distribution
+      // Get full meeting details
       const meeting = await storage.getMeeting(minutes.meetingId);
       if (!meeting || !meeting.minutes) {
         return res.status(404).json({ error: "Meeting or minutes not found" });
@@ -428,74 +429,33 @@ export function registerRoutes(app: Express): Server {
       const authSource = permissions.azureAdGroupsActive ? "Azure AD groups" : "database fallback";
       console.log(`[APPROVAL] User ${req.user.email} (${permissions.role}) approving minutes for meeting: ${meeting.title} [${authSource}]`);
 
-      // Generate document attachments BEFORE marking as approved
-      let docxBuffer: Buffer;
-      let pdfBuffer: Buffer;
-      try {
-        docxBuffer = await documentExportService.generateDOCX(meeting);
-        pdfBuffer = await documentExportService.generatePDF(meeting);
-      } catch (error: any) {
-        console.error("Error generating documents for approval:", error);
-        return res.status(500).json({ error: "Failed to generate documents for distribution" });
-      }
-
-      // Distribute via email BEFORE marking as approved
-      try {
-        await emailDistributionService.distributeMinutes(meeting, [
-          {
-            filename: `meeting-minutes-${meeting.id}.docx`,
-            content: docxBuffer,
-            contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          },
-          {
-            filename: `meeting-minutes-${meeting.id}.pdf`,
-            content: pdfBuffer,
-            contentType: "application/pdf"
-          }
-        ]);
-        console.log(`✅ Email distribution complete`);
-      } catch (error: any) {
-        console.error("Error distributing minutes:", error);
-        return res.status(500).json({ error: "Failed to distribute minutes via email" });
-      }
-
-      // Archive to SharePoint BEFORE marking as approved
-      let sharepointUrl: string | null = null;
-      try {
-        console.log(`📤 [Approval] Uploading to SharePoint...`);
-        sharepointUrl = await uploadToSharePoint(
-          `meeting-minutes-${meeting.id}.docx`,
-          docxBuffer,
-          {
-            classificationLevel: meeting.classificationLevel,
-            meetingDate: new Date(meeting.scheduledAt),
-            attendeeCount: meeting.attendees.length,
-            meetingId: meeting.id
-          }
-        );
-        console.log(`✅ SharePoint archival complete: ${sharepointUrl}`);
-      } catch (error: any) {
-        console.error("⚠️  SharePoint archival failed (non-fatal):", error);
-        // Don't fail approval if SharePoint fails - just log it
-        sharepointUrl = null;
-      }
-
-      // Only mark as approved AFTER successful document generation and distribution
+      // TRANSACTIONAL APPROVAL: Mark as approved FIRST, then enqueue email/SharePoint jobs
+      // This ensures approval succeeds even if email/SharePoint fail (they'll retry automatically)
       const updatedMinutes = await storage.updateMinutes(req.params.id, {
         approvalStatus: "approved",
         approvedBy,
         approvedAt: new Date(),
-        sharepointUrl: sharepointUrl || undefined
       });
 
-      // Update meeting status to archived
-      await storage.updateMeeting(meeting.id, {
-        status: "archived",
-        graphSyncStatus: "archived"
+      // Enqueue email and SharePoint jobs (with automatic retry via durable queue)
+      const { triggerApprovalWorkflow } = await import("./services/meetingOrchestrator");
+      const { emailJobId, sharepointJobId } = await triggerApprovalWorkflow({
+        meetingId: meeting.id,
+        minutesId: req.params.id,
       });
 
-      console.log(`✅ Minutes ${req.params.id} successfully approved, distributed to ${meeting.attendees.length} attendees, and archived`);
-      res.json(updatedMinutes);
+      console.log(`✅ Minutes ${req.params.id} approved by ${approvedBy}`);
+      console.log(`📧 Email job enqueued: ${emailJobId}`);
+      console.log(`📤 SharePoint job enqueued: ${sharepointJobId}`);
+
+      res.json({
+        ...updatedMinutes,
+        workflow: {
+          emailJobId,
+          sharepointJobId,
+          status: "Jobs enqueued for processing"
+        }
+      });
     } catch (error: any) {
       console.error("Error approving minutes:", error);
       res.status(500).json({ error: "Failed to approve minutes" });
@@ -1008,7 +968,7 @@ export function registerRoutes(app: Express): Server {
       // Update meeting status to in_progress first
       await storage.updateMeeting(meeting.id, {
         status: "in_progress",
-        graphSyncStatus: "in_progress"
+        graphSyncStatus: "pending"
       });
 
       // Enqueue for enrichment (will auto-generate minutes in mock mode)

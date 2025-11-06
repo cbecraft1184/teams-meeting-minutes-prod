@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { validateAndLogConfig } from "./services/configValidator";
-import { startBackgroundJobs } from "./services/backgroundJobs";
+import { startJobWorker, stopJobWorker } from "./services/jobWorker";
 
 const app = express();
 
@@ -83,7 +83,18 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
-    // Start background jobs after server is running
-    startBackgroundJobs();
+    // Start durable job worker after server is running
+    startJobWorker().catch(console.error);
+  });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    log('SIGTERM received, stopping job worker...');
+    stopJobWorker();
+  });
+
+  process.on('SIGINT', () => {
+    log('SIGINT received, stopping job worker...');
+    stopJobWorker();
   });
 })();

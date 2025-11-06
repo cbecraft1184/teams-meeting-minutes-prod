@@ -82,6 +82,14 @@ export const webhookStatusEnum = pgEnum("webhook_status", [
   "disabled"
 ]);
 
+export const jobStatusEnum = pgEnum("job_status", [
+  "pending",
+  "processing",
+  "completed",
+  "failed",
+  "dead_letter"
+]);
+
 // Meeting schema
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -223,6 +231,35 @@ export const userGroupCache = pgTable("user_group_cache", {
   expiresAt: timestamp("expires_at").notNull(), // When cache expires (fetchedAt + 15min)
 });
 
+// Durable Job Queue schema (PostgreSQL-backed for crash recovery)
+export const jobQueue = pgTable("job_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Job identification
+  jobType: text("job_type").notNull(), // enrich_meeting, generate_minutes, send_email, upload_sharepoint
+  idempotencyKey: text("idempotency_key").notNull().unique(), // Prevents duplicate processing (e.g., "enrich:meeting-123")
+  
+  // Job payload
+  payload: jsonb("payload").notNull().$type<Record<string, any>>(), // Job-specific data
+  
+  // Status tracking
+  status: jobStatusEnum("status").notNull().default("pending"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  maxRetries: integer("max_retries").notNull().default(3),
+  
+  // Error tracking
+  lastError: text("last_error"), // Last error message
+  lastAttemptAt: timestamp("last_attempt_at"), // When last attempt was made
+  
+  // Scheduling
+  scheduledFor: timestamp("scheduled_for").defaultNow().notNull(), // When to process (for retry backoff)
+  processedAt: timestamp("processed_at"), // When successfully completed
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
@@ -262,6 +299,12 @@ export const insertUserGroupCacheSchema = createInsertSchema(userGroupCache).omi
   fetchedAt: true,
 });
 
+export const insertJobSchema = createInsertSchema(jobQueue).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -283,6 +326,9 @@ export type InsertGraphWebhookSubscription = z.infer<typeof insertGraphWebhookSu
 
 export type UserGroupCache = typeof userGroupCache.$inferSelect;
 export type InsertUserGroupCache = z.infer<typeof insertUserGroupCacheSchema>;
+
+export type Job = typeof jobQueue.$inferSelect;
+export type InsertJob = z.infer<typeof insertJobSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({

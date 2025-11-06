@@ -83,10 +83,13 @@ export class GraphGroupSyncService {
     azureAdId: string,
     accessToken?: string
   ): Promise<UserGroups> {
-    const useMockServices = process.env.USE_MOCK_SERVICES === 'true';
+    // Match configValidator logic: default to mock mode in dev (when undefined)
+    const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
+                            process.env.USE_MOCK_SERVICES === undefined;
     
     // Mock mode: Return fake groups for testing
     if (useMockServices) {
+      console.log(`🔧 [GraphGroupSync] Using MOCK groups for ${azureAdId}`);
       return this.getMockUserGroups(azureAdId);
     }
     
@@ -395,18 +398,27 @@ export class GraphGroupSyncService {
         return null;
       }
       
+      // SECURITY: Fail-closed behavior - do NOT cache partial/invalid Azure AD data
+      // If clearanceLevel or role is null, the fetch failed - return null and don't cache
+      if (!groups.clearanceLevel || !groups.role) {
+        console.warn(`⚠️  [GraphGroupSync] Incomplete Azure AD data for ${azureAdId} (clearance: ${groups.clearanceLevel}, role: ${groups.role}) - NOT caching`);
+        console.warn(`⚠️  [GraphGroupSync] User will fall back to database clearance/role`);
+        return null; // Don't cache invalid data - preserve fail-closed security
+      }
+      
       // Calculate expiration (15 minutes from now)
       const now = new Date();
       const expiresAt = new Date(now.getTime() + CACHE_TTL);
       
       // Upsert to database cache (insert or update if exists)
+      // Only cache VALID Azure AD data (clearanceLevel and role are non-null)
       await db
         .insert(userGroupCache)
         .values({
           azureAdId,
           groupNames: groups.groupNames,
-          clearanceLevel: groups.clearanceLevel,
-          role: groups.role,
+          clearanceLevel: groups.clearanceLevel, // Verified non-null above
+          role: groups.role, // Verified non-null above
           expiresAt,
         })
         .onConflictDoUpdate({
@@ -420,7 +432,7 @@ export class GraphGroupSyncService {
           },
         });
       
-      console.log(`✅ [GraphGroupSync] Cached groups for ${azureAdId} (expires in 15min)`);
+      console.log(`✅ [GraphGroupSync] Cached VALID Azure AD groups for ${azureAdId} (${groups.role}/${groups.clearanceLevel}, expires in 15min)`);
       return groups;
       
     } catch (error) {

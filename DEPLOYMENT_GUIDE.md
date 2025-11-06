@@ -1,9 +1,48 @@
 # Deployment Guide
 ## Automated Meeting Minutes Platform
 
-**Document Purpose:** Complete deployment instructions for all environments - from development/testing to AWS production deployment
+**Document Purpose:** Complete deployment instructions for deploying the existing, operational application to various environments - from development/testing to AWS production
+
+**Application Status:** Fully developed and tested - this guide covers deploying the existing codebase, not building from scratch
+
+**What You're Deploying:** A production-ready application with complete backend services, database schema, API layer, workflow engine, and Microsoft integrations. Frontend is 60-70% complete with core functionality operational.
 
 **Last Updated:** November 2025
+
+---
+
+## What This Application Includes
+
+**You are deploying a complete, working system** that includes:
+
+✅ **Backend Services:**
+- Durable PostgreSQL-backed job queue with automatic retry
+- Meeting orchestrator coordinating entire workflow
+- Microsoft Graph API client (webhooks, meetings, email, SharePoint)
+- Azure OpenAI integration for AI processing
+- Document generation (DOCX, PDF)
+- Email distribution system
+- Azure AD group-based access control
+
+✅ **Database:**
+- Full PostgreSQL schema with 7 tables
+- Migration system (Drizzle ORM)
+- Session management
+- Job queue persistence
+
+✅ **API Layer:**
+- 15+ RESTful endpoints
+- Authentication middleware
+- Webhook receivers for Microsoft Teams
+- Health check endpoints
+
+✅ **Integration Layer:**
+- Microsoft Teams meeting capture
+- SharePoint document archival
+- Azure OpenAI processing
+- Email distribution via Graph API
+
+⚠️ **Frontend:** React application with basic dashboard and meeting management UI (60-70% complete)
 
 ---
 

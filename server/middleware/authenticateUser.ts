@@ -12,9 +12,10 @@ import type { Request, Response, NextFunction } from 'express';
 import { getConfig } from '../services/configValidator';
 import { getUserInfoFromToken, decodeToken } from '../services/microsoftIdentity';
 import { db } from '../db';
-import { users } from '../../shared/schema';
+import { users, userGroupCache } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 import mockUsers from '../../config/mockUsers.json';
+import { graphGroupSyncService } from '../services/graphGroupSync';
 
 // Extend Express Request type to include user
 declare global {
@@ -135,6 +136,70 @@ async function authenticateWithMock(
       dbUser = newUser;
     }
 
+    // Task 4.5: Fetch Azure AD groups (or use cached)
+    let azureAdGroups = null;
+    if (dbUser.azureAdId) {
+      try {
+        // Check session cache first (15-min TTL)
+        if (session && session.azureAdGroups) {
+          const cached = session.azureAdGroups;
+          const now = new Date();
+          const expiresAt = new Date(cached.expiresAt);
+          
+          if (now < expiresAt) {
+            console.log(`✅ [Auth] Using session-cached Azure AD groups for ${dbUser.email}`);
+            azureAdGroups = cached;
+          } else {
+            console.log(`⏰ [Auth] Session cache expired for ${dbUser.email}, fetching fresh groups`);
+          }
+        }
+        
+        // If no valid session cache, fetch from Graph API or DB cache
+        if (!azureAdGroups) {
+          // First, try database cache
+          const cachedGroups = await graphGroupSyncService.getUserGroupsFromCache(dbUser.azureAdId);
+          
+          if (cachedGroups) {
+            console.log(`✅ [Auth] Using DB-cached Azure AD groups for ${dbUser.email}`);
+            azureAdGroups = {
+              groupNames: cachedGroups.groupNames,
+              clearanceLevel: cachedGroups.clearanceLevel,
+              role: cachedGroups.role,
+              fetchedAt: new Date(),
+              expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min from now
+            };
+            
+            // BUG FIX: Store in session cache immediately
+            if (session) {
+              session.azureAdGroups = azureAdGroups;
+            }
+          } else {
+            // Cache miss/expired - fetch fresh and cache
+            console.log(`📡 [Auth] Fetching fresh Azure AD groups for ${dbUser.email}`);
+            const freshGroups = await graphGroupSyncService.syncUserGroupsToCache(dbUser.azureAdId);
+            
+            if (freshGroups) {
+              azureAdGroups = {
+                groupNames: freshGroups.groupNames,
+                clearanceLevel: freshGroups.clearanceLevel,
+                role: freshGroups.role,
+                fetchedAt: new Date(),
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+              };
+              
+              // BUG FIX: Store in session cache immediately
+              if (session) {
+                session.azureAdGroups = azureAdGroups;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [Auth] Failed to fetch Azure AD groups for ${dbUser.email}:`, error);
+        // Don't fail auth - fall back to database clearance/role
+      }
+    }
+
     // Set user in request
     req.user = {
       id: dbUser.id,
@@ -145,6 +210,7 @@ async function authenticateWithMock(
       department: dbUser.department,
       organizationalUnit: dbUser.organizationalUnit,
       azureAdId: dbUser.azureAdId,
+      azureAdGroups: azureAdGroups,
     };
 
     // Store in session
@@ -255,6 +321,89 @@ async function validateAndLoadUser(
       .where(eq(users.id, user.id));
   }
 
+  // Task 4.5: Fetch Azure AD groups (or use cached)
+  let azureAdGroups = null;
+  if (user.azureAdId) {
+    try {
+      // Check session cache first (15-min TTL)
+      const session = req.session as any;
+      if (session && session.azureAdGroups) {
+        const cached = session.azureAdGroups;
+        const now = new Date();
+        const expiresAt = new Date(cached.expiresAt);
+        
+        if (now < expiresAt) {
+          console.log(`✅ [Auth] Using session-cached Azure AD groups for ${user.email}`);
+          azureAdGroups = cached;
+        } else {
+          console.log(`⏰ [Auth] Session cache expired for ${user.email}, fetching fresh groups`);
+        }
+      }
+      
+      // If no valid session cache, fetch from Graph API or DB cache
+      if (!azureAdGroups) {
+        // First, try database cache
+        const cachedGroups = await graphGroupSyncService.getUserGroupsFromCache(user.azureAdId);
+        
+        if (cachedGroups) {
+          console.log(`✅ [Auth] Using DB-cached Azure AD groups for ${user.email}`);
+          azureAdGroups = {
+            groupNames: cachedGroups.groupNames,
+            clearanceLevel: cachedGroups.clearanceLevel,
+            role: cachedGroups.role,
+            fetchedAt: new Date(),
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min from now
+          };
+          
+          // BUG FIX: Store in session cache immediately
+          if (session) {
+            session.azureAdGroups = azureAdGroups;
+          }
+        } else {
+          // Cache miss/expired - fetch fresh using access token
+          console.log(`📡 [Auth] Fetching fresh Azure AD groups for ${user.email}`);
+          const freshGroups = await graphGroupSyncService.fetchUserGroups(user.azureAdId, accessToken);
+          
+          if (freshGroups) {
+            azureAdGroups = {
+              groupNames: freshGroups.groupNames,
+              clearanceLevel: freshGroups.clearanceLevel,
+              role: freshGroups.role,
+              fetchedAt: new Date(),
+              expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+            };
+            
+            // BUG FIX: Cache fresh groups to database directly (don't re-fetch)
+            await db.insert(userGroupCache).values({
+              azureAdId: user.azureAdId,
+              groupNames: freshGroups.groupNames,
+              clearanceLevel: freshGroups.clearanceLevel || 'UNCLASSIFIED',
+              role: freshGroups.role || 'viewer',
+              expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+            }).onConflictDoUpdate({
+              target: userGroupCache.azureAdId,
+              set: {
+                groupNames: freshGroups.groupNames,
+                clearanceLevel: freshGroups.clearanceLevel || 'UNCLASSIFIED',
+                role: freshGroups.role || 'viewer',
+                fetchedAt: new Date(),
+                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
+              }
+            });
+            
+            // BUG FIX: Store in session cache immediately
+            if (session) {
+              session.azureAdGroups = azureAdGroups;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`❌ [Auth] Failed to fetch Azure AD groups for ${user.email}:`, error);
+      // Don't fail auth - fall back to database clearance/role
+    }
+  }
+
   // Set user in request
   req.user = {
     id: user.id,
@@ -265,6 +414,7 @@ async function validateAndLoadUser(
     department: user.department,
     organizationalUnit: user.organizationalUnit,
     azureAdId: user.azureAdId,
+    azureAdGroups: azureAdGroups,
   };
 
   // Store in session

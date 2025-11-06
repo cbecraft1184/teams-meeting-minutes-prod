@@ -1,337 +1,52 @@
 # DOD Teams Meeting Minutes Management System
 
-## Project Overview
-A fully autonomous Microsoft-native solution for capturing, processing, distributing, and archiving Microsoft Teams meeting minutes designed for DOD deployments with 300,000 users.
+## Overview
+This project is an autonomous, Microsoft-native solution for managing Microsoft Teams meeting minutes within DOD deployments, designed for 300,000 users. It automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings and transcripts using AI, and distributes approved minutes to attendees. The system focuses on automated workflow for meeting minutes, operating independently of general AI tools like CapraGPT/DON-GPT, yet coexisting with them. The project prioritizes commercial testing before deployment to DOD environments to ensure technology stack validation and debug in an open environment. The ultimate goal is a large-scale deployment in AWS Gov Cloud for DOD production, emphasizing security, compliance, and integration with existing DOD infrastructure.
 
-**IMPORTANT**: Meetings are scheduled and conducted in Microsoft Teams (NOT in this application). This app automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings/transcripts with AI, and distributes approved minutes to attendees.
+## User Preferences
+I prefer simple language and clear, concise explanations.
+I want iterative development with frequent, small updates.
+Ask before making major architectural changes or introducing new dependencies.
+Do not make changes to files outside the explicitly specified project scope.
+Prioritize security and compliance, especially regarding DOD standards.
+Ensure all AI processing uses Azure OpenAI in Gov Cloud.
+All classification markings must follow DOD standards.
+I want the agent to assume the role of an expert architect/developer.
+I prefer to focus on high-level features and architectural decisions rather than granular implementation details.
 
-**CRITICAL DISTINCTION**: This app is independent of CapraGPT/DON-GPT (Navy's general AI tools). This provides automated workflow for meeting minutes, not general AI assistance. Both systems coexist and serve different purposes.
+## System Architecture
 
-## Testing Strategy
+### UI/UX Decisions
+The frontend uses React with TypeScript, Wouter for routing, Shadcn UI with Radix primitives for components, and Tailwind CSS following Microsoft Fluent design principles. It incorporates a dual UI theme system (Microsoft Teams + IBM Carbon look-and-feel) and a DOD-grade professional appearance with classification badges. The design emphasizes information clarity, accessibility (WCAG 2.1 AA compliant), responsiveness, and dark mode support.
 
-**Commercial Testing First** (Current Phase):
-- ✅ Test with Microsoft 365 commercial tenant (25 users, free trial)
-- ✅ Validate all Microsoft integrations (Teams, Azure AD, Graph API, SharePoint)
-- ✅ Prove technology stack works
-- ✅ Debug in open environment
-- ✅ Cost: ~$15-20/month
+### Technical Implementations
+The backend is built with Node.js and Express. Data storage is PostgreSQL (AWS RDS or Replit-hosted) with Drizzle ORM. Microsoft Graph API is used for Teams meeting capture, SharePoint integration for document archival, and Teams webhooks for real-time events. AI processing is handled by Azure OpenAI (Gov Cloud deployment). Document generation supports DOCX and PDF export.
 
-**Philosophy**: If it doesn't work commercially, it will definitely not work in DOD.
+### Feature Specifications
+Key features include:
+- **Automatic Meeting Capture**: Webhook-based integration with Microsoft Graph API.
+- **AI-Powered Minutes**: Transcription and minute generation using Azure OpenAI.
+- **Approval Workflow**: States for pending review, approved, and rejected.
+- **Email Distribution**: Approved minutes sent to attendees with attachments.
+- **Classification Support**: UNCLASSIFIED, CONFIDENTIAL, SECRET levels with proper marking and access control.
+- **SharePoint Archival**: Automatic archival with metadata to DOD SharePoint.
+- **Action Item Tracking**: Automatic extraction and management.
+- **Meeting Templates**: Pre-configured templates for various meeting types.
+- **DOD Compliance**: Adherence to security classifications, audit trails, and formatting standards.
 
-**DOD Testing** (After commercial validation):
-- Deploy to DOD test environment (50-100 users)
-- Validate security compliance (FedRAMP, FISMA)
-- Test with real DOD Teams tenant
-- Use Azure OpenAI Gov Cloud
+### System Design Choices
+- **Access Control**: Azure AD group-based multi-level access control for 300,000+ users, utilizing Clearance-Level and Role groups. Implements a fail-closed security model with performance caching (session and database cache with 15-minute TTL).
+- **Data Model**: Includes `Meeting`, `Meeting Minutes`, and `Action Items` entities with clear relationships and fields for classification, status, and processing.
+- **Microsoft Teams Integration**: Uses Graph API for webhooks, access to recordings/transcripts, and attendee info.
+- **SharePoint Integration**: Authenticated via OAuth with Sites.Selected permission, uses correct Graph API paths, archives minutes with metadata, and supports graceful degradation.
+- **Azure OpenAI Integration**: Deployed within AWS Gov Cloud, used for summarization, extraction, and detection tasks, ensuring data remains within the Gov Cloud boundary.
+- **Deployment Options**: AWS (ECS Fargate/Elastic Beanstalk, RDS PostgreSQL for production) and Replit (for dev/testing).
 
-**DOD Production** (Final deployment):
-- AWS Gov Cloud infrastructure
-- 300,000 users organization-wide
-- Teams app in sidebar for all users
-- Cost: ~$1,700/month
-
-## Deployment Requirements
-- **Hosting**: AWS (commercial) or AWS Gov Cloud (for DOD production)
-- **Microsoft Teams**: DOD internal Teams deployment
-- **AI Processing**: Azure OpenAI Service (Azure Gov Cloud for production)
-- **Document Storage**: SharePoint (DOD instance)
-- **Database**: PostgreSQL (AWS RDS or Replit-hosted)
-- **Packaging**: Must be installable in pre-existing DOD Teams environments
-
-## Deployment Options
-1. **AWS Deployment** (Production): See `AWS_DEPLOYMENT_GUIDE.md`
-   - AWS ECS Fargate or Elastic Beanstalk
-   - AWS RDS PostgreSQL
-   - AWS Secrets Manager
-   - Application Load Balancer with HTTPS
-   - Supports AWS Gov Cloud for DOD compliance
-2. **Replit Deployment** (Testing/Dev): See `IMPLEMENTATION_GUIDE.md`
-   - Quick deployment for testing
-   - Built-in PostgreSQL and secrets management
-   - Auto-scaling deployment
-
-## Architecture
-
-### Frontend
-- **Framework**: React with TypeScript
-- **Routing**: Wouter
-- **UI Components**: Shadcn UI with Radix primitives
-- **Styling**: Tailwind CSS with Microsoft Fluent design principles
-- **State Management**: TanStack Query (React Query v5)
-- **Design System**: DOD-grade professional appearance with classification badges
-
-### Backend
-- **Runtime**: Node.js with Express
-- **Storage**: In-memory (development) / PostgreSQL (production)
-- **Microsoft Integration**:
-  - Microsoft Graph API for Teams meeting capture
-  - SharePoint connector for document archival
-  - Teams webhook for real-time meeting events
-- **AI Processing**: Azure OpenAI (Gov Cloud deployment)
-- **Document Generation**: DOCX and PDF export capabilities
-
-### Key Features
-1. **Automatic Meeting Capture**: Webhook-based integration captures completed Teams meetings via Microsoft Graph API
-2. **AI-Powered Minutes**: Automated transcription and minute generation using Azure OpenAI (Gov Cloud)
-3. **Approval Workflow**: Pending review, approved, rejected states for quality control
-4. **Email Distribution**: Approved minutes automatically distributed to all attendees with DOCX/PDF attachments
-5. **Classification Support**: UNCLASSIFIED, CONFIDENTIAL, SECRET levels with proper document marking
-6. **SharePoint Archival**: Automatic document archival with metadata to DOD SharePoint
-7. **Action Item Tracking**: Automatic extraction and management of action items
-8. **Meeting Templates**: Pre-configured templates for briefings, status reviews, planning sessions, etc.
-9. **DOD Compliance**: Security classifications, audit trails, proper formatting per DOD standards
-
-## Data Model
-
-### Meeting
-- id, title, description
-- scheduledAt, duration
-- attendees (array)
-- status: scheduled, in_progress, completed, archived
-- classificationLevel: UNCLASSIFIED, CONFIDENTIAL, SECRET
-- recordingUrl, transcriptUrl
-
-### Meeting Minutes
-- id, meetingId (reference)
-- summary, keyDiscussions (array), decisions (array)
-- attendeesPresent (array)
-- processingStatus: pending, transcribing, generating, completed, failed
-- sharepointUrl, docxUrl, pdfUrl
-
-### Action Items
-- id, meetingId, minutesId (references)
-- task, assignee, dueDate
-- priority: high, medium, low
-- status: pending, in_progress, completed
-
-## Integration Architecture
-
-### Microsoft Teams Integration
-The solution uses Microsoft Graph API to:
-1. Register webhooks for meeting events (created, started, ended)
-2. Access meeting recordings and transcripts
-3. Retrieve attendee information
-4. Fetch meeting metadata
-
-### SharePoint Integration
-Connected via Replit SharePoint connector:
-- Authenticated using OAuth with Sites.Selected permission
-- Uses correct Microsoft Graph API paths: `/sites/{site-id}/drives/{drive-id}/root:/{path}:/content`
-- Automatically archives completed minutes to configured document library
-- Maintains proper folder structure: `YYYY/MM-Month/Classification/`
-- Sets metadata (classification, meeting date, attendee count, meeting ID)
-- Graceful degradation: Approval succeeds even if SharePoint unavailable (non-fatal error)
-- Requires environment variables: `SHAREPOINT_SITE_URL` and `SHAREPOINT_LIBRARY`
-- Supports DOD document classification standards
-
-### Azure OpenAI Integration (Gov Cloud)
-- Deployable within AWS Gov Cloud environment
-- Uses GPT models for:
-  - Transcript summarization
-  - Key discussion extraction
-  - Decision identification
-  - Action item detection
-- No data leaves Gov Cloud boundary
-
-## User Interface
-
-### Pages
-1. **Dashboard**: Statistics cards, recent meetings, quick actions
-2. **All Meetings**: Complete meeting list with advanced filters
-3. **Search Archive**: Date range, classification, and keyword search
-4. **Settings**: Teams webhook config, SharePoint setup, AI processing options
-
-### Components
-- Classification badges (color-coded security levels)
-- Status badges (scheduled, in progress, completed, archived)
-- Processing status indicators (with animations)
-- Meeting cards with hover interactions
-- Detailed meeting modal with tabs (Overview, Minutes, Action Items, Attachments)
-- Statistics cards with icons
-- Professional sidebar navigation
-
-### Design Principles
-- Microsoft Fluent design system
-- Government-grade professionalism
-- Information clarity with proper hierarchy
-- Accessible (WCAG 2.1 AA compliant)
-- Responsive across all devices
-- Dark mode support
-
-## Security & Compliance
-
-### Access Control Model
-The system implements **Azure AD group-based multi-level access control** designed for 300,000+ DOD Teams users:
-
-#### Access Control Architecture (UPDATED)
-**Primary Method**: Azure AD security groups (scalable, centralized, real-time)
-**Fallback**: Database cache for performance (synced on login)
-
-**Why Azure AD Groups?**
-- ✅ Centralized management (IT manages groups, app reads membership)
-- ✅ Scalable to 300K+ users (no per-user database updates)
-- ✅ Real-time access control (group changes = immediate access changes)
-- ✅ Audit trail via Azure AD logs
-- ✅ Automatic provisioning via dynamic groups
-- ✅ Integrates with existing DOD identity systems
-
-#### Azure AD Security Groups
-
-**Clearance-Level Groups**:
-- `DOD-Clearance-UNCLASSIFIED`: Can view UNCLASSIFIED meetings
-- `DOD-Clearance-CONFIDENTIAL`: Can view UNCLASSIFIED + CONFIDENTIAL
-- `DOD-Clearance-SECRET`: Can view UNCLASSIFIED + CONFIDENTIAL + SECRET
-- `DOD-Clearance-TOP_SECRET`: Can view all classification levels
-
-**Role Groups**:
-- `DOD-Role-Viewer`: Default role, view meetings attended
-- `DOD-Role-Approver`: Can approve/reject meeting minutes
-- `DOD-Role-Auditor`: Can view ALL meetings (entire archive)
-- `DOD-Role-Admin`: Full system access + user management
-
-#### Access Control Logic
-
-**Regular Users (viewer/approver)**:
-1. User attends meeting → Added to attendees list
-2. User opens app → App checks Azure AD groups via Graph API
-3. User sees meetings WHERE:
-   - They attended the meeting (in attendees list)
-   - AND they're in required clearance group
-   - AND meeting classification ≤ user's highest clearance group
-
-**Auditors**:
-1. User in `DOD-Role-Auditor` group
-2. Can see ALL meetings in organization
-3. Still filtered by clearance level groups
-
-**Admins**:
-1. User in `DOD-Role-Admin` group
-2. Can see ALL meetings + manage users
-3. Still filtered by clearance level groups
-
-#### Real-Time Access Control Flow
-```
-User logs in via Teams SSO
-    ↓
-App calls Microsoft Graph API: GET /users/{userId}/memberOf
-    ↓
-Returns user's Azure AD groups:
-    ["DOD-Clearance-SECRET", "DOD-Role-Approver", ...]
-    ↓
-App caches groups in session (15-minute TTL)
-    ↓
-Every API call checks:
-    - Is user in required clearance group?
-    - Did user attend meeting (or is auditor/admin)?
-    - Is user's role allowed for this action?
-    ↓
-Allow or deny access
-```
-
-#### Security Model: Fail-Closed with Performance Caching
-
-**Production (Fail-Closed)**:
-1. **Primary**: Check Azure AD groups via Microsoft Graph API (authoritative source)
-2. **Session Cache**: Store group membership in session (15-min TTL for performance)
-3. **Database Cache**: Use cached Azure AD groups if session expired but DB cache valid (15-min TTL)
-4. **Fail-Closed**: If Azure AD unreachable AND no valid cache → DENY ACCESS (HTTP 503)
-   - No fallback to database clearance/role in production
-   - Only cached Azure AD data accepted (within TTL)
-   - Ensures security decisions always based on recent Azure AD state
-
-**Development (Mock Mode)**:
-- Uses config/mockUsers.json with database storage
-- Simulates Azure AD group membership
-- Allows testing without Microsoft credentials
-
-#### Authentication
-- Microsoft Teams SSO via Azure AD
-- JWT token validation with Microsoft Graph API
-- Automatic user provisioning on first login
-- Default: viewer role, UNCLASSIFIED clearance (via group assignment)
-- IT manages all clearance/role assignments via Azure AD groups
-
-#### Search & Archive Access
-- Search results automatically filtered by user's Azure AD group membership
-- Auditors can search entire archive (subject to clearance groups)
-- Regular users only search meetings they attended
-- All access attempts logged for audit trail
-
-### Classification Handling
-- Visual classification indicators on all documents
-- Default classification levels configurable
-- Proper marking on exported documents
-- Classification-based access controls enforced at API level
-
-### Data Protection
-- All data remains within Gov Cloud
-- SharePoint integration for secure archival
-- Audit trail for all operations (access attempts logged)
-- No external API dependencies
-
-## Development Workflow
-
-### Current Status (November 6, 2025)
-- ✅ PostgreSQL database with Drizzle ORM
-- ✅ Data schemas defined (meetings, minutes, action items, templates)
-- ✅ Frontend UI with dashboard, meeting list, search, and settings
-- ✅ Dual UI theme system (Microsoft Teams + IBM Carbon look-and-feel)
-- ✅ Meeting details modal with tabbed interface
-- ✅ Approval workflow (pending_review → approved/rejected)
-- ✅ Email distribution service (Microsoft Graph API for production, console logging for dev)
-- ✅ Document export (DOCX/PDF) with DOD-compliant classification headers/footers - **FIXED**
-- ✅ Meeting templates system (5 default DOD templates)
-- ✅ SharePoint integration with correct Graph API paths and validation - **PRODUCTION READY**
-- ✅ Complete E2E workflow validated: Webhook → Enrichment → AI Minutes → Approval → Email → SharePoint
-- ✅ Demo endpoint for testing complete workflow (POST /api/demo/trigger-webhook/:meetingId)
-- ✅ Azure AD group-based access control with fail-closed security model
-- ✅ Error boundary for React error handling
-- ⏳ Microsoft Graph API webhook implementation (backend endpoint exists, needs production credentials)
-- ⏳ Azure OpenAI Service integration (uses Replit AI in dev, needs Gov Cloud credentials for prod)
-
-### Next Steps (Production Deployment)
-1. Configure Microsoft Graph API credentials (Tenant ID, Client ID, Secret) in AWS Gov Cloud
-2. Register webhook subscriptions for Teams meeting events (created, started, ended)
-3. Configure Azure OpenAI Service endpoint and API key (Gov Cloud region)
-4. Set up SharePoint site and document library permissions
-5. Implement automatic SharePoint upload on approval
-6. Test end-to-end workflow with real Teams meetings
-7. Configure email SMTP settings for production (or use Graph API send mail)
-8. Deploy to AWS Gov Cloud with proper security hardening
-9. Package as Teams app for DOD Teams installation
-
-## Environment Variables (Production)
-
-```
-# Microsoft Graph API
-MICROSOFT_TENANT_ID=xxx
-MICROSOFT_CLIENT_ID=xxx
-MICROSOFT_CLIENT_SECRET=xxx
-
-# Azure OpenAI (Gov Cloud)
-AZURE_OPENAI_ENDPOINT=https://your-service.openai.azure.us/
-AZURE_OPENAI_API_KEY=xxx
-AZURE_OPENAI_DEPLOYMENT=gpt-4
-
-# SharePoint
-SHAREPOINT_SITE_URL=https://yourorg.sharepoint.com/sites/meetings
-SHAREPOINT_LIBRARY=Meeting Minutes
-
-# Application
-SESSION_SECRET=xxx
-NODE_ENV=production
-```
-
-## Testing Strategy
-- Component testing for UI elements
-- Integration testing for API endpoints
-- End-to-end testing for complete workflows
-- Security testing for classification handling
-- Compliance validation for DOD standards
-
-## Known Constraints
-- Must work within DOD network environment
-- No external internet dependencies in production
-- All AI processing must use Azure OpenAI in Gov Cloud
-- SharePoint permissions must align with DOD security policies
-- Classification markings must follow DOD standards
+## External Dependencies
+- **Microsoft Teams**: For scheduling and conducting meetings.
+- **Microsoft Graph API**: For capturing meeting events, accessing recordings/transcripts, retrieving attendee information, and email distribution.
+- **Azure AD**: For authentication (SSO) and group-based access control.
+- **SharePoint**: For document storage and archival, specifically DOD instances.
+- **Azure OpenAI Service**: For AI-powered minute generation and processing (deployed in Azure Gov Cloud for production).
+- **PostgreSQL**: Database for storing application data (AWS RDS for production, Replit-hosted for dev).
+- **AWS (ECS Fargate, Elastic Beanstalk, RDS, Secrets Manager, Application Load Balancer)**: For production hosting and infrastructure.

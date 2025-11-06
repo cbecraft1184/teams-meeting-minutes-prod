@@ -95,8 +95,9 @@ A **commercial enterprise SaaS platform** that autonomously handles the complete
 - Fortune 500 (100,000+ users): $300,000+/year
 
 **Target Market:**
-- **Primary:** Fortune 500 enterprises with 50,000+ employees
-- **Secondary:** Regulated industries (finance, healthcare, government contractors)
+- **Primary:** Government agencies (federal, state, local) with 50,000+ employees
+- **Primary:** Fortune 500 enterprises with complex compliance requirements
+- **Secondary:** Regulated industries (finance, healthcare, defense contractors)
 - **Geographic:** North America initially, global expansion Year 2
 
 ### Financial Projections
@@ -113,9 +114,54 @@ A **commercial enterprise SaaS platform** that autonomously handles the complete
 
 **Market Share Assumption:** 10% of serviceable market ($280M) by Year 3
 
+### Government Market Opportunity
+
+**Why Government Agencies Are Ideal First Customers:**
+
+**Unique Requirements:**
+- **Mandatory Documentation:** Government meetings require complete, auditable records by law
+- **Classification Support:** Multi-level security classification (Unclassified, Confidential, Secret)
+- **Compliance-First:** FISMA, FedRAMP, and agency-specific security requirements
+- **Large Scale:** Individual agencies have 50,000-300,000+ employees
+- **Budget Authority:** Mission-critical systems receive consistent funding
+
+**Government Deployment Advantages:**
+- **Proven at Scale:** First customer validates 300,000-user capability
+- **High-Value Reference:** Government deployment is powerful proof point for commercial sales
+- **Azure Gov Cloud Ready:** Solution designed for FedRAMP High from day one
+- **Recurring Revenue:** Multi-year contracts with automatic renewals
+- **Expansion Opportunity:** Success at one agency leads to other agency deployments
+
+**Government Market Size:**
+- Federal civilian agencies: 50+ agencies with 2.9M employees
+- Defense contractors: 500+ companies requiring classification support
+- State and local governments: 50 states, 3,000+ counties, 19,000+ municipalities
+- **Total Government TAM:** $120M of the $280M total market
+
+**Strategic Value of Government Deployments:**
+- Validates technology at 300,000-user scale (de-risks all enterprise sales)
+- Establishes FedRAMP compliance (differentiates from competitors)
+- Creates reference architecture for Fortune 500 (similar scale and security needs)
+- High-value contracts ($300K-$500K per agency annually)
+
 ### Customer Economics
 
-**Example: 25,000-Employee Enterprise**
+**Example 1: 300,000-User Government Agency**
+
+**Customer Investment:**
+- IBM SaaS subscription: $500,000/year (custom enterprise pricing)
+- Internal IT support: $50,000/year
+- **Total Cost:** $550,000/year
+
+**Customer Value:**
+- Labor savings (15,000 meetings/week × 30 min × $50/hr): $19,500,000/year
+- Compliance risk reduction: $2,000,000/year
+- Productivity gains: $1,500,000/year
+- **Total Value:** $23,000,000/year
+
+**Customer ROI:** 4,082% (payback in 1.3 weeks)
+
+**Example 2: 25,000-Employee Enterprise**
 
 **Customer Investment:**
 - IBM SaaS subscription: $150,000/year
@@ -130,7 +176,7 @@ A **commercial enterprise SaaS platform** that autonomously handles the complete
 
 **Customer ROI:** 931% (payback in 6 weeks)
 
-*Strong customer economics enable premium pricing and high retention rates*
+*Strong customer economics across both government and commercial segments enable premium pricing and high retention rates*
 
 ---
 

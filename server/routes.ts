@@ -9,6 +9,8 @@ import { documentExportService } from "./services/documentExport";
 import { emailDistributionService } from "./services/emailDistribution";
 import { accessControlService } from "./services/accessControl";
 import { registerWebhookRoutes, registerAdminWebhookRoutes } from "./routes/webhooks";
+import { uploadToSharePoint } from "./services/sharepointClient";
+import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -451,19 +453,48 @@ export function registerRoutes(app: Express): Server {
             contentType: "application/pdf"
           }
         ]);
+        console.log(`✅ Email distribution complete`);
       } catch (error: any) {
         console.error("Error distributing minutes:", error);
         return res.status(500).json({ error: "Failed to distribute minutes via email" });
+      }
+
+      // Archive to SharePoint BEFORE marking as approved
+      let sharepointUrl: string | null = null;
+      try {
+        console.log(`📤 [Approval] Uploading to SharePoint...`);
+        sharepointUrl = await uploadToSharePoint(
+          `meeting-minutes-${meeting.id}.docx`,
+          docxBuffer,
+          {
+            classificationLevel: meeting.classificationLevel,
+            meetingDate: new Date(meeting.scheduledAt),
+            attendeeCount: meeting.attendees.length,
+            meetingId: meeting.id
+          }
+        );
+        console.log(`✅ SharePoint archival complete: ${sharepointUrl}`);
+      } catch (error: any) {
+        console.error("⚠️  SharePoint archival failed (non-fatal):", error);
+        // Don't fail approval if SharePoint fails - just log it
+        sharepointUrl = null;
       }
 
       // Only mark as approved AFTER successful document generation and distribution
       const updatedMinutes = await storage.updateMinutes(req.params.id, {
         approvalStatus: "approved",
         approvedBy,
-        approvedAt: new Date()
+        approvedAt: new Date(),
+        sharepointUrl: sharepointUrl || undefined
       });
 
-      console.log(`✅ Minutes ${req.params.id} successfully approved and distributed to ${meeting.attendees.length} attendees`);
+      // Update meeting status to archived
+      await storage.updateMeeting(meeting.id, {
+        status: "archived",
+        graphSyncStatus: "archived"
+      });
+
+      console.log(`✅ Minutes ${req.params.id} successfully approved, distributed to ${meeting.attendees.length} attendees, and archived`);
       res.json(updatedMinutes);
     } catch (error: any) {
       console.error("Error approving minutes:", error);
@@ -943,6 +974,61 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error fetching user info:", error);
       res.status(500).json({ error: "Failed to fetch user info" });
+    }
+  });
+
+  // ========== DEMO/TESTING ENDPOINTS (Mock Mode) ==========
+
+  // Trigger mock webhook workflow (simulate Teams meeting completion)
+  app.post("/api/demo/trigger-webhook/:meetingId", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const useMockServices = process.env.USE_MOCK_SERVICES !== "false";
+      if (!useMockServices) {
+        return res.status(400).json({ 
+          error: "Demo endpoint only available in mock mode",
+          hint: "Set USE_MOCK_SERVICES=true or leave undefined for development" 
+        });
+      }
+
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Simulate webhook event - trigger enrichment workflow
+      const mockOnlineMeetingId = `mock-online-meeting-${meeting.id}`;
+      
+      console.log(`🧪 [DEMO] Simulating Teams meeting completion webhook for ${meeting.id}`);
+      console.log(`🧪 [DEMO] This will trigger: enrichment → AI minutes generation → pending review status`);
+      
+      // Update meeting status to in_progress first
+      await storage.updateMeeting(meeting.id, {
+        status: "in_progress",
+        graphSyncStatus: "in_progress"
+      });
+
+      // Enqueue for enrichment (will auto-generate minutes in mock mode)
+      await enqueueMeetingEnrichment(meeting.id, mockOnlineMeetingId);
+
+      res.json({
+        message: "Mock webhook triggered successfully",
+        meetingId: meeting.id,
+        workflow: [
+          "1. Meeting marked as in_progress",
+          "2. Enrichment queued (mock mode)",
+          "3. Minutes will be auto-generated with AI",
+          "4. Meeting status will change to completed with pending_review minutes"
+        ],
+        expectedDuration: "5-10 seconds",
+        tip: "Refresh the dashboard to see the new meeting minutes appear"
+      });
+    } catch (error: any) {
+      console.error("Error triggering mock webhook:", error);
+      res.status(500).json({ error: "Failed to trigger mock webhook" });
     }
   });
 

@@ -1,6 +1,6 @@
 import { AzureOpenAI } from "openai";
 import OpenAI from "openai";
-import pRetry from "p-retry";
+import pRetry, { AbortError } from "p-retry";
 
 // Lazy initialization of Azure OpenAI client (only in production with proper credentials)
 let azureClient: AzureOpenAI | null = null;
@@ -113,7 +113,7 @@ Output JSON format:
         if (isRateLimitError(error)) {
           throw error; // Rethrow to trigger p-retry
         }
-        throw new pRetry.AbortError(error);
+        throw new AbortError(error);
       }
     },
     {
@@ -191,7 +191,7 @@ Output as JSON array:
         if (isRateLimitError(error)) {
           throw error;
         }
-        throw new pRetry.AbortError(error);
+        throw new AbortError(error);
       }
     },
     {

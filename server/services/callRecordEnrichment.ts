@@ -15,6 +15,7 @@ import { db } from "../db";
 import { meetings } from "@shared/schema";
 import { eq, and, lt, isNull, sql } from "drizzle-orm";
 import { getGraphClient } from "./microsoftIdentity";
+import { minutesGeneratorService } from "./minutesGenerator";
 
 /**
  * Enrichment queue item
@@ -203,6 +204,16 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       .where(eq(meetings.id, meetingId));
     
     console.log(`✅ [Enrichment] Mock enrichment complete for meeting ${meetingId}`);
+    
+    // Auto-generate minutes after enrichment completes (mock mode)
+    try {
+      console.log(`🤖 [Enrichment] Triggering auto-generation of minutes...`);
+      await minutesGeneratorService.autoGenerateMinutes(meetingId);
+    } catch (error) {
+      console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, error);
+      // Don't fail enrichment if minutes generation fails
+    }
+    
     return;
   }
   

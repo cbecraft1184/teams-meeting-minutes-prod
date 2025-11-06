@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Settings as SettingsIcon, Bell, Shield, Database, Save, ExternalLink, Info, Webhook, User, CheckCircle2, XCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Settings as SettingsIcon, Bell, Shield, Database, Save, ExternalLink, Info, Webhook, User, CheckCircle2, XCircle, Palette } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useTheme } from "@/hooks/use-theme";
 
 interface UserPermissions {
   canView: boolean;
@@ -33,10 +35,13 @@ interface UserInfo {
 }
 
 export default function Settings() {
+  const { uiStyle, setUIStyle } = useTheme();
+  
   // Fetch current user permissions and Azure AD group status
   const { data: userInfo, isLoading: isLoadingUser } = useQuery<UserInfo>({
     queryKey: ["/api/user/me"],
   });
+  
   return (
     <div className="space-y-6">
       <div>
@@ -47,6 +52,39 @@ export default function Settings() {
           Configure Microsoft Teams, SharePoint, and Azure OpenAI integrations
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
+              <Palette className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle>UI Appearance</CardTitle>
+              <CardDescription>Choose your preferred interface design</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="ui-style">Interface Style</Label>
+            <Select value={uiStyle} onValueChange={(value) => setUIStyle(value as "teams" | "ibm")}>
+              <SelectTrigger id="ui-style" data-testid="select-ui-style">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="teams">Microsoft Teams (Fluent Design)</SelectItem>
+                <SelectItem value="ibm">IBM Carbon Design</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {uiStyle === "teams" 
+                ? "Fluent design with soft colors and rounded corners" 
+                : "Data-dense Carbon design with sharp edges and monochromatic colors"}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>

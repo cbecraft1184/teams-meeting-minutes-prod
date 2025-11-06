@@ -13,6 +13,9 @@
  */
 
 import { getGraphClient } from "./microsoftIdentity";
+import { db } from '../db';
+import { userGroupCache } from '../../shared/schema';
+import { eq } from 'drizzle-orm';
 
 /**
  * User's normalized Azure AD groups
@@ -60,6 +63,7 @@ const MAX_PAGES = 50;           // Maximum pagination iterations
 const PAGE_SIZE = 100;          // Groups per page (Graph API default)
 const REQUEST_TIMEOUT = 30000;  // 30 seconds total timeout
 const RETRY_DELAYS = [1000, 2000, 5000]; // Exponential backoff for 429
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache TTL (Task 4.3)
 
 /**
  * Azure AD Group Synchronization Service
@@ -376,28 +380,96 @@ export class GraphGroupSyncService {
    * Sync user groups to database cache (optional)
    * Used for offline queries and background jobs
    * 
-   * @param userId - Internal user ID
+   * Task 4.3: Implements 15-minute TTL database cache
+   * 
    * @param azureAdId - Azure AD object ID
+   * @returns Cached group data or null on failure
    */
-  async syncUserGroupsToCache(userId: string, azureAdId: string): Promise<void> {
+  async syncUserGroupsToCache(azureAdId: string): Promise<UserGroups | null> {
     try {
+      // Fetch fresh groups from Graph API (or mock)
       const groups = await this.fetchUserGroups(azureAdId);
       
-      // TODO: Implement in Task 4.3 (database cache schema)
-      // await db.insert(userGroupCache).values({
-      //   userId,
-      //   clearanceLevel: groups.clearanceLevel,
-      //   role: groups.role,
-      //   groupNames: groups.groupNames,
-      //   cachedAt: new Date(),
-      //   expiresAt: new Date(Date.now() + 60 * 60 * 1000) // 1 hour expiry
-      // });
+      if (!groups) {
+        console.warn(`⚠️  [GraphGroupSync] No groups to cache for ${azureAdId}`);
+        return null;
+      }
       
-      console.log(`✅ [GraphGroupSync] Synced groups to cache for user ${userId}`);
+      // Calculate expiration (15 minutes from now)
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + CACHE_TTL);
+      
+      // Upsert to database cache (insert or update if exists)
+      await db
+        .insert(userGroupCache)
+        .values({
+          azureAdId,
+          groupNames: groups.groupNames,
+          clearanceLevel: groups.clearanceLevel,
+          role: groups.role,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: userGroupCache.azureAdId,
+          set: {
+            groupNames: groups.groupNames,
+            clearanceLevel: groups.clearanceLevel,
+            role: groups.role,
+            fetchedAt: now,
+            expiresAt,
+          },
+        });
+      
+      console.log(`✅ [GraphGroupSync] Cached groups for ${azureAdId} (expires in 15min)`);
+      return groups;
       
     } catch (error) {
       console.error(`❌ [GraphGroupSync] Failed to sync groups to cache:`, error);
-      // Don't throw - cache sync is optional
+      // Don't throw - cache sync is optional (fail gracefully)
+      return null;
+    }
+  }
+  
+  /**
+   * Get user groups from database cache
+   * Returns cached data if valid (not expired), otherwise fetches fresh data
+   * 
+   * Task 4.3: Hybrid caching strategy (DB cache as fallback)
+   * 
+   * @param azureAdId - Azure AD object ID
+   * @returns Cached groups or null if expired/missing
+   */
+  async getUserGroupsFromCache(azureAdId: string): Promise<UserGroups | null> {
+    try {
+      const [cached] = await db
+        .select()
+        .from(userGroupCache)
+        .where(eq(userGroupCache.azureAdId, azureAdId))
+        .limit(1);
+      
+      if (!cached) {
+        console.log(`ℹ️  [GraphGroupSync] No cache entry for ${azureAdId}`);
+        return null;
+      }
+      
+      // Check if cache is still valid (not expired)
+      const now = new Date();
+      if (now > cached.expiresAt) {
+        console.log(`⏰ [GraphGroupSync] Cache expired for ${azureAdId} (${cached.expiresAt})`);
+        return null;
+      }
+      
+      console.log(`✅ [GraphGroupSync] Cache hit for ${azureAdId} (expires ${cached.expiresAt})`);
+      return {
+        clearanceLevel: cached.clearanceLevel,
+        role: cached.role,
+        groupNames: cached.groupNames,
+        source: 'cache'
+      };
+      
+    } catch (error) {
+      console.error(`❌ [GraphGroupSync] Failed to read cache:`, error);
+      return null;
     }
   }
 }

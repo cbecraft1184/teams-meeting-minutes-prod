@@ -29,6 +29,13 @@ declare global {
         department: string | null;
         organizationalUnit: string | null;
         azureAdId: string | null;
+        azureAdGroups?: {
+          groupNames: string[];
+          clearanceLevel: string;
+          role: string;
+          fetchedAt: Date;
+          expiresAt: Date;
+        } | null; // Azure AD group membership with TTL (Task 4.3)
       };
       session: any; // Session from express-session
     }

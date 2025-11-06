@@ -128,6 +128,22 @@ export const graphWebhookSubscriptions = pgTable("graph_webhook_subscriptions", 
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// User Group Cache schema (Azure AD group membership with TTL)
+export const userGroupCache = pgTable("user_group_cache", {
+  azureAdId: text("azure_ad_id").primaryKey(), // Azure AD object ID
+  
+  // Raw Azure AD groups from Microsoft Graph API
+  groupNames: jsonb("group_names").notNull().$type<string[]>(), // Raw group display names
+  
+  // Normalized clearance level and role (extracted from groups)
+  clearanceLevel: text("clearance_level").notNull().default("UNCLASSIFIED"), // UNCLASSIFIED, CONFIDENTIAL, SECRET, TOP_SECRET
+  role: text("role").notNull().default("viewer"), // admin, approver, auditor, viewer
+  
+  // TTL tracking (15-minute cache)
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(), // When groups were fetched
+  expiresAt: timestamp("expires_at").notNull(), // When cache expires (fetchedAt + 15min)
+});
+
 // Insert schemas
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
@@ -163,6 +179,10 @@ export const insertGraphWebhookSubscriptionSchema = createInsertSchema(graphWebh
   updatedAt: true,
 });
 
+export const insertUserGroupCacheSchema = createInsertSchema(userGroupCache).omit({
+  fetchedAt: true,
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -181,6 +201,9 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type GraphWebhookSubscription = typeof graphWebhookSubscriptions.$inferSelect;
 export type InsertGraphWebhookSubscription = z.infer<typeof insertGraphWebhookSubscriptionSchema>;
+
+export type UserGroupCache = typeof userGroupCache.$inferSelect;
+export type InsertUserGroupCache = z.infer<typeof insertUserGroupCacheSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({

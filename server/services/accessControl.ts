@@ -3,8 +3,10 @@
  * 
  * Implements multi-level access control for DOD Teams Meeting Minutes System:
  * 1. Attendee-based filtering (users only see meetings they attended)
- * 2. Classification-level filtering (clearance-based access)
- * 3. Role-based permissions (admin, approver, viewer)
+ * 2. Classification-level filtering (clearance-based access via Azure AD groups)
+ * 3. Role-based permissions (admin, approver, viewer via Azure AD groups)
+ * 
+ * Task 4.4: Updated to use Azure AD group membership with database fallback
  */
 
 import type { Meeting } from "@shared/schema";
@@ -14,11 +16,18 @@ export type AuthenticatedUser = {
   id: string;
   email: string;
   displayName: string;
-  clearanceLevel: string;
-  role: string;
+  clearanceLevel: string; // Fallback from database if Azure AD groups unavailable
+  role: string; // Fallback from database if Azure AD groups unavailable
   department: string | null;
   organizationalUnit: string | null;
   azureAdId: string | null;
+  azureAdGroups?: {
+    groupNames: string[];
+    clearanceLevel: string;
+    role: string;
+    fetchedAt: Date;
+    expiresAt: Date;
+  } | null; // Azure AD group membership (Task 4.3)
 };
 
 // Classification level hierarchy (higher number = higher clearance)
@@ -31,11 +40,46 @@ const CLEARANCE_LEVELS = {
 
 export class AccessControlService {
   /**
+   * Get user's current clearance level (Azure AD groups or database fallback)
+   * Task 4.4: Prioritize Azure AD groups over database
+   */
+  private getUserClearanceLevel(user: AuthenticatedUser): string {
+    const clearance = user.azureAdGroups?.clearanceLevel || user.clearanceLevel;
+    
+    // Log warning if falling back to database (indicates Azure AD sync gap)
+    if (!user.azureAdGroups && user.azureAdId) {
+      console.warn(`⚠️  [AccessControl] Azure AD groups unavailable for ${user.email}, falling back to DB clearance: ${clearance}`);
+    }
+    
+    return clearance;
+  }
+
+  /**
+   * Get user's current role (Azure AD groups or database fallback)
+   * Task 4.4: Prioritize Azure AD groups over database
+   */
+  private getUserRole(user: AuthenticatedUser): string {
+    const role = user.azureAdGroups?.role || user.role;
+    
+    // Log warning if falling back to database (indicates Azure AD sync gap)
+    if (!user.azureAdGroups && user.azureAdId) {
+      console.warn(`⚠️  [AccessControl] Azure AD groups unavailable for ${user.email}, falling back to DB role: ${role}`);
+    }
+    
+    return role;
+  }
+
+  /**
    * Check if user has sufficient clearance to view meeting
+   * Task 4.4: Updated to use Azure AD groups
    */
   canViewMeeting(user: AuthenticatedUser, meeting: Meeting): boolean {
+    // Get effective clearance and role (Azure AD or database fallback)
+    const effectiveClearance = this.getUserClearanceLevel(user);
+    const effectiveRole = this.getUserRole(user);
+
     // Admins and auditors can view ALL meetings (subject to clearance)
-    const hasFullAccess = user.role === "admin" || user.role === "auditor";
+    const hasFullAccess = effectiveRole === "admin" || effectiveRole === "auditor";
 
     // 1. Check if user was an attendee (skip for admin/auditor)
     if (!hasFullAccess) {
@@ -46,7 +90,7 @@ export class AccessControlService {
     }
 
     // 2. Check clearance level (applies to ALL users including admin/auditor)
-    const userClearance = CLEARANCE_LEVELS[user.clearanceLevel as keyof typeof CLEARANCE_LEVELS] || 0;
+    const userClearance = CLEARANCE_LEVELS[effectiveClearance as keyof typeof CLEARANCE_LEVELS] || 0;
     const meetingClassification = CLEARANCE_LEVELS[meeting.classificationLevel as keyof typeof CLEARANCE_LEVELS] || 0;
     
     if (userClearance < meetingClassification) {
@@ -65,73 +109,102 @@ export class AccessControlService {
 
   /**
    * Check if user can approve minutes (must be approver or admin role)
+   * Task 4.4: Updated to use Azure AD groups
    */
   canApproveMinutes(user: AuthenticatedUser): boolean {
-    return user.role === "approver" || user.role === "admin";
+    const effectiveRole = this.getUserRole(user);
+    return effectiveRole === "approver" || effectiveRole === "admin";
   }
 
   /**
    * Check if user is an admin
+   * Task 4.4: Updated to use Azure AD groups
    */
   isAdmin(user: AuthenticatedUser): boolean {
-    return user.role === "admin";
+    const effectiveRole = this.getUserRole(user);
+    return effectiveRole === "admin";
   }
 
   /**
    * Check if user can view all meetings (not just their own)
+   * Task 4.4: Updated to use Azure AD groups
    */
   canViewAllMeetings(user: AuthenticatedUser): boolean {
-    return user.role === "admin" || user.role === "auditor";
+    const effectiveRole = this.getUserRole(user);
+    return effectiveRole === "admin" || effectiveRole === "auditor";
   }
 
   /**
    * Get user permissions summary
+   * Task 4.4: Updated to use Azure AD groups
    */
   getUserPermissions(user: AuthenticatedUser) {
+    const effectiveClearance = this.getUserClearanceLevel(user);
+    const effectiveRole = this.getUserRole(user);
+
     return {
       canView: true, // All users can view their own meetings
       canViewAll: this.canViewAllMeetings(user), // Admin/auditor can view all meetings
       canApprove: this.canApproveMinutes(user),
       canManageUsers: this.isAdmin(user),
       canConfigureIntegrations: this.isAdmin(user),
-      clearanceLevel: user.clearanceLevel,
-      role: user.role
+      clearanceLevel: effectiveClearance,
+      role: effectiveRole,
+      azureAdGroupsActive: !!user.azureAdGroups // Indicates if Azure AD groups are being used
     };
   }
 
   /**
    * Validate if user has access to specific classification level
+   * Task 4.4: Updated to use Azure AD groups
    */
   hasClassificationAccess(user: AuthenticatedUser, classificationLevel: string): boolean {
-    const userClearance = CLEARANCE_LEVELS[user.clearanceLevel as keyof typeof CLEARANCE_LEVELS] || 0;
+    const effectiveClearance = this.getUserClearanceLevel(user);
+    const userClearance = CLEARANCE_LEVELS[effectiveClearance as keyof typeof CLEARANCE_LEVELS] || 0;
     const requiredClearance = CLEARANCE_LEVELS[classificationLevel as keyof typeof CLEARANCE_LEVELS] || 0;
     return userClearance >= requiredClearance;
   }
 
   /**
    * Get maximum classification level user can access
+   * Task 4.4: Updated to use Azure AD groups
    */
   getMaxAccessibleClassification(user: AuthenticatedUser): string {
-    return user.clearanceLevel;
+    return this.getUserClearanceLevel(user);
   }
 
   /**
    * Build SQL where clause for database-level filtering
    * This prevents loading meetings the user cannot access
+   * Task 4.4: Updated to use Azure AD groups and role-based filtering
    */
-  buildMeetingWhereClause(user: AuthenticatedUser): { userEmail: string; maxClearance: number } {
-    const maxClearance = CLEARANCE_LEVELS[user.clearanceLevel as keyof typeof CLEARANCE_LEVELS] || 0;
+  buildMeetingWhereClause(user: AuthenticatedUser): { 
+    userEmail: string | null; 
+    maxClearance: number;
+    canViewAll: boolean;
+  } {
+    const effectiveClearance = this.getUserClearanceLevel(user);
+    const effectiveRole = this.getUserRole(user);
+    const maxClearance = CLEARANCE_LEVELS[effectiveClearance as keyof typeof CLEARANCE_LEVELS] || 0;
+    
+    // Admins and auditors can view ALL meetings (not just attendee-filtered)
+    const canViewAll = effectiveRole === "admin" || effectiveRole === "auditor";
     
     return {
-      userEmail: user.email,
-      maxClearance: maxClearance
+      userEmail: canViewAll ? null : user.email, // null = no attendee filtering
+      maxClearance: maxClearance,
+      canViewAll: canViewAll
     };
   }
 
   /**
    * Generate audit log entry for access attempt
+   * Task 4.4: Updated to log Azure AD groups and effective permissions
    */
   logAccessAttempt(user: AuthenticatedUser, meeting: Meeting, granted: boolean, reason?: string) {
+    const effectiveClearance = this.getUserClearanceLevel(user);
+    const effectiveRole = this.getUserRole(user);
+
     const logEntry = {
       timestamp: new Date().toISOString(),
       userId: user.id,
@@ -139,7 +212,10 @@ export class AccessControlService {
       meetingId: meeting.id,
       meetingTitle: meeting.title,
       meetingClassification: meeting.classificationLevel,
-      userClearance: user.clearanceLevel,
+      userClearance: effectiveClearance,
+      userRole: effectiveRole,
+      azureAdGroupsUsed: !!user.azureAdGroups,
+      azureAdGroups: user.azureAdGroups?.groupNames || [],
       accessGranted: granted,
       reason: reason || (granted ? "Access granted" : "Access denied"),
     };

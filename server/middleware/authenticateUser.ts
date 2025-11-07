@@ -117,7 +117,7 @@ async function authenticateWithMock(
       .limit(1);
 
     if (!dbUser) {
-      // Create mock user in database
+      // Create or update mock user in database (upsert to avoid conflicts)
       const [newUser] = await db
         .insert(users)
         .values({
@@ -131,6 +131,15 @@ async function authenticateWithMock(
           azureUserPrincipalName: mockUser.azureUserPrincipalName,
           tenantId: mockUser.tenantId,
           lastLogin: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: users.email,
+          set: {
+            displayName: mockUser.displayName,
+            clearanceLevel: mockUser.clearanceLevel as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
+            role: mockUser.role as "admin" | "approver" | "auditor" | "viewer",
+            lastLogin: new Date(),
+          }
         })
         .returning();
       dbUser = newUser;

@@ -13,6 +13,60 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ---
 
+## 🔧 Technology Stack at a Glance
+
+### Core Platform
+```
+┌─────────────────────────────────────────────────┐
+│ Microsoft-Native Enterprise Solution            │
+├─────────────────────────────────────────────────┤
+│ Frontend:  React 18 + TypeScript                │
+│ Backend:   Node.js 20 + Express                 │
+│ Database:  PostgreSQL 15                        │
+│ AI:        Azure OpenAI (GPT-4)                 │
+│ Cloud:     Azure Government (GCC High/DOD)      │
+└─────────────────────────────────────────────────┘
+```
+
+### Key Technologies
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | React 18 + TypeScript | Modern web UI |
+| | Shadcn UI + Tailwind CSS | Professional DOD design |
+| | TanStack Query | Real-time data sync |
+| **Backend** | Node.js 20 + Express | Application server |
+| | TypeScript 5 | Type-safe development |
+| | Drizzle ORM | Database management |
+| **Database** | PostgreSQL 15 | Enterprise data storage |
+| | Azure Flexible Server | Managed hosting |
+| **AI/ML** | Azure OpenAI GPT-4 | Meeting summarization |
+| | Microsoft Graph API | Teams integration |
+| **Integration** | Microsoft Graph API | Teams, SharePoint, Email |
+| | Azure AD | Authentication & SSO |
+| **Security** | Azure Key Vault | Secrets management |
+| | Passport.js | Authentication middleware |
+| **Documents** | docx + pdf-lib | DOCX/PDF generation |
+| **Monitoring** | Application Insights | Performance tracking |
+| | Azure Monitor | Infrastructure monitoring |
+
+### Microsoft Integration Stack
+- **Microsoft Teams** - Meeting capture & notifications
+- **Microsoft Graph API** - Data access & webhooks
+- **Azure AD** - SSO & group-based access control
+- **SharePoint Online** - Document archival
+- **Exchange Online** - Email distribution
+
+### Security & Compliance
+- **FedRAMP High** certified components
+- **Azure Government Cloud** (GCC High/DOD regions)
+- **DISA SRG Level 5** compliant architecture
+- **SECRET-level** classification support
+
+**Full Technical Details:** See `TECHNICAL_ARCHITECTURE.md` Section 2
+
+---
+
 ## 🎯 Deployment Path Decision Matrix
 
 | Scenario | Recommended Path | Primary Document | Timeline |

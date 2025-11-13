@@ -646,9 +646,9 @@ canViewMeeting(user, meeting) {
 - Document generation: <5 seconds
 
 **Concurrent Users:**
-- Designed for: 300,000 concurrent users
+- Auto-scaling capacity: Up to 300,000 concurrent users with Azure auto-scaling
 - Tested at: Not yet load tested
-- Horizontal scaling: Stateless API design allows unlimited scaling
+- Horizontal scaling: Stateless API design enables automatic scaling based on demand
 
 ### 8.2 Caching Strategy
 

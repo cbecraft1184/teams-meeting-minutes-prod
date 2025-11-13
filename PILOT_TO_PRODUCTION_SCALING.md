@@ -647,7 +647,7 @@ echo "  -------------------------------"
 echo "  TOTAL:                 $5002-7002/month"
 echo ""
 echo "COST INCREASE:           $4295-5795/month"
-echo "SCALE FACTOR:            100 users → 300,000 users (3000x)"
+echo "SCALE CAPACITY:          100 users → auto-scaling to 300,000 users"
 echo "COST PER USER:"
 echo "  Pilot:                 $7-12/user/month"
 echo "  Production:            $0.017-0.023/user/month"
@@ -809,7 +809,7 @@ Scale to Production:  1 day (run script)
 Production Validation: 1 week
 Full Rollout:         4-8 weeks
 
-Total Time:           16-22 weeks from start to 300,000 concurrent users
+Total Time:           16-22 weeks from start to production with auto-scaling capacity
 ```
 
 ---

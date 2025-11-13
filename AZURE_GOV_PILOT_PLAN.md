@@ -122,7 +122,8 @@ Scaling Approach:
 Pilot Complete → Run Scale Script → Production Ready
     (60 days)         (1 day)          (Live!)
     
-Total: 61 days from pilot start to 300,000 concurrent users
+Total: 61 days from pilot start to production scaling
+(Part of the 16-week commercial/pilot timeline)
 ```
 
 ### Scaling Resources Provided

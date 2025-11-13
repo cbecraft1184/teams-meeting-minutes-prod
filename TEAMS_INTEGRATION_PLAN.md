@@ -98,7 +98,7 @@ export async function initializeTeamsApp() {
 export async function getTeamsAuthToken(): Promise<string | null> {
   try {
     const token = await authentication.getAuthToken({
-      resources: ['https://graph.microsoft.com'],
+      resources: ['https://graph.microsoft.us'], // GCC High endpoint
       silent: false
     });
     return token;

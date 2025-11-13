@@ -1,11 +1,11 @@
 # Deployment Guide
 ## DOD Teams Meeting Minutes Management System
 
-**Document Purpose:** Complete deployment instructions for deploying the existing, operational application to various environments - from development/testing to Azure Government (GCC High) production
+**Document Purpose:** Deployment instructions for the DOD Teams Meeting Minutes Management System across development, pilot, and Azure Government (GCC High) production environments
 
-**Application Status:** Fully developed and tested - this guide covers deploying the existing codebase, not building from scratch
+**Application Status:** Development prototype with implemented backend services. Frontend 60-70% complete. Requires completion, testing, and compliance certification before production deployment.
 
-**What You're Deploying:** A production-ready application with complete backend services, database schema, API layer, workflow engine, and Microsoft integrations. Frontend is 60-70% complete with core functionality operational.
+**What You're Deploying:** A prototype system with backend services, database schema, API layer, workflow engine, and Microsoft Graph integrations implemented but requiring comprehensive testing and frontend completion.
 
 **Last Updated:** November 2025
 
@@ -13,7 +13,7 @@
 
 ## What This Application Includes
 
-**You are deploying a complete, working system** that includes:
+**You are deploying a development prototype** that includes:
 
 ✅ **Backend Services:**
 - Durable PostgreSQL-backed job queue with automatic retry
@@ -596,12 +596,12 @@ Application auto-deploys when you:
 The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure Government (GCC High)** cloud infrastructure to meet DOD security requirements and compliance standards.
 
 **Key Characteristics:**
-- **Scale:** Designed for 300,000 concurrent users across DOD organizations
+- **Scale:** Auto-scales to support up to 300,000 concurrent users across DOD organizations
 - **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications
 - **Compliance:** FedRAMP High, DISA SRG Level 5, IL5 boundary
 - **Deployment Options:**
   * **Pilot Deployment:** 50-100 users, $1,500-2,500/month, 2-4 weeks timeline
-  * **Production Deployment:** 300,000 users, $5,000-7,000/month, 8-12 weeks timeline
+  * **Production Deployment:** Auto-scaling infrastructure for up to 300,000 users, $5,000-7,000/month, 8-12 weeks timeline
   * **Scaling Path:** Pilot → Production in 1 day (infrastructure upgrade only)
 
 ### 7.2 Azure Government Architecture
@@ -650,7 +650,7 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure G
 
 ### 7.3 Resource Blueprint
 
-**Production Configuration (300,000 users):**
+**Production Configuration (auto-scaling to 300,000 users):**
 
 | Resource | SKU/Configuration | Purpose | Monthly Cost |
 |----------|------------------|---------|--------------|
@@ -751,7 +751,7 @@ For detailed step-by-step deployment instructions, configuration examples, troub
    - Complete Azure CLI commands and configuration examples
 
 2. **AZURE_GOV_IMPLEMENTATION_PLAN.md**
-   - Production-grade architecture for 300,000 concurrent users
+   - Production-grade architecture with auto-scaling for up to 300,000 concurrent users
    - High availability, disaster recovery, security hardening
    - FedRAMP High, DISA SRG Level 5 compliance
    - Complete resource manifests and deployment scripts

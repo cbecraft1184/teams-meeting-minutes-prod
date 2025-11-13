@@ -252,10 +252,10 @@
 ## Deployment Requirements
 
 **Cloud Infrastructure:**
-- Compute: Container orchestration (Azure App Service or equivalent)
-- Database: Managed PostgreSQL (RDS or equivalent)
-- Storage: Document storage for generated minutes
-- Networking: Load balancer, VPC configuration
+- Compute: Container orchestration (Azure App Service or Azure AKS)
+- Database: Azure Database for PostgreSQL (Flexible Server)
+- Storage: Azure Blob Storage for document storage
+- Networking: Azure Load Balancer, virtual network configuration
 
 **External Services:**
 - Microsoft 365 tenant with appropriate licenses
@@ -265,9 +265,9 @@
 
 **Security:**
 - TLS certificates
-- Secrets management (Azure Key Vault or equivalent)
-- VPC isolation
-- Firewall rules and security groups
+- Azure Key Vault for secrets management
+- Virtual network isolation
+- Network security groups and firewall rules
 
 ---
 

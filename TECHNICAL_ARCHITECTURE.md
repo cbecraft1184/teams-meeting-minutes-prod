@@ -1,5 +1,5 @@
 # Technical Architecture
-## Automated Meeting Minutes Platform
+## DOD Teams Meeting Minutes Management System
 
 **Document Purpose:** Comprehensive technical reference documenting the development prototype architecture, technology stack, and access control design
 
@@ -74,81 +74,89 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Enterprise Network Boundary                         │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │                        AWS/Azure Gov Cloud VPC                          │ │
-│  │                                                                          │ │
-│  │  ┌──────────────────┐                 ┌──────────────────┐             │ │
-│  │  │  Load Balancer   │◄────────────────┤   CloudWatch     │             │ │
-│  │  │   (ALB/NLB)      │                 │   Monitoring     │             │ │
-│  │  └────────┬─────────┘                 └──────────────────┘             │ │
-│  │           │                                                              │ │
-│  │  ┌────────▼─────────────────────────────────────────────┐              │ │
-│  │  │                Application Tier                       │              │ │
-│  │  │  ┌─────────────────────────────────────────────────┐ │              │ │
-│  │  │  │  Node.js Application Servers (Auto-scaling)     │ │              │ │
-│  │  │  │  - Express.js API                                │ │              │ │
-│  │  │  │  - React SPA (served)                            │ │              │ │
-│  │  │  │  - Session Management                            │ │              │ │
-│  │  │  └──────────┬──────────────────────────────────────┘ │              │ │
-│  │  └─────────────┼──────────────────────────────────────────┘              │ │
-│  │                │                                                          │ │
-│  │  ┌─────────────▼─────────────────────────────────────────┐              │ │
-│  │  │                  Data Tier                             │              │ │
-│  │  │  ┌──────────────────────┐  ┌──────────────────────┐  │              │ │
-│  │  │  │  PostgreSQL RDS      │  │   S3 Bucket          │  │              │ │
-│  │  │  │  (encrypted)         │  │   (document cache)   │  │              │ │
-│  │  │  │  - Meeting data      │  │   - Encrypted        │  │              │ │
-│  │  │  │  - Minutes           │  │   - Versioning       │  │              │ │
-│  │  │  │  - Action items      │  │                      │  │              │ │
-│  │  │  └──────────────────────┘  └──────────────────────┘  │              │ │
-│  │  └────────────────────────────────────────────────────────┘              │ │
-│  │                                                                          │ │
-│  └──────────────────────────────────────────────────────────────────────────┘ │
-│                                                                                │
-│  ┌──────────────────────────────────────────────────────────────────────────┐ │
-│  │                      Azure Gov Cloud Services                             │ │
-│  │  ┌──────────────────────┐         ┌──────────────────────┐              │ │
-│  │  │  Azure OpenAI        │         │  Microsoft Graph API │              │ │
-│  │  │  Service             │         │  (Teams Integration) │              │ │
-│  │  │  - GPT-4 Deployment  │         │  - Meeting events    │              │ │
-│  │  │  - Gov Cloud Region  │         │  - Transcripts       │              │ │
-│  │  └──────────────────────┘         └──────────────────────┘              │ │
-│  │                                                                          │ │
-│  │  ┌──────────────────────────────────────────────────────┐              │ │
-│  │  │           SharePoint Online (Enterprise Tenant)       │              │ │
-│  │  │           - Document Libraries                        │              │ │
-│  │  │           - Metadata & Classification                 │              │ │
-│  │  │           - Access Control                            │              │ │
-│  │  └──────────────────────────────────────────────────────┘              │ │
-│  └──────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
+│                     Azure Government (GCC High) Cloud                        │
+│                                                                               │
+│  ┌──────────────────────────────────────────────────────────────────────┐   │
+│  │                    Microsoft 365 GCC High Services                    │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐   │   │
+│  │  │ Microsoft    │  │ SharePoint   │  │    Azure AD              │   │   │
+│  │  │ Teams        │  │ Online       │  │    - SSO/Authentication  │   │   │
+│  │  │ - Meetings   │  │ - Archival   │  │    - Group-based RBAC    │   │   │
+│  │  │ - Webhooks   │  │ - Metadata   │  │    - Clearance Groups    │   │   │
+│  │  └──────┬───────┘  └──────┬───────┘  └──────────────────────────┘   │   │
+│  └─────────┼──────────────────┼──────────────────────────────────────────┘   │
+│            │                  │                                              │
+│            │ Graph API        │ Graph API                                    │
+│            ▼                  ▼                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │              Azure Application Gateway (WAF_v2)                      │   │
+│  │              - TLS Termination                                       │   │
+│  │              - DDoS Protection                                       │   │
+│  │              - Web Application Firewall                              │   │
+│  └──────────────────────────────┬───────────────────────────────────────┘   │
+│                                 │                                            │
+│                                 ▼                                            │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                 Azure App Service (P3v3)                             │   │
+│  │                 - Node.js 20.x Runtime                               │   │
+│  │                 - Express.js API + React SPA                         │   │
+│  │                 - Auto-scaling (2-20 instances)                      │   │
+│  │                 - VNET Integration                                   │   │
+│  │                 - Managed Identity Authentication                    │   │
+│  └──────────────────┬──────────────────────┬──────────────────────────┘   │
+│                     │                      │                                │
+│                     ▼                      ▼                                │
+│  ┌──────────────────────────┐   ┌─────────────────────────────────────┐   │
+│  │ Azure Database for       │   │  Azure OpenAI Service               │   │
+│  │ PostgreSQL (v14)         │   │  - GPT-4 (0613 model)               │   │
+│  │ - Flexible Server        │   │  - Gov Cloud Deployment             │   │
+│  │ - General Purpose D4s    │   │  - 100K TPM Capacity                │   │
+│  │ - HA Zone-Redundant      │   │  - Managed Identity Auth            │   │
+│  │ - Encrypted at Rest      │   └─────────────────────────────────────┘   │
+│  │ - Private Endpoint       │                                              │
+│  └──────────────────────────┘                                              │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │              Azure Key Vault                                         │   │
+│  │              - API Keys & Secrets                                    │   │
+│  │              - TLS Certificates                                      │   │
+│  │              - Managed Identity Access                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │              Azure Monitor + Application Insights                    │   │
+│  │              - Application Performance Monitoring                    │   │
+│  │              - Security Audit Logs                                   │   │
+│  │              - Custom Metrics & Alerts                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 
                               Users Access via
                     Microsoft Teams Desktop/Web/Mobile Clients
+                         (Authenticated via Azure AD SSO)
 ```
 
-### 1.2 Deployment Models
+### 1.2 Azure Government Deployment
 
-**Option 1: AWS Deployment**
-- Compute: ECS Fargate (container orchestration)
-- Database: RDS PostgreSQL (managed database)
-- Storage: S3 (document storage)
-- Load Balancing: Application Load Balancer
-- Monitoring: CloudWatch
+**Production Architecture Components:**
+- **Compute:** Azure App Service (P3v3, 2-20 instances with auto-scaling)
+- **Database:** Azure Database for PostgreSQL Flexible Server (v14, General Purpose D4s with HA)
+- **AI Processing:** Azure OpenAI Service (GPT-4, GCC High deployment)
+- **Load Balancing:** Azure Application Gateway with WAF_v2
+- **Networking:** VNET with private endpoints for database access
+- **Security:** Azure Key Vault for secrets, Managed Identities for service authentication
+- **Monitoring:** Azure Monitor and Application Insights
+- **Microsoft 365:** GCC High tenant with Teams, SharePoint, Exchange, Azure AD
 
-**Option 2: Azure Deployment**
-- Compute: Azure Kubernetes Service or Container Instances
-- Database: Azure Database for PostgreSQL
-- Storage: Azure Blob Storage
-- Load Balancing: Azure Load Balancer
-- Monitoring: Azure Monitor
-
-**Option 3: On-Premises**
-- Compute: Kubernetes cluster
-- Database: Self-hosted PostgreSQL
-- Storage: Network file system
-- Load Balancing: Hardware/software load balancer
+**Pilot Architecture Components:**
+- **Compute:** Azure App Service (B3, single instance)
+- **Database:** Azure Database for PostgreSQL Flexible Server (v14, Burstable B2s)
+- **AI Processing:** Azure OpenAI Service (GPT-4, 10K TPM capacity)
+- **Load Balancing:** Built-in App Service load balancing
+- **Security:** Same as production (Azure Key Vault, Managed Identities)
+- **Monitoring:** Azure Monitor with 30-day retention
+- **Microsoft 365:** Same GCC High tenant as production
 
 ---
 
@@ -598,7 +606,7 @@ canViewMeeting(user, meeting) {
 
 **Encryption at Rest:**
 - Database: PostgreSQL native encryption
-- Documents: S3/Azure Storage encryption
+- Documents: Azure Blob Storage encryption
 - Backups: Encrypted backups
 
 **Encryption in Transit:**
@@ -608,7 +616,7 @@ canViewMeeting(user, meeting) {
 
 **Secrets Management:**
 - Environment variables for development
-- AWS Secrets Manager or Azure Key Vault for production
+- Azure Key Vault for production
 - No secrets in code or configuration files
 
 ### 7.4 Compliance
@@ -658,8 +666,8 @@ canViewMeeting(user, meeting) {
 - Load balancer distribution
 
 **Vertical Scaling:**
-- Database: RDS instance sizing
-- Compute: Container memory/CPU allocation
+- Database: Azure Database for PostgreSQL SKU sizing
+- Compute: Azure App Service Plan scaling (B3, P3v3, etc.)
 
 **Bottlenecks:**
 - Azure OpenAI rate limits (mitigated with retry logic)
@@ -679,9 +687,9 @@ canViewMeeting(user, meeting) {
 - DEBUG: Detailed diagnostics (development only)
 
 **Log Storage:**
-- CloudWatch Logs (AWS)
-- Azure Monitor (Azure)
-- Centralized logging service (optional)
+- Azure Monitor and Log Analytics
+- Application Insights for application logs
+- Centralized logging with Azure Monitor Logs
 
 ### 9.2 Metrics
 
@@ -719,13 +727,13 @@ canViewMeeting(user, meeting) {
 ### 10.1 Backup Strategy
 
 **Database Backups:**
-- Automated daily backups (RDS)
-- Point-in-time recovery (7-day window)
-- Cross-region backup replication (optional)
+- Automated daily backups (Azure Database for PostgreSQL Flexible Server)
+- Point-in-time recovery (7-35 day window, configurable)
+- Geo-redundant backup replication (production)
 
 **Document Backups:**
 - SharePoint versioning and recycle bin
-- S3 versioning (development cache)
+- Azure Blob Storage versioning (optional document cache)
 
 ### 10.2 Recovery Objectives
 

@@ -1,7 +1,7 @@
 # Deployment Guide
-## Automated Meeting Minutes Platform
+## DOD Teams Meeting Minutes Management System
 
-**Document Purpose:** Complete deployment instructions for deploying the existing, operational application to various environments - from development/testing to AWS production
+**Document Purpose:** Complete deployment instructions for deploying the existing, operational application to various environments - from development/testing to Azure Government (GCC High) production
 
 **Application Status:** Fully developed and tested - this guide covers deploying the existing codebase, not building from scratch
 
@@ -54,7 +54,7 @@
 4. [Azure OpenAI Setup](#4-azure-openai-setup)
 5. [SharePoint Configuration](#5-sharepoint-configuration)
 6. [Replit Development Deployment](#6-replit-development-deployment)
-7. [AWS Production Deployment](#7-aws-production-deployment)
+7. [Azure Government Production Deployment](#7-azure-government-production-deployment)
 8. [Teams App Packaging and Installation](#8-teams-app-packaging-and-installation)
 9. [Post-Deployment Configuration](#9-post-deployment-configuration)
 10. [Troubleshooting](#10-troubleshooting)
@@ -68,7 +68,7 @@
 | Environment | Duration | Key Steps |
 |------------|----------|-----------|
 | **Development/Testing** | 3-4 hours | M365 trial + Azure AD + Replit setup |
-| **AWS Production** | 6-8 hours | Infrastructure + DB + Application + Teams app |
+| **Azure Government Production** | 6-8 hours | Infrastructure + DB + Application + Teams app |
 | **Full Commercial Testing** | 5 hours | Complete validation before production |
 
 ### 1.2 Cost Estimates
@@ -76,21 +76,21 @@
 | Environment | Monthly Cost | Components |
 |------------|-------------|------------|
 | **Development** | $15-20 | Azure OpenAI only (M365 trial free) |
-| **AWS Production** | $1,700-2,000 | ECS Fargate, RDS, Secrets Manager |
-| **Azure Production** | $1,500-1,800 | AKS, Azure Database, Key Vault |
+| **Azure Government Production** | $5,000-7,000 | App Service P3v3, PostgreSQL, Application Gateway, Azure OpenAI |
+| **Azure Government Pilot** | $1,500-2,500 | App Service B3, PostgreSQL, Azure OpenAI (50-100 users) |
 
 ### 1.3 Prerequisites Checklist
 
 **For All Deployments:**
 - [ ] Microsoft 365 admin access (Global Administrator role)
-- [ ] Azure subscription with billing enabled
+- [ ] Azure Government (GCC High) subscription with billing enabled
 - [ ] Domain name (optional but recommended)
 - [ ] Credit card for Azure services
 
-**For AWS Deployment:**
-- [ ] AWS account with admin access
-- [ ] AWS CLI installed and configured
-- [ ] Docker installed locally
+**For Azure Government Production:**
+- [ ] Azure Government subscription (GCC High or DOD)
+- [ ] Azure CLI installed and configured
+- [ ] Appropriate clearance levels for administrators
 
 **For Replit Deployment:**
 - [ ] Replit account (free or Teams plan)
@@ -284,7 +284,7 @@ Click **+ New group** for each:
 **Redirect URI:**
 - Platform: **Web**
 - For Replit: `https://your-workspace.replit.app/auth/callback`
-- For AWS: `https://your-domain.com/auth/callback`
+- For Azure Government: `https://your-domain.com/auth/callback`
 - Leave blank for now (update later)
 
 Click **Register**
@@ -587,257 +587,204 @@ Application auto-deploys when you:
 
 ---
 
-## 7. AWS Production Deployment
+## 7. Azure Government Production Deployment
 
-### 7.1 Infrastructure Setup
+**Document Purpose:** This section provides an overview of Azure Government (GCC High) production deployment. For detailed step-by-step instructions, refer to the comprehensive deployment plans referenced below.
 
-#### Step 1: Create RDS PostgreSQL Database
+### 7.1 Overview
 
-**Using AWS Console:**
+The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure Government (GCC High)** cloud infrastructure to meet DOD security requirements and compliance standards.
 
-1. Go to AWS Console → **RDS** → **Create database**
-2. Configure:
-   - **Engine:** PostgreSQL 15.4
-   - **Templates:** Production
-   - **DB instance identifier:** `meeting-minutes-db`
-   - **Master username:** `dbadmin`
-   - **Master password:** Generate strong password (save it!)
-   - **Instance type:** db.t3.medium (or larger for 300K users)
-   - **Storage:** 50 GB SSD, enable auto-scaling
-   - **Multi-AZ:** Yes (for high availability)
-   - **VPC:** Choose your VPC
-   - **Public access:** No
-   - **Encryption:** Enabled
-3. Click **Create database**
-4. Wait 10-15 minutes for provisioning
+**Key Characteristics:**
+- **Scale:** Designed for 300,000 concurrent users across DOD organizations
+- **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications
+- **Compliance:** FedRAMP High, DISA SRG Level 5, IL5 boundary
+- **Deployment Options:**
+  * **Pilot Deployment:** 50-100 users, $1,500-2,500/month, 2-4 weeks timeline
+  * **Production Deployment:** 300,000 users, $5,000-7,000/month, 8-12 weeks timeline
+  * **Scaling Path:** Pilot → Production in 1 day (infrastructure upgrade only)
 
-**Save these values:**
+### 7.2 Azure Government Architecture
+
 ```
-Endpoint: xxx.rds.amazonaws.com
-Port: 5432
-Database: postgres
-```
-
-#### Step 2: Create IAM Role for Application
-
-```bash
-# Create IAM role for ECS task
-aws iam create-role \
-  --role-name MeetingMinutesECSRole \
-  --assume-role-policy-document '{
-    "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Principal": {"Service": "ecs-tasks.amazonaws.com"},
-      "Action": "sts:AssumeRole"
-    }]
-  }'
-
-# Attach policies
-aws iam attach-role-policy \
-  --role-name MeetingMinutesECSRole \
-  --policy-arn arn:aws:iam::aws:policy/SecretsManagerReadWrite
-
-aws iam attach-role-policy \
-  --role-name MeetingMinutesECSRole \
-  --policy-arn arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
-```
-
-### 7.2 Store Secrets in AWS Secrets Manager
-
-```bash
-# Database credentials
-aws secretsmanager create-secret \
-  --name meeting-minutes/database \
-  --secret-string '{
-    "host": "xxx.rds.amazonaws.com",
-    "port": 5432,
-    "database": "postgres",
-    "username": "dbadmin",
-    "password": "YOUR_DB_PASSWORD"
-  }'
-
-# Microsoft Graph API
-aws secretsmanager create-secret \
-  --name meeting-minutes/microsoft \
-  --secret-string '{
-    "tenantId": "YOUR_TENANT_ID",
-    "clientId": "YOUR_CLIENT_ID",
-    "clientSecret": "YOUR_CLIENT_SECRET"
-  }'
-
-# Azure OpenAI
-aws secretsmanager create-secret \
-  --name meeting-minutes/openai \
-  --secret-string '{
-    "endpoint": "https://your-resource.openai.azure.com/",
-    "apiKey": "YOUR_OPENAI_KEY",
-    "deployment": "gpt-4"
-  }'
-
-# SharePoint
-aws secretsmanager create-secret \
-  --name meeting-minutes/sharepoint \
-  --secret-string '{
-    "siteUrl": "https://yourtenant.sharepoint.com/sites/meetingminutes",
-    "library": "Minutes Archive"
-  }'
-
-# Session secret
-aws secretsmanager create-secret \
-  --name meeting-minutes/session \
-  --secret-string "$(openssl rand -hex 32)"
+┌──────────────────────────────────────────────────────────────┐
+│         Azure Government (GCC High) Cloud                    │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  Microsoft 365 GCC High                                      │
+│  ├─ Teams (Meeting Capture)                                  │
+│  ├─ SharePoint (Document Archival)                           │
+│  ├─ Exchange (Email Distribution)                            │
+│  └─ Azure AD (SSO & Group-based RBAC)                        │
+│                                                               │
+│  Azure App Service (P3v3 Production / B3 Pilot)              │
+│  ├─ Node.js 20 Runtime                                       │
+│  ├─ Auto-scaling: 2-20 instances (prod) / 1 instance (pilot) │
+│  └─ VNET Integration for private connectivity                │
+│                                                               │
+│  Azure Database for PostgreSQL Flexible Server               │
+│  ├─ Production: General Purpose D4s, HA Zone-Redundant       │
+│  └─ Pilot: Burstable B2s, Single Zone                        │
+│                                                               │
+│  Azure OpenAI Service (GPT-4)                                │
+│  ├─ Production: 100K TPM capacity                            │
+│  └─ Pilot: 10K TPM capacity                                  │
+│                                                               │
+│  Azure Application Gateway (Production only)                 │
+│  ├─ WAF_v2 for security                                      │
+│  ├─ TLS Termination                                          │
+│  └─ DDoS Protection                                          │
+│                                                               │
+│  Azure Key Vault                                             │
+│  ├─ API Keys & Secrets                                       │
+│  ├─ TLS Certificates                                         │
+│  └─ Managed Identity Access                                  │
+│                                                               │
+│  Azure Monitor + Application Insights                        │
+│  ├─ Application Performance Monitoring                       │
+│  ├─ Security Audit Logs                                      │
+│  └─ Custom Metrics & Alerts                                  │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### 7.3 Build and Push Docker Image
+### 7.3 Resource Blueprint
 
-#### Step 1: Create Dockerfile
+**Production Configuration (300,000 users):**
 
-```dockerfile
-FROM node:20-alpine
+| Resource | SKU/Configuration | Purpose | Monthly Cost |
+|----------|------------------|---------|--------------|
+| **App Service Plan** | P3v3 (2-20 instances) | Application hosting with auto-scaling | $1,200-2,000 |
+| **PostgreSQL** | General Purpose D4s, HA | Database with high availability | $800-1,200 |
+| **Application Gateway** | WAF_v2, 2 instances | Load balancing, WAF, TLS | $600-800 |
+| **Azure OpenAI** | GPT-4, 100K TPM | AI processing | $2,000-3,000 |
+| **Azure Monitor** | Standard tier, 90-day retention | Monitoring & logs | $200-400 |
+| **Key Vault** | Standard tier | Secrets management | $10-20 |
+| **Networking** | VNET, Private Endpoints, NSGs | Secure networking | $100-200 |
+| **TOTAL** | | | **$5,000-7,000/month** |
 
-WORKDIR /app
+**Pilot Configuration (50-100 users):**
 
-COPY package*.json ./
-RUN npm ci --production
+| Resource | SKU/Configuration | Purpose | Monthly Cost |
+|----------|------------------|---------|--------------|
+| **App Service Plan** | B3 (1 instance) | Application hosting | $100-150 |
+| **PostgreSQL** | Burstable B2s | Database | $50-100 |
+| **Azure OpenAI** | GPT-4, 10K TPM | AI processing | $200-400 |
+| **Azure Monitor** | Standard tier, 30-day retention | Monitoring & logs | $50-100 |
+| **Key Vault** | Standard tier | Secrets management | $10-20 |
+| **TOTAL** | | | **$1,500-2,500/month** |
 
-COPY . .
-RUN npm run build
+### 7.4 Deployment Workflow Summary
 
-EXPOSE 5000
+**High-Level Deployment Steps:**
 
-CMD ["npm", "start"]
-```
+1. **Prerequisites Validation** (1-2 days)
+   - Azure Government (GCC High) subscription active
+   - Microsoft 365 GCC High tenant configured
+   - Azure AD admin permissions verified
+   - Clearance levels documented for administrators
 
-#### Step 2: Build and Push
+2. **Phase 1: Azure Infrastructure** (2-3 days)
+   - Create Resource Group in usgovvirginia region
+   - Deploy VNET with subnets (public, app, data, management)
+   - Configure Network Security Groups (NSGs)
+   - Deploy Azure Database for PostgreSQL Flexible Server
+   - Set up private endpoints for database
 
-```bash
-# Create ECR repository
-aws ecr create-repository --repository-name meeting-minutes
+3. **Phase 2: Application Services** (2-3 days)
+   - Create Azure App Service Plan
+   - Deploy Web App with Node.js 20 runtime
+   - Configure VNET Integration
+   - Set up auto-scaling rules
+   - Deploy Application Gateway (production only)
 
-# Login to ECR
-aws ecr get-login-password --region us-east-1 | \
-  docker login --username AWS --password-stdin \
-  123456789012.dkr.ecr.us-east-1.amazonaws.com
+4. **Phase 3: AI & Integration** (1-2 days)
+   - Provision Azure OpenAI Service
+   - Deploy GPT-4 model
+   - Configure Microsoft Graph API application
+   - Set up SharePoint site and document libraries
 
-# Build image
-docker build -t meeting-minutes .
+5. **Phase 4: Security Configuration** (1-2 days)
+   - Create Azure Key Vault
+   - Store all secrets and certificates
+   - Configure Managed Identities
+   - Set up Azure AD group-based RBAC
+   - Implement clearance-level access control
 
-# Tag image
-docker tag meeting-minutes:latest \
-  123456789012.dkr.ecr.us-east-1.amazonaws.com/meeting-minutes:latest
+6. **Phase 5: Application Deployment** (1 day)
+   - Deploy application code to App Service
+   - Run database migrations
+   - Configure environment variables from Key Vault
+   - Verify health checks
 
-# Push image
-docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/meeting-minutes:latest
-```
+7. **Phase 6: Microsoft Teams Integration** (1-2 days)
+   - Package Teams app manifest
+   - Install Teams app in tenant
+   - Configure Graph API webhooks
+   - Test meeting capture workflow
 
-### 7.4 Deploy to ECS Fargate
+8. **Phase 7: Testing & Validation** (3-5 days pilot / 7-14 days production)
+   - End-to-end workflow testing
+   - Security validation (clearance levels, classifications)
+   - Performance testing (load, scale)
+   - User acceptance testing
+   - Security Authority to Operate (ATO) preparation
 
-#### Step 1: Create ECS Cluster
+### 7.5 Comprehensive Deployment Documentation
 
-```bash
-aws ecs create-cluster --cluster-name meeting-minutes-cluster
-```
+For detailed step-by-step deployment instructions, configuration examples, troubleshooting guides, and security hardening procedures, refer to these comprehensive deployment plans:
 
-#### Step 2: Create Task Definition
+| Deployment Scenario | Document | Lines | Timeline | Users |
+|-------------------|----------|-------|----------|-------|
+| **Pilot (Recommended First Step)** | `AZURE_GOV_PILOT_PLAN.md` | 1,282 | 2-4 weeks | 50-100 |
+| **Production (Full Scale)** | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | Comprehensive | 8-12 weeks | 300,000 |
+| **Scaling (Pilot → Production)** | `PILOT_TO_PRODUCTION_SCALING.md` | Detailed | 1 day | 100 → 300K |
 
-```json
-{
-  "family": "meeting-minutes",
-  "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "1024",
-  "memory": "2048",
-  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::123456789012:role/MeetingMinutesECSRole",
-  "containerDefinitions": [{
-    "name": "app",
-    "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/meeting-minutes:latest",
-    "portMappings": [{
-      "containerPort": 5000,
-      "protocol": "tcp"
-    }],
-    "secrets": [
-      {"name": "DATABASE_URL", "valueFrom": "meeting-minutes/database:host::"},
-      {"name": "GRAPH_TENANT_ID", "valueFrom": "meeting-minutes/microsoft:tenantId::"},
-      {"name": "GRAPH_CLIENT_ID", "valueFrom": "meeting-minutes/microsoft:clientId::"},
-      {"name": "GRAPH_CLIENT_SECRET", "valueFrom": "meeting-minutes/microsoft:clientSecret::"},
-      {"name": "AZURE_OPENAI_ENDPOINT", "valueFrom": "meeting-minutes/openai:endpoint::"},
-      {"name": "AZURE_OPENAI_API_KEY", "valueFrom": "meeting-minutes/openai:apiKey::"},
-      {"name": "SESSION_SECRET", "valueFrom": "meeting-minutes/session::"}
-    ],
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group": "/ecs/meeting-minutes",
-        "awslogs-region": "us-east-1",
-        "awslogs-stream-prefix": "ecs"
-      }
-    }
-  }]
-}
-```
+**Key Documents:**
 
-Register task definition:
-```bash
-aws ecs register-task-definition --cli-input-json file://task-definition.json
-```
+1. **AZURE_GOV_PILOT_PLAN.md**
+   - Cost-optimized pilot deployment ($1,500-2,500/month)
+   - Simplified architecture for 50-100 users
+   - 60-day evaluation period
+   - Built-in scaling path to production
+   - Go/no-go decision framework
+   - Complete Azure CLI commands and configuration examples
 
-#### Step 3: Create Application Load Balancer
+2. **AZURE_GOV_IMPLEMENTATION_PLAN.md**
+   - Production-grade architecture for 300,000 concurrent users
+   - High availability, disaster recovery, security hardening
+   - FedRAMP High, DISA SRG Level 5 compliance
+   - Complete resource manifests and deployment scripts
+   - ATO preparation guidance
+   - Monitoring, alerting, and incident response procedures
 
-```bash
-# Create ALB
-aws elbv2 create-load-balancer \
-  --name meeting-minutes-alb \
-  --subnets subnet-xxx subnet-yyy \
-  --security-groups sg-xxx \
-  --scheme internet-facing
+3. **PILOT_TO_PRODUCTION_SCALING.md**
+   - One-day upgrade procedure from pilot to production
+   - Infrastructure scaling (B3 → P3v3, B2s → D4s)
+   - Zero-downtime migration strategy
+   - Cost impact analysis
+   - Performance validation procedures
 
-# Create target group
-aws elbv2 create-target-group \
-  --name meeting-minutes-tg \
-  --protocol HTTP \
-  --port 5000 \
-  --vpc-id vpc-xxx \
-  --target-type ip \
-  --health-check-path /api/health
+### 7.6 Prerequisites for Azure Government Deployment
 
-# Create listener
-aws elbv2 create-listener \
-  --load-balancer-arn <ALB_ARN> \
-  --protocol HTTPS \
-  --port 443 \
-  --certificates CertificateArn=<CERT_ARN> \
-  --default-actions Type=forward,TargetGroupArn=<TG_ARN>
-```
+**Required Access:**
+- [ ] Azure Government subscription (GCC High or DOD)
+- [ ] Microsoft 365 GCC High tenant
+- [ ] Azure AD Global Administrator access
+- [ ] Billing account configured
+- [ ] SECRET clearance for system administrators (production)
 
-#### Step 4: Create ECS Service
+**Required Tools:**
+- [ ] Azure CLI configured for Azure Government (`az cloud set --name AzureUSGovernment`)
+- [ ] PowerShell 7+ with Az modules
+- [ ] Node.js 20 LTS for local development/testing
+- [ ] Git for source control
 
-```bash
-aws ecs create-service \
-  --cluster meeting-minutes-cluster \
-  --service-name meeting-minutes-service \
-  --task-definition meeting-minutes:1 \
-  --desired-count 2 \
-  --launch-type FARGATE \
-  --network-configuration "awsvpcConfiguration={
-    subnets=[subnet-xxx,subnet-yyy],
-    securityGroups=[sg-xxx],
-    assignPublicIp=DISABLED
-  }" \
-  --load-balancers "targetGroupArn=<TG_ARN>,containerName=app,containerPort=5000"
-```
-
-**Success indicator:** Service shows RUNNING status, tasks healthy in target group
-
-### 7.5 Configure DNS
-
-1. Get ALB DNS name from AWS Console
-2. Create CNAME record in your DNS provider:
-   - Name: `meeting-minutes.yourdomain.com`
-   - Type: CNAME
-   - Value: `meeting-minutes-alb-xxx.us-east-1.elb.amazonaws.com`
-3. Wait for DNS propagation (5-30 minutes)
+**Required Documentation:**
+- [ ] Security Authorization to Operate (ATO) requirements (production)
+- [ ] Data classification policies documented
+- [ ] Incident response procedures defined
+- [ ] Disaster recovery plan approved
 
 ---
 
@@ -862,7 +809,7 @@ aws ecs create-service \
   },
   "name": {
     "short": "Meeting Minutes",
-    "full": "Automated Meeting Minutes Management"
+    "full": "DOD Teams Meeting Minutes Management System"
   },
   "description": {
     "short": "Automated Teams meeting minutes generation and distribution",
@@ -1022,12 +969,13 @@ Authorization: Bearer YOUR_TOKEN
 
 ### 9.4 Monitor Logs
 
-**AWS CloudWatch:**
+**Azure Monitor (Production):**
 ```bash
-aws logs tail /ecs/meeting-minutes --follow
+# Stream logs from Azure App Service
+az webapp log tail --name app-teams-minutes-prod --resource-group rg-teams-minutes
 ```
 
-**Replit Console:**
+**Replit Console (Development):**
 - Click **Console** tab
 - Monitor real-time logs
 
@@ -1060,9 +1008,10 @@ aws logs tail /ecs/meeting-minutes --follow
 
 **Solutions:**
 1. Verify DATABASE_URL is correct
-2. Check RDS security group allows traffic from ECS tasks
+2. Check Azure NSG rules allow traffic from App Service subnet to database subnet
 3. Verify database user has correct permissions
-4. Check database is in same VPC/region
+4. Check private endpoint connection is established
+5. Verify database firewall rules allow App Service VNET
 
 #### Issue: "Azure OpenAI API error 401"
 

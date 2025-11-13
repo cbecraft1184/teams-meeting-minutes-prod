@@ -206,7 +206,7 @@
 - tsx - TypeScript execution
 
 **Database:**
-- PostgreSQL 15.x - Primary database
+- PostgreSQL 14 - Primary database (Azure Flexible Server)
 - Drizzle ORM 0.x - TypeScript ORM with type-safe queries
 - drizzle-kit - Schema management tools
 - drizzle-zod - Zod schema generation
@@ -225,13 +225,13 @@
   - SharePoint access
 
 **AI Integration:**
-- OpenAI SDK 4.x - Azure OpenAI integration
+- OpenAI SDK 6.x - Azure OpenAI integration
   - GPT-4 for transcript processing
   - Meeting summarization
   - Action item extraction
 
 **Document Generation:**
-- docx 8.x - DOCX document generation
+- docx 9.x - DOCX document generation
 - pdf-lib 1.x - PDF document generation
 - archiver 7.x - ZIP file creation
 

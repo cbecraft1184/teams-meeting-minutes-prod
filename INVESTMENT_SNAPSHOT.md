@@ -13,7 +13,7 @@
 
 **Current State:** Development prototype with implemented (but untested) backend services, database schema, API layer, and incomplete frontend (60-70%)
 
-**Target Users:** Department of Defense organizations (50,000-300,000 concurrent users) using Microsoft Teams
+**Target Users:** Department of Defense organizations using Microsoft Teams (platform designed with auto-scaling capability to support up to 300,000 concurrent users if necessary, though typical concurrent demand is significantly lower)
 
 **Deployment Model:** SaaS platform hosted on Azure Government (GCC High) infrastructure
 
@@ -190,7 +190,7 @@
 - Build end-to-end test scenarios (currently zero tests exist)
 - Conduct load and performance testing (not done)
 - Validate all edge cases and error scenarios
-- Test at production scale (300,000 concurrent users)
+- Validate auto-scaling capability to 300,000 concurrent users
 
 **Security and Compliance (production hardening):**
 - Security penetration testing
@@ -205,7 +205,9 @@
 - Create administrator guides
 - Write end-user documentation
 
-**Estimated Timeline:** 16-24 weeks with dedicated engineering resources (400-600 hours) for frontend completion, comprehensive testing, security hardening, and validation
+**Estimated Timeline:** 
+- **Commercial Deployment:** 16 weeks with dedicated engineering resources (400-600 hours) for frontend completion, comprehensive testing, security hardening, and validation
+- **DOD Production (ATO):** Additional 16 months for FedRAMP High/DISA SRG IL5 authorization (concurrent with commercial deployment where possible)
 
 ---
 
@@ -216,7 +218,7 @@
 - Backend/Testing: 1-2 FTEs (to build comprehensive test suites and fix bugs found)
 - QA/Testing: 1 FTE (test planning and execution)
 - Security: 1 FTE or consultant (security hardening and penetration testing)
-- Duration: 16-24 weeks
+- Duration: 16 weeks for commercial deployment; additional 16 months for DOD ATO
 
 **Product Management:**
 - Product owner for prioritization and customer feedback
@@ -243,7 +245,7 @@
 - FedRAMP/FISMA certification processes are lengthy
 
 **Scalability Risks:**
-- Load testing required to validate 300,000-user capacity claim
+- Load testing required to validate auto-scaling capability to 300,000 concurrent users
 - Database performance at scale not yet proven
 - Concurrent AI processing limits not established
 
@@ -284,7 +286,7 @@
 - Security: ❌ Not hardened or audited
 - **Cannot deploy to production** - requires substantial additional work
 
-The application is built on proven enterprise technologies (Microsoft Graph, Azure AD, PostgreSQL, Azure OpenAI) and follows modern SaaS architecture patterns. **Significant work remains to make this production-ready:** comprehensive testing (all levels), frontend completion, security hardening, scale validation, and bug fixes. Estimated 16-24 weeks with dedicated engineering team.
+The application is built on proven enterprise technologies (Microsoft Graph, Azure AD, PostgreSQL, Azure OpenAI) and follows modern SaaS architecture patterns. **Significant work remains to make this production-ready:** comprehensive testing (all levels), frontend completion, security hardening, scale validation, and bug fixes. Estimated 16 weeks for commercial deployment with dedicated engineering team; additional 16 months for DOD ATO (FedRAMP High/DISA SRG IL5 authorization).
 
 ---
 

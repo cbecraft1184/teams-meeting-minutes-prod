@@ -163,14 +163,16 @@ Administrator must grant tenant-wide admin consent for `Sites.Selected` permissi
 **Step 1.3: Configure Sites.Selected Permission**
 
 ```powershell
-# Connect to SharePoint Online (GCC High)
-Connect-SPOService -Url https://tenant-admin.sharepoint.us
+# Connect to the specific SharePoint site (GCC High)
+Connect-PnPOnline `
+  -Url "https://tenant.sharepoint.us/sites/meeting-minutes" `
+  -Interactive
 
-# Grant app access to specific site
-Grant-SPOSiteDesignRights `
-  -Identity https://tenant.sharepoint.us/sites/meeting-minutes `
-  -Principals "<APP_ID>" `
-  -Rights Write
+# Grant app access to specific site using Sites.Selected permission
+Grant-PnPAzureADAppSitePermission `
+  -AppId "<APP_ID>" `
+  -DisplayName "DOD Meeting Minutes - SharePoint Integration" `
+  -Permissions Write
 ```
 
 ### Phase 2: SharePoint Site Setup (Week 1-2)

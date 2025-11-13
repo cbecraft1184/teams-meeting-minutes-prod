@@ -794,6 +794,109 @@ async function cleanupAbandonedTestData() {
 
 ---
 
+## Production Readiness Gates
+
+### Gate 1: Test Coverage & Quality
+
+**Required Before Production:**
+- ✅ Unit test coverage ≥80% (all critical paths covered)
+- ✅ Integration test coverage ≥70% (all APIs tested)
+- ✅ E2E tests cover all critical user workflows
+- ✅ Zero P0/P1 bugs in test results
+- ✅ All security tests passing (SAST, DAST, penetration test)
+
+**Validation:**
+- Run full test suite: `npm run test:all`
+- Generate coverage report: verify ≥80% unit, ≥70% integration
+- Review bug tracker: 0 open P0/P1 issues
+- Verify all E2E tests green for 7 consecutive days
+- Review penetration test report: all findings remediated
+
+### Gate 2: Performance & Scalability
+
+**Required Before Production:**
+- ✅ Load test: 100,000 concurrent users sustained for 1 hour
+- ✅ API response time p95 <500ms under load
+- ✅ Auto-scaling validated (2 → 20+ instances)
+- ✅ Database query performance optimized (all queries <100ms)
+- ✅ No memory leaks in 48-hour soak test
+
+**Validation:**
+- Execute k6 load test with 100K virtual users
+- Monitor metrics: verify p95 latency <500ms
+- Observe App Service scaling: 2 → 20 instances
+- Run 48-hour soak test: verify stable memory usage
+- Database slow query log: 0 queries >100ms
+
+### Gate 3: Security Testing Completion
+
+**Required Before Production:**
+- ✅ SAST scan: 0 critical, <5 high findings
+- ✅ DAST scan: 0 critical, <10 high findings
+- ✅ Dependency audit: 0 critical vulnerabilities
+- ✅ Secrets scanning: 0 exposed secrets
+- ✅ Third-party penetration test completed and passed
+
+**Validation:**
+- Run Semgrep: review findings report
+- Run OWASP ZAP: verify baseline passes
+- Execute: `npm audit --production` (0 critical)
+- TruffleHog scan: 0 secrets found
+- Penetration test report: all critical/high remediated
+
+### Gate 4: Compliance Testing
+
+**Required Before Production:**
+- ✅ Classification access control: 100% test pass rate
+- ✅ CAC/PIV authentication: enforced and tested
+- ✅ Audit logging: 100% event capture validated
+- ✅ Data encryption: verified at rest and in transit
+- ✅ WCAG 2.1 AA accessibility: manual audit passed
+
+**Validation:**
+- Run classification test suite: 100% pass
+- Test CAC/PIV enforcement: non-PIV blocked
+- Query audit logs: verify 100% capture rate
+- SSL Labs test: A+ rating
+- Accessibility audit: WCAG 2.1 AA checklist complete
+
+### Gate 5: Operational Readiness
+
+**Required Before Production:**
+- ✅ Disaster recovery drill executed successfully
+- ✅ Incident response drill completed (P1 scenario)
+- ✅ Monitoring dashboards deployed and tested
+- ✅ On-call runbooks finalized and reviewed
+- ✅ Support team trained on troubleshooting
+
+**Validation:**
+- DR drill: RTO <1 hour, RPO <15 minutes achieved
+- IR drill: MTTD <15 minutes, MTTR <1 hour achieved
+- Review monitoring dashboard with operations team
+- Walk through runbooks with on-call rotation
+- Conduct knowledge transfer session with support team
+
+### Gate 6: Regression & Smoke Testing
+
+**Required Before Production:**
+- ✅ Full regression suite passing (all previous features work)
+- ✅ Smoke test suite defined for post-deployment validation
+- ✅ Rollback procedure tested and documented
+- ✅ Blue/green deployment tested in staging
+- ✅ Health check endpoints implemented and tested
+
+**Validation:**
+- Execute full regression suite: 100% pass rate
+- Run smoke tests in staging: verify all critical paths
+- Test rollback: deploy, rollback, verify previous version
+- Blue/green deployment: test zero-downtime deployment
+- Health checks: /health, /ready endpoints return 200
+
+**Production Deployment Approval:**  
+Requires sign-off from: QA Lead, Security Lead, Operations Lead, System Owner
+
+---
+
 **Document Version:** 1.0  
 **Last Reviewed:** November 13, 2025  
 **Next Review:** Before each major release or ATO package submission

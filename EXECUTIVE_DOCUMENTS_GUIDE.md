@@ -1,6 +1,6 @@
 # Executive Documents Guide
 
-This folder contains three versions of the IBM investment proposal for the Automated Meeting Minutes Platform, tailored for different executive audiences and time constraints.
+This folder contains three versions of the IBM investment proposal for the DOD Teams Meeting Minutes Management System, tailored for different executive audiences and time constraints.
 
 ---
 

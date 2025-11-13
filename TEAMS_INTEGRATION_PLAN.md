@@ -247,8 +247,8 @@ useEffect(() => {
    - Teams → Apps → Manage your apps → Upload an app
    - Select `.zip` file
 
-#### Production (AWS Gov Cloud + DOD Teams)
-1. **Host application**: AWS Gov Cloud (ECS Fargate)
+#### Production (Azure Government (GCC High) + DOD Teams)
+1. **Host application**: Azure Government (GCC High) (Azure App Service)
 2. **Domain**: `teams-minutes.dod.mil` (DOD-approved domain)
 3. **SSL Certificate**: DOD-issued TLS certificate
 4. **Manifest deployment** via **Teams Admin Center**:
@@ -328,7 +328,7 @@ if (context.page?.subPageId) {
 - Cannot screenshot/copy classified content (Teams DLP policies)
 
 ### Data Residency
-- All data stored in AWS Gov Cloud (CONUS)
+- All data stored in Azure Government (GCC High) (CONUS)
 - Microsoft Graph API calls to Gov Cloud endpoints
 - No data leaves DOD boundary
 
@@ -391,9 +391,9 @@ if (context.page?.subPageId) {
 - **Graph API**: Included in license (throttling limits apply)
 - **Teams Apps**: Free to deploy internally
 
-### Infrastructure (AWS Gov Cloud)
-- **Application Hosting**: ~$500-2000/month (ECS Fargate)
-- **Database**: ~$300-1000/month (RDS PostgreSQL)
+### Infrastructure (Azure Government (GCC High))
+- **Application Hosting**: ~$500-2000/month (Azure App Service)
+- **Database**: ~$300-1000/month (Azure Database for PostgreSQL)
 - **Storage**: Minimal (< $50/month)
 - **Azure OpenAI**: ~$5000-15000/month (based on usage)
 
@@ -405,7 +405,7 @@ if (context.page?.subPageId) {
 2. **Create Teams manifest** with proper configuration
 3. **Test in commercial Teams** environment (development)
 4. **Request Azure AD app registration** from DOD IT
-5. **Deploy to AWS Gov Cloud** test environment
+5. **Deploy to Azure Government (GCC High)** test environment
 6. **Submit for ATO certification** (6-12 month process)
 7. **Pilot with select users** on NIPR
 8. **Full rollout** after validation
@@ -640,9 +640,9 @@ interface AuditLog {
   requestId: string;
 }
 
-// Send to centralized logging (Splunk, CloudWatch, etc.)
+// Send to centralized logging (Splunk, Azure Monitor, etc.)
 function auditLog(log: AuditLog) {
-  console.log(JSON.stringify(log)); // CloudWatch Logs
+  console.log(JSON.stringify(log)); // Azure Monitor Logs
   // Also send to DOD SIEM if required
 }
 ```
@@ -863,17 +863,17 @@ Allow users to quickly share minutes in Teams chats/channels without opening ful
 ### Phase 0: Infrastructure Preparation (Week 1-2)
 
 **Objectives:**
-- Provision AWS Gov Cloud resources
+- Provision Azure Government (GCC High) resources
 - Configure auto-scaling groups
-- Set up CloudWatch monitoring
+- Set up Azure Monitor monitoring
 - Establish baseline metrics
 
 **Capacity Planning:**
 - **Expected load**: 300,000 users, 10% DAU (30,000)
 - **Peak load**: 5,000 concurrent users
 - **API rate limits**: Microsoft Graph throttling (2,000 req/min per app)
-- **Database sizing**: RDS PostgreSQL (db.r6g.2xlarge, 8 vCPU, 64GB RAM)
-- **App servers**: ECS Fargate (10 tasks, each 2 vCPU, 4GB RAM)
+- **Database sizing**: Azure Database for PostgreSQL (db.r6g.2xlarge, 8 vCPU, 64GB RAM)
+- **App servers**: Azure App Service (10 tasks, each 2 vCPU, 4GB RAM)
 
 **Auto-Scaling Configuration:**
 ```yaml
@@ -909,7 +909,7 @@ AutoScaling:
 - Stress test with synthetic load
 
 **Monitoring:**
-- CloudWatch dashboards
+- Azure Monitor dashboards
 - Application Insights telemetry
 - Custom metrics:
   - Authentication success rate
@@ -1154,7 +1154,7 @@ window.addEventListener('online', () => {
 
 ### Database Backup Strategy
 
-**AWS RDS Automated Backups:**
+**Azure Database for PostgreSQL Automated Backups:**
 - Daily snapshots retained for 35 days
 - Transaction logs backed up every 5 minutes
 - Point-in-time recovery enabled
@@ -1174,7 +1174,7 @@ window.addEventListener('online', () => {
 
 ### Disaster Scenarios
 
-**Scenario 1: Regional Outage (AWS us-gov-west-1)**
+**Scenario 1: Regional Outage (Azure Government USGov West)**
 1. Route 53 detects unhealthy endpoints (1-2 min)
 2. DNS routes traffic to `us-gov-east-1` (2-3 min)
 3. Standby RDS promoted to primary (10-15 min)
@@ -1196,14 +1196,14 @@ window.addEventListener('online', () => {
 
 ### Infrastructure (Monthly)
 
-**AWS Gov Cloud:**
-- ECS Fargate (10-50 tasks): $500-2,500
-- RDS PostgreSQL (production + DR): $600-1,200
+**Azure Government (GCC High):**
+- Azure App Service (10-50 tasks): $500-2,500
+- Azure Database for PostgreSQL (production + DR): $600-1,200
 - Application Load Balancer: $50
-- CloudWatch + Application Insights: $200
+- Azure Monitor + Application Insights: $200
 - S3 Storage (backups): $50
 - Route 53 DNS: $25
-- **Total AWS**: $1,425-4,025/month
+- **Total Azure Government (GCC High)**: $1,425-4,025/month
 
 **Azure Services:**
 - Azure AD P2 licenses (included in M365 E5)

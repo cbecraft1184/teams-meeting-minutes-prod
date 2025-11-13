@@ -44,18 +44,14 @@ Azure Government (GCC High)
 ```
 
 **INCONSISTENCIES FOUND:**
-- ❌ "Azure Government"
-- ❌ "Azure Gov Cloud"
-- ❌ "Azure Government Cloud"
-- ❌ "Azure Government Cloud (GCC High/DOD)"
-- ❌ "GCC High/DOD"
-- ❌ "GCC-High"
+- ❌ "Azure Gov Cloud" (informal shorthand) - Never use
+- ❌ "GCC High" (standalone without context) - Never use
+- ❌ "GCC-High" (hyphenated form) - Never use
+- ❌ "Azure Government Cloud" - Never use
 
 **CORRECTION REQUIRED:**
 - Use **"Azure Government (GCC High)"** for all production references
 - Use **"Azure Government (GCC High or DOD)"** ONLY when explicitly discussing IL5 vs IL6 options
-- Never use "Azure Gov Cloud" (informal)
-- Never use "GCC-High" (hyphenated form)
 
 ---
 
@@ -67,14 +63,13 @@ DOD Teams Meeting Minutes Management System
 ```
 
 **INCONSISTENCIES FOUND:**
-- ❌ "Automated Meeting Minutes Platform" (used in EXECUTIVE_SUMMARY_COMPREHENSIVE.md, INVESTMENT_SNAPSHOT.md)
-- ❌ "Meeting Minutes Management System"
-- ❌ "Teams Meeting Minutes System"
+- ❌ "Automated Meeting Minutes Platform" - Never use
+- ❌ "Meeting Minutes Management System" (missing DOD Teams prefix) - Never use
+- ❌ "Teams Meeting Minutes System" (missing DOD prefix) - Never use
 
 **CORRECTION REQUIRED:**
 - **Official product name:** "DOD Teams Meeting Minutes Management System"
 - **Acceptable short form:** "Meeting Minutes System" (when context is clear)
-- **Never use:** "Automated Meeting Minutes Platform" (IBM-focused branding, not DOD-specific)
 
 ---
 
@@ -88,15 +83,15 @@ SECRET
 ```
 
 **INCONSISTENCIES FOUND:**
-- ❌ "SECRET-level" (suffix form)
-- ❌ "SECRET level" (space form)
-- ❌ "secret" (lowercase)
+- ❌ "SECRET-level" (hyphenated suffix form) - Never use
+- ❌ "SECRET level" (space form) - Never use
+- ❌ "secret" (lowercase) - Never use
 
 **CORRECTION REQUIRED:**
 - Always use **UPPERCASE** classification levels: UNCLASSIFIED, CONFIDENTIAL, SECRET
 - No suffixes: ❌ "SECRET-level" → ✅ "SECRET"
 - No spaces: ❌ "SECRET level" → ✅ "SECRET"
-- Use in context: "SECRET classification", "SECRET-level data" is acceptable when describing data/documents
+- Use in context: "SECRET classification", "SECRET data" is acceptable when describing data/documents
 
 ---
 
@@ -109,16 +104,16 @@ Production Users: 300,000 concurrent users (always use comma-separated full numb
 ```
 
 **INCONSISTENCIES FOUND:**
-- ❌ "100 users" (pilot - should be range "50-100")
-- ❌ "300k users" (shorthand - unprofessional)
-- ❌ "300K users" (shorthand with capital K)
-- ❌ "300,000+ users" (plus sign unnecessary)
+- ❌ "100 users" (pilot - should be range "50-100 users") - Never use
+- ❌ "300k users" (lowercase abbreviation) - Never use
+- ❌ "300K users" (uppercase abbreviation) - Never use
+- ❌ "300,000+ users" (plus sign suffix) - Never use
+- ❌ "300,000 users" (missing "concurrent" qualifier) - Should be "300,000 concurrent users"
 
 **CORRECTION REQUIRED:**
-- **Pilot:** Always use "50-100 pilot users" or "50-100 users"
-- **Production:** Always use "300,000 concurrent users" (comma-separated, no shortcuts)
-- **Never use:** "300k", "300K", "300,000+"
-- **Exception:** Charts/graphs may use "300K" for space constraints ONLY
+- **Pilot:** Always use "50-100 users" (range format)
+- **Production:** Always use "300,000 concurrent users" (comma-separated full number with "concurrent")
+- **Never use:** "300k", "300K", "300,000+", or plain "300,000 users"
 
 ---
 
@@ -218,10 +213,26 @@ Total Pilot-to-Production Timeline:
   - Option 1 (Direct Production): 8-12 weeks
   - Option 2 (Pilot First): 2-4 weeks (deploy) + 60 days (run) + 1 day (scale) = ~14-16 weeks total
 
-Commercialization Timeline:
-  Frontend Completion: 16-24 weeks
-  Full Development: 16 weeks (aggressive sprint)
-  Teams Integration (DOD ATO): 16 months
+Two Distinct Timeline Scenarios:
+  Scenario 1 - Commercial/Pilot Timeline: 16 weeks
+    Scope: Commercialization sprint for pilot deployment (no ATO)
+    Sources: EXECUTIVE_SUMMARY_CONCISE.md, INVESTMENT_SNAPSHOT.md
+    Breakdown:
+      - Development & Testing: 8-10 weeks
+      - Security Hardening: 2-3 weeks  
+      - Pilot Deployment: 2-4 weeks
+      - Pilot Run Duration: 60 days (2 months)
+      - Scale to Production: 1 day
+  
+  Scenario 2 - Full DOD Production Timeline: 16 months
+    Scope: Complete Azure Government (GCC High) deployment with ATO certification
+    Sources: TEAMS_INTEGRATION_PLAN.md, MASTER_DOCUMENTATION_INDEX.md (line 278)
+    Breakdown:
+      - Months 1-2: Development (Teams SDK, OBO auth)
+      - Months 3-4: Security Hardening (CAC/PIV, FedRAMP High)
+      - Months 5-6: Testing & Validation (load tests, Section 508)
+      - Months 7-12: ATO Certification (security docs, authorization)
+      - Months 13-16: Phased Rollout (50 → 5,000 → 50,000 → 300,000)
 
 Product Roadmap:
   Q1 2025: Core features
@@ -230,10 +241,13 @@ Product Roadmap:
   Q4 2025: Enterprise features
 ```
 
+**USAGE RULE:** Always specify which timeline scenario when mentioning "16 weeks" or "16 months"
+
 **INCONSISTENCIES TO VERIFY:** (To be verified by Architect 3)
 - Ensure "60 days" and "2 months" are used interchangeably with context
 - Verify timeline math: Do all totals add up correctly?
 - Check phase-by-phase timelines sum to documented totals
+- [ ] Check timeline math: Do totals equal sum of phases?
 
 **CORRECTION REQUIRED:**
 - Standardize timeline notation
@@ -367,7 +381,7 @@ Monitoring:
 - **CORRECTION:** Standardize on "Azure App Service" everywhere
 
 ❌ **Issue 3: Product Name Inconsistency**
-- "Automated Meeting Minutes Platform" vs "DOD Teams Meeting Minutes Management System"
+- "DOD Teams Meeting Minutes Management System" vs "DOD Teams Meeting Minutes Management System"
 - **CORRECTION:** Use "DOD Teams Meeting Minutes Management System" consistently
 
 **CORRECTION REQUIRED:**
@@ -400,8 +414,8 @@ Monitoring:
 - [ ] Update product name to "DOD Teams Meeting Minutes Management System"
 
 **Priority 2: Terminology Standardization (Architect 1)**
-- [ ] Replace all "Azure Gov Cloud" with "Azure Government (GCC High)"
-- [ ] Remove all classification suffixes ("SECRET-level" → "SECRET")
+- [ ] Replace all "Azure Government (GCC High)" with "Azure Government (GCC High)"
+- [ ] Remove all classification suffixes ("SECRET" → "SECRET")
 - [ ] Standardize user counts ("300k" → "300,000 concurrent users")
 - [ ] Fix pilot user count to "50-100 users" consistently
 - [ ] Standardize Azure resource naming
@@ -442,9 +456,9 @@ Based on architect findings, the following documents require corrections:
 - Align technology stack descriptions
 
 **Multiple Documents (Terminology)**
-- Replace "Azure Gov Cloud" → "Azure Government (GCC High)"
+- Replace "Azure Government (GCC High)" → "Azure Government (GCC High)"
 - Replace "300k" → "300,000 concurrent users"
-- Replace "Automated Meeting Minutes Platform" → "DOD Teams Meeting Minutes Management System"
+- Replace "DOD Teams Meeting Minutes Management System" → "DOD Teams Meeting Minutes Management System"
 - Fix classification terminology (remove "-level" suffixes)
 
 ### Verification Required

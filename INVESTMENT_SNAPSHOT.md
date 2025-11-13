@@ -113,8 +113,8 @@
 - Microsoft Exchange (via Graph API)
 
 **Infrastructure:**
-- Designed for AWS (ECS Fargate, RDS)
-- Azure Gov Cloud compatible
+- Designed for Azure Government (GCC High) deployment
+- Production: Azure App Service + Azure Database for PostgreSQL
 - Development environment: Replit
 
 **Dependencies:**
@@ -190,7 +190,7 @@
 - Build end-to-end test scenarios (currently zero tests exist)
 - Conduct load and performance testing (not done)
 - Validate all edge cases and error scenarios
-- Test at production scale (300K users)
+- Test at production scale (300,000 concurrent users)
 
 **Security and Compliance (production hardening):**
 - Security penetration testing
@@ -223,7 +223,7 @@
 - Technical writer for documentation
 
 **Infrastructure:**
-- AWS or Azure cloud resources for hosting
+- Azure Government (GCC High) cloud resources for hosting
 - PostgreSQL database (development and production)
 - Azure OpenAI API access
 - Microsoft Graph API credentials
@@ -252,7 +252,7 @@
 ## Deployment Requirements
 
 **Cloud Infrastructure:**
-- Compute: Container orchestration (ECS Fargate or equivalent)
+- Compute: Container orchestration (Azure App Service or equivalent)
 - Database: Managed PostgreSQL (RDS or equivalent)
 - Storage: Document storage for generated minutes
 - Networking: Load balancer, VPC configuration
@@ -265,7 +265,7 @@
 
 **Security:**
 - TLS certificates
-- Secrets management (AWS Secrets Manager or equivalent)
+- Secrets management (Azure Key Vault or equivalent)
 - VPC isolation
 - Firewall rules and security groups
 

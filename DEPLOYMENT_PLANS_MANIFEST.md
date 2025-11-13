@@ -61,7 +61,7 @@ This manifest provides an overview of all deployment planning documents for the 
 - **FedRAMP High** certified components
 - **Azure Government Cloud** (GCC High/DOD regions)
 - **DISA SRG Level 5** compliant architecture
-- **SECRET-level** classification support
+- **SECRET** classification support
 
 **Full Technical Details:** See `TECHNICAL_ARCHITECTURE.md` Section 2
 
@@ -328,7 +328,7 @@ This manifest provides an overview of all deployment planning documents for the 
 - Additional $3-5k investment validates technology
 - Reduces production deployment risk
 - Proves user acceptance before full investment
-- Tests Azure Gov Cloud integration at small scale
+- Tests Azure Government (GCC High) integration at small scale
 - **Risk Mitigation Value:** Easily worth the 5% additional cost
 
 ---
@@ -337,7 +337,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 | Requirement | Pilot | Production | Document Reference |
 |-------------|-------|------------|-------------------|
-| **Azure Gov Cloud** | GCC High | GCC High or DOD | Both plans |
+| **Azure Government (GCC High)** | GCC High | GCC High or DOD | Both plans |
 | **Classification Support** | UNCLASSIFIED | Up to SECRET | Implementation Plan §5 |
 | **FedRAMP** | Awareness | FedRAMP High Full | Implementation Plan §5.4 |
 | **DISA SRG** | Not required | Level 5 | Implementation Plan §5.5 |

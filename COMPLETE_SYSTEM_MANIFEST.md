@@ -632,7 +632,7 @@ Network:
 ### Annual Costs
 ```yaml
 Infrastructure: $60,000-85,000
-Microsoft 365 E5 (300k users): Contact Microsoft
+Microsoft 365 E5 (300,000 concurrent users): Contact Microsoft
 Azure AD Premium P2: Included with M365 E5
 Support (Premier): $10,000-50,000
 Training: $25,000

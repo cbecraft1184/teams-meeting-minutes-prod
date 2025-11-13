@@ -191,7 +191,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Purpose:** Full production deployment to Azure Government Cloud  
 **Length:** ~75 pages  
 **Key Contents:**
-- Production architecture (300,000 users, SECRET-level support)
+- Production architecture (300,000 users, SECRET support)
 - Complete Azure Government infrastructure setup
 - Network architecture (VNETs, subnets, security groups)
 - High availability configuration (multi-AZ, auto-scaling)
@@ -219,7 +219,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 - Rollback procedures
 - Resource upgrade mapping (B3→P3v3, B2s→D4s)
 - Scaling timeline: 1 day
-- Total timeline: 61 days from pilot start to 300k users
+- Total timeline: 61 days from pilot start to 300,000 concurrent users
 
 **When to Read:** Essential before pilot deployment to understand scaling path
 
@@ -232,7 +232,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Key Contents:**
 - Deployment timeline overview
 - Development/testing setup (3-4 hours)
-- AWS production deployment (6-8 hours)
+- Azure Government production deployment (6-8 hours)
 - Azure deployment references
 - Prerequisites and access requirements
 - Common deployment patterns
@@ -275,8 +275,8 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 - Graph API webhook setup (meeting lifecycle events)
 - App registration and permissions
 - Distribution strategies (sideload, AppSource, admin deployment)
-- Implementation timeline: 16 months (Development, Security, Testing, ATO, Rollout)
-- Compliance requirements (ATO certification for DOD)
+- Implementation timeline: 16 months (Full DOD Production Timeline with ATO - Development, Security, Testing, ATO Certification, Phased Rollout)
+- Compliance requirements (ATO certification for DOD SECRET deployment)
 
 **When to Read:** For Teams-native integration planning
 

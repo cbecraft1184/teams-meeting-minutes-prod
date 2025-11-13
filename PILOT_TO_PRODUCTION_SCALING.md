@@ -809,7 +809,7 @@ Scale to Production:  1 day (run script)
 Production Validation: 1 week
 Full Rollout:         4-8 weeks
 
-Total Time:           16-22 weeks from start to 300k users
+Total Time:           16-22 weeks from start to 300,000 concurrent users
 ```
 
 ---

@@ -17,6 +17,15 @@
 
 **Deployment Model:** SaaS platform hosted on Azure Government (GCC High) infrastructure
 
+**Cost Model:**
+- **Baseline (10K concurrent users):** ~$54,150/month (~$650,000/year)
+  - 3× App Service Environments (ASEv3), 18× compute instances
+  - 12× database shards (6 UNCLASS + 4 CONF + 2 SECRET) at baseline sizing
+- **Peak (300K concurrent users - sustained):** ~$1,088,200/month (~$13M/year)
+  - 12× App Service Environments (ASEv3), 880× compute instances
+  - 12× database shards scaled to peak capacity (same shard count, larger instance sizes)
+- _See SCALABILITY_ARCHITECTURE.md Section 9 for detailed cost breakdown_
+
 ---
 
 ## Implementation Status Summary

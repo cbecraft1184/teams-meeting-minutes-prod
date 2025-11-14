@@ -70,59 +70,86 @@
 
 ## 1. System Architecture Overview
 
-### 1.1 High-Level Architecture
+### 1.1 High-Level Production Architecture
+
+**Note:** This section describes the production-ready multi-scale-unit architecture designed for Azure Government (GCC High) deployment. The current development prototype uses a simplified configuration on Replit. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning.
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                     Azure Government (GCC High) Cloud                        │
-│                                                                               │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                    Microsoft 365 GCC High Services                    │   │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐   │   │
-│  │  │ Microsoft    │  │ SharePoint   │  │    Azure AD              │   │   │
-│  │  │ Teams        │  │ Online       │  │    - SSO/Authentication  │   │   │
-│  │  │ - Meetings   │  │ - Archival   │  │    - Group-based RBAC    │   │   │
-│  │  │ - Webhooks   │  │ - Metadata   │  │    - Clearance Groups    │   │   │
-│  │  └──────┬───────┘  └──────┬───────┘  └──────────────────────────┘   │   │
-│  └─────────┼──────────────────┼──────────────────────────────────────────┘   │
-│            │                  │                                              │
-│            │ Graph API        │ Graph API                                    │
-│            ▼                  ▼                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │              Azure Application Gateway (WAF_v2)                      │   │
-│  │              - TLS Termination                                       │   │
-│  │              - DDoS Protection                                       │   │
-│  │              - Web Application Firewall                              │   │
-│  └──────────────────────────────┬───────────────────────────────────────┘   │
-│                                 │                                            │
-│                                 ▼                                            │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                 Azure App Service (P3v3)                             │   │
-│  │                 - Node.js 20.x Runtime                               │   │
-│  │                 - Express.js API + React SPA                         │   │
-│  │                 - Auto-scaling (2-20 instances)                      │   │
-│  │                 - VNET Integration                                   │   │
-│  │                 - Managed Identity Authentication                    │   │
-│  └──────────────────┬──────────────────────┬──────────────────────────┘   │
-│                     │                      │                                │
-│                     ▼                      ▼                                │
-│  ┌──────────────────────────┐   ┌─────────────────────────────────────┐   │
-│  │ Azure Database for       │   │  Azure OpenAI Service               │   │
-│  │ PostgreSQL (v14)         │   │  - GPT-4 (0613 model)               │   │
-│  │ - Flexible Server        │   │  - Gov Cloud Deployment             │   │
-│  │ - General Purpose D4s    │   │  - 100K TPM Capacity                │   │
-│  │ - HA Zone-Redundant      │   │  - Managed Identity Auth            │   │
-│  │ - Encrypted at Rest      │   └─────────────────────────────────────┘   │
-│  │ - Private Endpoint       │                                              │
-│  └──────────────────────────┘                                              │
-│                                                                              │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │              Azure Key Vault                                         │   │
-│  │              - API Keys & Secrets                                    │   │
-│  │              - TLS Certificates                                      │   │
-│  │              - Managed Identity Access                               │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                              │
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                       Azure Government (GCC High) Cloud                           │
+│                                                                                    │
+│  ┌───────────────────────────────────────────────────────────────────────────┐   │
+│  │                      Microsoft 365 GCC High Services                       │   │
+│  │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────────┐   │   │
+│  │  │ Microsoft    │  │ SharePoint   │  │    Azure AD                    │   │   │
+│  │  │ Teams        │  │ Online       │  │    - CAC/PIV Authentication    │   │   │
+│  │  │ - Meetings   │  │ - IL5 Sites  │  │    - Clearance Groups (RBAC)   │   │   │
+│  │  │ - Webhooks   │  │ - Metadata   │  │    - MFA + Device Compliance   │   │   │
+│  │  └──────┬───────┘  └──────┬───────┘  └───────────────────────────────┘   │   │
+│  └─────────┼──────────────────┼──────────────────────────────────────────────┘   │
+│            │                  │                                                   │
+│            │ Graph API (.us)  │ Graph API (.us)                                   │
+│            ▼                  ▼                                                   │
+│  ┌───────────────────────────────────────────────────────────────────────────┐   │
+│  │                    Azure Front Door (Premium)                              │   │
+│  │                    - Global Load Balancing                                 │   │
+│  │                    - WAF + DDoS Protection                                 │   │
+│  │                    - TLS 1.2+ Termination                                  │   │
+│  │                    - Classification-Based Routing                          │   │
+│  └──────────────┬──────────────────┬──────────────────┬──────────────────────┘   │
+│                 │                  │                  │                           │
+│      ┌──────────▼─────────┐ ┌──────▼────────┐ ┌──────▼──────────┐                │
+│      │ UNCLASS VNet       │ │ CONF VNet     │ │ SECRET VNet     │                │
+│      │ (10.0.0.0/16)      │ │ (10.10.0.0/16)│ │ (10.20.0.0/16)  │                │
+│      │                    │ │               │ │ (No Egress)     │                │
+│      └────────────────────┘ └───────────────┘ └─────────────────┘                │
+│               │                     │                  │                          │
+│  ┌────────────▼──────────────────────▼──────────────────▼─────────────────────┐  │
+│  │           Multi-Scale-Unit App Service Environment (ASEv3)                 │  │
+│  │                                                                             │  │
+│  │  BASELINE (10K users):           PEAK (300K users):                        │  │
+│  │  ┌──────────────────────┐        ┌──────────────────────────────────────┐ │  │
+│  │  │ 3× ASEv3 Scale Units │        │ 12× ASEv3 Scale Units                │ │  │
+│  │  │ - 1 UNCLASS (12 I3v2)│        │ - 6 UNCLASS (600 I3v2 total)         │ │  │
+│  │  │ - 1 CONF (4 I3v2)    │        │ - 4 CONF (240 I3v2 total)            │ │  │
+│  │  │ - 1 SECRET (2 I3v2)  │        │ - 2 SECRET (40 I3v2 total)           │ │  │
+│  │  │ Total: 18 instances  │        │ Total: 880 instances                 │ │  │
+│  │  └──────────────────────┘        └──────────────────────────────────────┘ │  │
+│  │                                                                             │  │
+│  │  Each I3v2 Instance:                                                        │  │
+│  │  - 8 vCPU, 32 GB RAM                                                        │  │
+│  │  - Node.js 20.x + Express.js API + React SPA                               │  │
+│  │  - 2,500-3,000 concurrent users per instance                               │  │
+│  │  - Managed Identity for Azure service authentication                       │  │
+│  └─────────────────────┬───────────────────────┬──────────────────────────────┘  │
+│                        │                       │                                 │
+│                        ▼                       ▼                                 │
+│  ┌──────────────────────────────────┐   ┌─────────────────────────────────────┐ │
+│  │ Horizontal Database Sharding     │   │  Azure OpenAI Service (GCC High)    │ │
+│  │ (12 PostgreSQL Flexible Servers) │   │  - GPT-4o + Whisper Models          │ │
+│  │                                  │   │  - Regional Deployment (Virginia)   │ │
+│  │ UNCLASS: 6 shards                │   │  - Managed Identity Auth            │ │
+│  │ - GP_Gen5_4-8 (baseline)         │   │  - 100K TPM Capacity                │ │
+│  │ - GP_Gen5_16 (peak)              │   └─────────────────────────────────────┘ │
+│  │ - TDE w/ Microsoft-managed keys  │                                           │
+│  │                                  │   ┌─────────────────────────────────────┐ │
+│  │ CONF: 4 shards                   │   │  Azure Key Vault Premium (HSM)      │ │
+│  │ - GP_Gen5_4-8 (baseline)         │   │  - Customer-Managed Keys (CMK)      │ │
+│  │ - GP_Gen5_16 (peak)              │   │  - SECRET database encryption       │ │
+│  │ - TDE w/ CMK (Key Vault Standard)│   │  - FIPS 140-2 Level 2               │ │
+│  │                                  │   │  - Purge protection enabled         │ │
+│  │ SECRET: 2 shards                 │   └─────────────────────────────────────┘ │
+│  │ - GP_Gen5_4-8 (baseline)         │                                           │
+│  │ - GP_Gen5_16 (peak)              │                                           │
+│  │ - TDE w/ HSM-backed CMK (Premium)│                                           │
+│  │ - No internet egress             │                                           │
+│  │                                  │                                           │
+│  │ Total Capacity:                  │                                           │
+│  │ - 300K+ concurrent connections   │                                           │
+│  │ - 120K+ IOPS                     │                                           │
+│  │ - Read replicas: 34-56 instances │                                           │
+│  └──────────────────────────────────┘                                           │
+│                                                                                   │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
 │  │              Azure Monitor + Application Insights                    │   │
 │  │              - Application Performance Monitoring                    │   │

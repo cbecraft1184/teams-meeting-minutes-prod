@@ -94,38 +94,69 @@ This document defines the **Information Level 5 (IL5) data segregation architect
 
 ### 2.1 High-Level Architecture Diagram
 
+**Note:** This architecture uses **classification-specific App Service Environment (ASEv3) clusters** and **horizontally sharded databases** to meet IL5 data segregation requirements. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning.
+
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                    APPLICATION TIER (Shared)                       │
-│  Azure App Service (200-250 instances at peak)                    │
-│  - Multi-tenant application code                                   │
-│  - Classification-aware routing logic                              │
-│  - Azure AD authentication with clearance group membership         │
-└────────────────────────────────────────────────────────────────────┘
-                                 ↓
-                    ┌────────────┴────────────┐
-                    │ Classification Router   │
-                    │ (Application Middleware)│
-                    └────────────┬────────────┘
-         ┌──────────────────────┼──────────────────────┐
-         ↓                      ↓                       ↓
-┌────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
-│ UNCLASSIFIED DB    │  │ CONFIDENTIAL DB     │  │ SECRET DB           │
-│ Instance           │  │ Instance            │  │ Instance            │
-├────────────────────┤  ├─────────────────────┤  ├─────────────────────┤
-│ Azure DB (PG)      │  │ Azure DB (PG)       │  │ Azure DB (PG)       │
-│ GP_Gen5_8          │  │ GP_Gen5_4           │  │ GP_Gen5_2           │
-│ Public endpoint    │  │ Private endpoint    │  │ Isolated VNet       │
-│ Microsoft keys     │  │ Customer keys (CMK) │  │ HSM-backed keys     │
-│ 7-day backups      │  │ 30-day backups      │  │ 90-day backups      │
-│                    │  │                     │  │                     │
-│ Contains:          │  │ Contains:           │  │ Contains:           │
-│ - UNCLASS meetings │  │ - CONF meetings     │  │ - SECRET meetings   │
-│ - UNCLASS minutes  │  │ - CONF minutes      │  │ - SECRET minutes    │
-│ - UNCLASS actions  │  │ - CONF actions      │  │ - SECRET actions    │
-│                    │  │                     │  │                     │
-│ Access: Any user   │  │ Access: CONF+ only  │  │ Access: SECRET only │
-└────────────────────┘  └─────────────────────┘  └─────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Azure Front Door (Premium)                           │
+│                   - Classification-based routing logic                       │
+│                   - WAF + DDoS Protection                                    │
+└──────────────┬──────────────────┬──────────────────┬────────────────────────┘
+               │                  │                  │
+    ┌──────────▼──────────┐ ┌─────▼─────────┐ ┌─────▼──────────┐
+    │ UNCLASS VNet        │ │ CONF VNet     │ │ SECRET VNet    │
+    │ (10.0.0.0/16)       │ │ (10.10.0.0/16)│ │ (10.20.0.0/16) │
+    │ Internet egress OK  │ │ Restricted    │ │ NO EGRESS      │
+    └──────────┬──────────┘ └─────┬─────────┘ └─────┬──────────┘
+               │                  │                  │
+┌──────────────▼──────────────────▼──────────────────▼─────────────────────────┐
+│              COMPUTE TIER (Classification-Specific ASE Clusters)              │
+├───────────────────────────┬───────────────────────┬───────────────────────────┤
+│ UNCLASS ASE Cluster       │ CONF ASE Cluster      │ SECRET ASE Cluster        │
+├───────────────────────────┼───────────────────────┼───────────────────────────┤
+│ Baseline: 1 ASEv3         │ Baseline: 1 ASEv3     │ Baseline: 1 ASEv3         │
+│ - 12× I3v2 instances      │ - 4× I3v2 instances   │ - 2× I3v2 instances       │
+│                           │                       │                           │
+│ Peak: 6 ASEv3             │ Peak: 4 ASEv3         │ Peak: 2 ASEv3             │
+│ - 600× I3v2 instances     │ - 240× I3v2 instances │ - 40× I3v2 instances      │
+│                           │                       │                           │
+│ Each I3v2 instance:       │ Each I3v2 instance:   │ Each I3v2 instance:       │
+│ - 8 vCPU, 32 GB RAM       │ - 8 vCPU, 32 GB RAM   │ - 8 vCPU, 32 GB RAM       │
+│ - 2,500-3,000 users       │ - 2,500-3,000 users   │ - 2,500-3,000 users       │
+│ - Azure AD integration    │ - Azure AD integration│ - Azure AD integration    │
+└───────────────┬───────────┴───────────┬───────────┴───────────┬───────────────┘
+                │                       │                       │
+┌───────────────▼───────────────────────▼───────────────────────▼───────────────┐
+│            DATA TIER (Horizontally Sharded by Classification)                 │
+├───────────────────────────┬───────────────────────┬───────────────────────────┤
+│ UNCLASS DB Shards (6)     │ CONF DB Shards (4)    │ SECRET DB Shards (2)      │
+├───────────────────────────┼───────────────────────┼───────────────────────────┤
+│ Shard 1: GP_Gen5_4-8      │ Shard 1: GP_Gen5_4-8  │ Shard 1: GP_Gen5_4-8      │
+│ Shard 2: GP_Gen5_4-8      │ Shard 2: GP_Gen5_4-8  │ Shard 2: GP_Gen5_4-8      │
+│ Shard 3: GP_Gen5_4-8      │ Shard 3: GP_Gen5_4-8  │                           │
+│ Shard 4: GP_Gen5_4-8      │ Shard 4: GP_Gen5_4-8  │ Each shard:               │
+│ Shard 5: GP_Gen5_4-8      │                       │ - Private endpoint only   │
+│ Shard 6: GP_Gen5_4-8      │ Each shard:           │ - Isolated VNet           │
+│                           │ - Private endpoint    │ - HSM-backed CMK (Premium)│
+│ Each shard:               │ - CMK encryption      │ - NO internet egress      │
+│ - Public/private endpoint │   (Key Vault Standard)│ - 90-day backups          │
+│ - Microsoft-managed keys  │ - 30-day backups      │ - 2-3 read replicas       │
+│ - 7-day backups           │ - 2-3 read replicas   │                           │
+│ - 2-3 read replicas       │                       │ Total capacity:           │
+│                           │ Total capacity:       │ - 15K concurrent conn.    │
+│ Total capacity (6 shards):│ - 60K concurrent conn.│ - 10K IOPS                │
+│ - 180K concurrent conn.   │ - 40K IOPS            │                           │
+│ - 60K IOPS                │                       │                           │
+├───────────────────────────┼───────────────────────┼───────────────────────────┤
+│ Sharding Key: meeting_id  │ Sharding Key:         │ Sharding Key: meeting_id  │
+│ (hash-based distribution) │ meeting_id            │ (hash-based distribution) │
+└───────────────────────────┴───────────────────────┴───────────────────────────┘
+
+TOTAL SYSTEM CAPACITY (Baseline → Peak):
+- Compute: 18 → 880 instances (I3v2)
+- Database: 12 shards (6+4+2) with 34-56 read replicas
+- Connections: 255K concurrent (baseline) → 300K+ (peak)
+- IOPS: 110K (baseline) → 120K+ (peak)
 ```
 
 ### 2.2 Data Flow by Classification

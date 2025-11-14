@@ -80,87 +80,237 @@ This document defines the quantified scalability architecture for the DOD Meetin
 
 ## 2. Compute Architecture
 
-### 2.1 Azure App Service Scaling Strategy
+### 2.1 Multi-Scale-Unit Architecture
 
-**Tier Selection:**
-- **Service Plan:** Premium v3 (P3v3) or Isolated v2 (I3v2) for GCC High compliance
-- **Instance Size:** P3v3 (4 vCPU, 16 GB RAM) or I3v2 (8 vCPU, 32 GB RAM)
+**Azure App Service Scaling Limits:**
+- **Premium v3 (P3v3):** Maximum 30 instances per plan
+- **Isolated v2 (I3v2):** Maximum 100 instances per plan
 
-**Baseline Deployment (10K Concurrent Users):**
-- **Instances:** 8-12 App Service instances (P3v3)
-- **Total Capacity:** 32-48 vCPU, 128-192 GB RAM
-- **Request Throughput:** 2,000-3,000 req/sec
-- **Cost:** ~$6,000-$9,000/month
+**Design Decision:** To achieve 300K concurrent user capacity while respecting Azure quotas, we deploy a **multi-scale-unit architecture** using multiple App Service Plans behind Azure Front Door for global load balancing.
 
-**Peak Deployment (300K Concurrent Users):**
-- **Instances:** 200-250 App Service instances (P3v3)
-- **Total Capacity:** 800-1,000 vCPU, 3.2-4.0 TB RAM
-- **Request Throughput:** 60,000-75,000 req/sec
-- **Cost:** ~$150,000-$187,500/month (during peak period only)
+**Architecture Pattern:**
 
-**Instance Capacity Per Node:**
-- **Concurrent Sessions:** 1,200-1,500 users per P3v3 instance
-- **Request Rate:** 250-300 req/sec per instance
-- **Memory Overhead:** 10-12 GB for application, 4-6 GB for OS/runtime
+```
+                    Azure Front Door (Global Load Balancer)
+                              ↓
+        ┌─────────────────────┴─────────────────────┐
+        ↓                                           ↓
+    Virginia Region                            Arizona Region
+    ├── UNCLASS Scale Unit 1-3                ├── UNCLASS Scale Unit 4-6
+    ├── CONF Scale Unit 1-2                   ├── CONF Scale Unit 3-4
+    └── SECRET Scale Unit 1                   └── SECRET Scale Unit 2
+```
 
-### 2.2 Auto-Scaling Configuration
+**Scale Unit Definition:**
+- **1 Scale Unit** = 1 App Service Plan (Isolated v2) with up to 100 I3v2 instances
+- **I3v2 Instance Specs:** 8 vCPU, 32 GB RAM, ~400 req/sec capacity
+- **Scale Unit Capacity:** 100 instances × 400 req/sec = 40,000 req/sec per unit
+- **User Capacity:** 100 instances × 3,000 users/instance = 300,000 users per unit
 
-**Scale-Out Rules:**
+### 2.2 IL5 Classification-Based Compute Segregation
+
+**Peak Capacity Architecture (300K Concurrent Users):**
+
+**UNCLASSIFIED Scale Units:**
+- **Active Units at Peak:** 6 total (3 in Virginia + 3 in Arizona)
+- **Instances per Unit:** 100 I3v2 instances (fully scaled)
+- **Total Capacity:** 600 instances (4,800 vCPU, 19.2 TB RAM)
+- **Request Throughput:** 6 × 40,000 = 240,000 req/sec
+- **User Capacity:** 600 × 3,000 = 1,800,000 concurrent users (6× design capacity)
+
+**CONFIDENTIAL Scale Units:**
+- **Active Units at Peak:** 4 total (2 in Virginia + 2 in Arizona)
+- **Instances per Unit:** 60 I3v2 instances (scaled for 25% of traffic)
+- **Total Capacity:** 240 instances (1,920 vCPU, 7.7 TB RAM)
+- **Request Throughput:** 4 × 24,000 = 96,000 req/sec
+- **User Capacity:** 240 × 3,000 = 720,000 concurrent users (2.4× design capacity)
+
+**SECRET Scale Units:**
+- **Active Units at Peak:** 2 total (1 in Virginia + 1 in Arizona)
+- **Instances per Unit:** 20 I3v2 instances (scaled for 5% of traffic)
+- **Total Capacity:** 40 instances (320 vCPU, 1.3 TB RAM)
+- **Request Throughput:** 2 × 8,000 = 16,000 req/sec
+- **User Capacity:** 40 × 3,000 = 120,000 concurrent users (0.4× design capacity)
+
+**Total Peak Infrastructure (All Classifications):**
+- **Scale Units:** 12 total (6 UNCLASS + 4 CONF + 2 SECRET)
+- **Instances:** 880 (at full peak capacity)
+- **vCPU:** 7,040
+- **RAM:** 28.2 TB
+- **Request Throughput:** 352,000 req/sec (5.8× design capacity of 60,000 req/sec)
+
+**NOTE:** This represents **design capacity with headroom**. Baseline deployment uses only 3 scale units (see Section 2.3).
+
+### 2.3 Baseline Deployment (10K Concurrent Users)
+
+**Minimal Viable Configuration:**
+- **UNCLASS:** 1 scale unit × 12 instances (I3v2) = 96 vCPU, 384 GB RAM
+- **CONF:** 1 scale unit × 4 instances (I3v2) = 32 vCPU, 128 GB RAM
+- **SECRET:** 1 scale unit × 2 instances (I3v2) = 16 vCPU, 64 GB RAM
+- **Total:** 3 scale units (ASEs), 18 instances, 144 vCPU, 576 GB RAM
+- **Compute Cost:** ~$18,300/month (3 ASE @ $1K + 18 I3v2 @ $850)
+- **Total Cost (all services):** ~$54,150/month (see Section 9.1)
+
+### 2.4 Peak Deployment (300K Concurrent Users)
+
+**Full-Scale Configuration:**
+- **UNCLASS:** 6 scale units × 100 instances = 600 I3v2 instances
+- **CONF:** 4 scale units × 60 instances = 240 I3v2 instances
+- **SECRET:** 2 scale units × 20 instances = 40 I3v2 instances
+- **Total:** 12 scale units (ASEs), 880 instances, 7,040 vCPU, 28.2 TB RAM
+- **Compute Cost:** ~$760,000/month (12 ASE @ $1K + 880 I3v2 @ $850)
+- **Total Cost (all services):** ~$1,088,200/month (see Section 9.2)
+
+**Note:** This represents design capacity with 1.5-2× headroom. Actual sustained 300K user load would require ~6-8 scale units (~440-560 instances) at ~$600,000-$750,000/month total cost.
+
+### 2.5 Instance Capacity Per Node
+
+**I3v2 Instance Capacity:**
+- **Concurrent Sessions:** 2,500-3,000 users per I3v2 instance
+- **Request Rate:** 350-400 req/sec per instance
+- **Memory Overhead:** 24 GB for application, 8 GB for OS/runtime
+- **Connection Pool:** 30-50 database connections per instance
+
+### 2.6 Traffic Distribution Strategy
+
+**Azure Front Door Configuration:**
+
+```hcl
+resource "azurerm_cdn_frontdoor_origin_group" "unclass" {
+  name                 = "unclass-origin-group"
+  cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.main.id
+  
+  load_balancing {
+    sample_size                 = 4
+    successful_samples_required = 3
+    additional_latency_in_milliseconds = 50
+  }
+  
+  health_probe {
+    path                = "/health"
+    request_type        = "GET"
+    protocol            = "Https"
+    interval_in_seconds = 30
+  }
+}
+
+# Add origins: Virginia UNCLASS units 1-3
+resource "azurerm_cdn_frontdoor_origin" "unclass_va_1" {
+  name                          = "unclass-va-unit-1"
+  cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.unclass.id
+  host_name                     = "unclass-va-unit-1.azurewebsites.us"
+  priority                      = 1
+  weight                        = 1000
+}
+# ... repeat for all 6 UNCLASS units
+```
+
+**Routing Logic:**
+1. Client request hits Azure Front Door
+2. Request header contains classification level (e.g., `X-Classification: CONFIDENTIAL`)
+3. Front Door routes to appropriate origin group (UNCLASS/CONF/SECRET)
+4. Origin group load-balances across regional scale units
+5. Scale unit load-balances across instances within ASE
+
+### 2.7 Auto-Scaling Configuration (Per Scale Unit)
+
+**Per-ASE Scaling Limits:**
+- **Azure Constraint:** Maximum 100 instances per App Service Environment (ASEv3)
+- **Baseline Min:** 2-10 instances per scale unit (classification-dependent)
+- **Peak Max:** 100 instances per scale unit (Azure hard limit)
+
+**UNCLASSIFIED Scale Unit Auto-Scaling:**
 ```json
 {
-  "scaleOutTriggers": [
-    {
-      "metric": "CpuPercentage",
-      "threshold": 70,
-      "duration": "PT5M",
-      "cooldown": "PT10M",
-      "scaleBy": 5
-    },
-    {
-      "metric": "MemoryPercentage",
-      "threshold": 75,
-      "duration": "PT5M",
-      "cooldown": "PT10M",
-      "scaleBy": 3
-    },
-    {
-      "metric": "HttpQueueLength",
-      "threshold": 500,
-      "duration": "PT3M",
-      "cooldown": "PT5M",
-      "scaleBy": 10
-    }
-  ]
+  "scaleRules": {
+    "minInstances": 12,
+    "maxInstances": 100,
+    "scaleOutTriggers": [
+      {
+        "metric": "CpuPercentage",
+        "threshold": 70,
+        "duration": "PT5M",
+        "cooldown": "PT10M",
+        "scaleBy": 5
+      },
+      {
+        "metric": "MemoryPercentage",
+        "threshold": 75,
+        "duration": "PT5M",
+        "cooldown": "PT10M",
+        "scaleBy": 3
+      }
+    ],
+    "scaleInTriggers": [
+      {
+        "metric": "CpuPercentage",
+        "threshold": 30,
+        "duration": "PT15M",
+        "cooldown": "PT30M",
+        "scaleBy": -2
+      }
+    ]
+  }
 }
 ```
 
-**Scale-In Rules:**
+**CONFIDENTIAL Scale Unit Auto-Scaling:**
 ```json
 {
-  "scaleInTriggers": [
-    {
-      "metric": "CpuPercentage",
-      "threshold": 30,
-      "duration": "PT15M",
-      "cooldown": "PT30M",
-      "scaleBy": -2
-    },
-    {
-      "metric": "MemoryPercentage",
-      "threshold": 40,
-      "duration": "PT15M",
-      "cooldown": "PT30M",
-      "scaleBy": -2
-    }
-  ]
+  "scaleRules": {
+    "minInstances": 4,
+    "maxInstances": 60,
+    "scaleOutTriggers": [
+      {
+        "metric": "CpuPercentage",
+        "threshold": 70,
+        "duration": "PT5M",
+        "scaleBy": 3
+      }
+    ],
+    "scaleInTriggers": [
+      {
+        "metric": "CpuPercentage",
+        "threshold": 30,
+        "duration": "PT15M",
+        "scaleBy": -1
+      }
+    ]
+  }
 }
 ```
 
-**Scaling Limits:**
-- **Minimum Instances:** 8 (maintain baseline availability)
-- **Maximum Instances:** 250 (cost/capacity ceiling)
-- **Scale-Out Rate:** 10 instances/minute maximum
-- **Scale-In Rate:** 2 instances/5 minutes (gradual reduction)
+**SECRET Scale Unit Auto-Scaling:**
+```json
+{
+  "scaleRules": {
+    "minInstances": 2,
+    "maxInstances": 20,
+    "scaleOutTriggers": [
+      {
+        "metric": "CpuPercentage",
+        "threshold": 70,
+        "duration": "PT5M",
+        "scaleBy": 2
+      }
+    ],
+    "scaleInTriggers": [
+      {
+        "metric": "CpuPercentage",
+        "threshold": 30,
+        "duration": "PT15M",
+        "scaleBy": -1
+      }
+    ]
+  }
+}
+```
+
+**Multi-Scale-Unit Coordination:**
+- Each ASE scales independently within its 100-instance limit
+- Azure Front Door distributes traffic across scale units
+- If one scale unit hits 100 instances, traffic shifts to other units
+- Horizontal scalability: Add new scale units (ASEs) as demand grows beyond 12 units
 
 ### 2.3 Worker Process Configuration
 
@@ -180,105 +330,259 @@ This document defines the quantified scalability architecture for the DOD Meetin
 
 ## 3. Database Architecture
 
-### 3.1 Azure Database for PostgreSQL Configuration
+### 3.1 Azure Database for PostgreSQL - Capacity Constraints
 
-**Service Tier:**
-- **Tier:** Flexible Server (General Purpose or Memory Optimized)
-- **Baseline:** GP_Gen5_8 (8 vCPU, 40 GB RAM, 512 GB storage)
-- **Peak:** MO_Gen5_32 (32 vCPU, 182 GB RAM, 2 TB storage)
+**Single-Instance Limitations (MO_Gen5_32):**
+- **Max Connections:** ~5,000 connections
+- **IOPS:** ~20,000 IOPS
+- **Throughput:** ~300 MB/sec
 
-**Connection Pooling:**
-- **PgBouncer:** Integrated connection pooler
-- **Max Connections (Baseline):** 2,000 connections
-- **Max Connections (Peak):** 8,000 connections
-- **Application Connection Pool:** 100-200 connections per App Service instance
+**300K User Requirements:**
+- **Application Connections:** 880 instances × 40 connections/instance = 35,200 connections
+- **IOPS:** ~40,000-60,000 IOPS (read-heavy workload)
 
-### 3.2 IL5 Data Segregation Architecture
+**Conclusion:** Single PostgreSQL instance cannot support 300K concurrent users. **Horizontal sharding required.**
 
-**Classification-Based Database Partitioning:**
+### 3.2 IL5 Data Segregation with Horizontal Sharding
 
-**OPTION A: Separate Database Instances (Recommended for IL5)**
+**Architecture:** Separate database clusters per classification, with horizontal sharding within each cluster.
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│ UNCLASSIFIED Database Instance                          │
-│ - Azure Database for PostgreSQL (GP_Gen5_8)            │
-│ - Public endpoint with Azure AD auth                    │
-│ - Daily backups, 7-day retention                        │
-│ - Data: UNCLASSIFIED meetings only                      │
-└─────────────────────────────────────────────────────────┘
+UNCLASSIFIED Database Cluster (6 shards)
+├── Shard 1 (Coordinator): GP_Gen5_8, handles meetings with ID % 6 = 0
+├── Shard 2 (Worker): GP_Gen5_8, handles meetings with ID % 6 = 1
+├── Shard 3 (Worker): GP_Gen5_8, handles meetings with ID % 6 = 2
+├── Shard 4 (Worker): GP_Gen5_8, handles meetings with ID % 6 = 3
+├── Shard 5 (Worker): GP_Gen5_8, handles meetings with ID % 6 = 4
+└── Shard 6 (Worker): GP_Gen5_8, handles meetings with ID % 6 = 5
 
-┌─────────────────────────────────────────────────────────┐
-│ CONFIDENTIAL Database Instance                          │
-│ - Azure Database for PostgreSQL (GP_Gen5_4)            │
-│ - VNet-integrated, private endpoint only                │
-│ - Encrypted backups, 30-day retention                   │
-│ - Data: CONFIDENTIAL meetings only                      │
-│ - Access: CONFIDENTIAL clearance group only             │
-└─────────────────────────────────────────────────────────┘
+CONFIDENTIAL Database Cluster (4 shards)
+├── Shard 1 (Coordinator): GP_Gen5_4, handles meetings with ID % 4 = 0
+├── Shard 2 (Worker): GP_Gen5_4, handles meetings with ID % 4 = 1
+├── Shard 3 (Worker): GP_Gen5_4, handles meetings with ID % 4 = 2
+└── Shard 4 (Worker): GP_Gen5_4, handles meetings with ID % 4 = 3
 
-┌─────────────────────────────────────────────────────────┐
-│ SECRET Database Instance                                │
-│ - Azure Database for PostgreSQL (GP_Gen5_2)            │
-│ - Isolated VNet, no internet egress                     │
-│ - HSM-backed encryption, 90-day retention               │
-│ - Data: SECRET meetings only                            │
-│ - Access: SECRET clearance group only                   │
-│ - Audit: Enhanced logging to SIEM                       │
-└─────────────────────────────────────────────────────────┘
+SECRET Database Cluster (2 shards)
+├── Shard 1 (Coordinator): GP_Gen5_2, handles meetings with ID % 2 = 0
+└── Shard 2 (Worker): GP_Gen5_2, handles meetings with ID % 2 = 1
 ```
 
-**OPTION B: Single Database with Row-Level Security (Alternative)**
+### 3.3 Connection Capacity with Sharding
 
-```sql
--- Enable Row-Level Security
-CREATE POLICY unclassified_access ON meetings
-  FOR ALL
-  TO unclassified_role
-  USING (classification = 'UNCLASSIFIED');
+**UNCLASSIFIED Cluster (6 Shards):**
+- **Total Connections:** 6 shards × 5,000 connections/shard = 30,000 connections
+- **Application Instances:** 600 I3v2 instances × 40 connections = 24,000 connections
+- **Headroom:** 6,000 connections (20%) for burst and admin
 
-CREATE POLICY confidential_access ON meetings
-  FOR ALL
-  TO confidential_role
-  USING (classification IN ('UNCLASSIFIED', 'CONFIDENTIAL'));
+**CONFIDENTIAL Cluster (4 Shards):**
+- **Total Connections:** 4 shards × 5,000 connections/shard = 20,000 connections
+- **Application Instances:** 240 I3v2 instances × 40 connections = 9,600 connections
+- **Headroom:** 10,400 connections (52%) for burst and admin
 
-CREATE POLICY secret_access ON meetings
-  FOR ALL
-  TO secret_role
-  USING (classification IN ('UNCLASSIFIED', 'CONFIDENTIAL', 'SECRET'));
+**SECRET Cluster (2 Shards):**
+- **Total Connections:** 2 shards × 5,000 connections/shard = 10,000 connections
+- **Application Instances:** 40 I3v2 instances × 40 connections = 1,600 connections
+- **Headroom:** 8,400 connections (84%) for burst and admin
 
--- Application connections use role-based PostgreSQL users
--- Each user clearance level maps to database role
+**Total Database Capacity:**
+- **Shards:** 12 total (6 UNCLASS + 4 CONF + 2 SECRET)
+- **Total Connections:** 60,000 connections
+- **Application Connections:** 35,200 connections
+- **Connection Utilization:** 59% (healthy)
+
+### 3.4 Application-Layer Sharding Implementation
+
+**Shard Router (Consistent Hashing):**
+
+```typescript
+// server/db/sharding.ts
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+
+// UNCLASSIFIED shards (6 total)
+const unclassShards = [
+  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_1!)),
+  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_2!)),
+  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_3!)),
+  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_4!)),
+  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_5!)),
+  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_6!)),
+];
+
+// CONFIDENTIAL shards (4 total)
+const confShards = [
+  drizzle(postgres(process.env.DATABASE_URL_CONF_SHARD_1!)),
+  drizzle(postgres(process.env.DATABASE_URL_CONF_SHARD_2!)),
+  drizzle(postgres(process.env.DATABASE_URL_CONF_SHARD_3!)),
+  drizzle(postgres(process.env.DATABASE_URL_CONF_SHARD_4!)),
+];
+
+// SECRET shards (2 total)
+const secretShards = [
+  drizzle(postgres(process.env.DATABASE_URL_SECRET_SHARD_1!)),
+  drizzle(postgres(process.env.DATABASE_URL_SECRET_SHARD_2!)),
+];
+
+export function getDbShard(classification: string, meetingId: number) {
+  let shards: ReturnType<typeof drizzle>[];
+  
+  switch (classification) {
+    case 'UNCLASSIFIED':
+      shards = unclassShards;
+      break;
+    case 'CONFIDENTIAL':
+      shards = confShards;
+      break;
+    case 'SECRET':
+      shards = secretShards;
+      break;
+    default:
+      throw new Error(`Invalid classification: ${classification}`);
+  }
+  
+  // Consistent hashing: route to shard based on meeting ID modulo shard count
+  const shardIndex = meetingId % shards.length;
+  return shards[shardIndex];
+}
+
+// For queries without meeting ID (e.g., list all meetings), query all shards and merge
+export async function queryAllShards(classification: string, queryFn) {
+  let shards: ReturnType<typeof drizzle>[];
+  
+  switch (classification) {
+    case 'UNCLASSIFIED':
+      shards = unclassShards;
+      break;
+    case 'CONFIDENTIAL':
+      shards = confShards;
+      break;
+    case 'SECRET':
+      shards = secretShards;
+      break;
+    default:
+      throw new Error(`Invalid classification: ${classification}`);
+  }
+  
+  // Execute query on all shards in parallel
+  const results = await Promise.all(shards.map(shard => queryFn(shard)));
+  
+  // Merge and sort results
+  return results.flat().sort((a, b) => b.createdAt - a.createdAt);
+}
 ```
 
-**Recommended Approach: Option A (Separate Instances)**
+**Usage in API Routes:**
 
-**Rationale:**
-- Physical isolation ensures no cross-classification data leakage
-- Independent backup/restore procedures per classification
-- Simplified audit trails (separate logs per classification)
-- Compliance with IL5 data segregation requirements
-- Easier to implement network isolation (VNet, firewall rules)
+```typescript
+// server/routes.ts
+import { getDbShard, queryAllShards } from './db/sharding';
+import { meetings } from '../shared/schema';
+import { eq } from 'drizzle-orm';
 
-**Scaling Per Classification:**
-- **UNCLASSIFIED DB:** Largest (70% of meetings) - scales to MO_Gen5_16
-- **CONFIDENTIAL DB:** Medium (25% of meetings) - scales to GP_Gen5_8
-- **SECRET DB:** Smallest (5% of meetings) - scales to GP_Gen5_4
+// Get meeting by ID (single shard query)
+router.get('/api/meetings/:id', async (req, res) => {
+  const meetingId = parseInt(req.params.id);
+  const classification = req.query.classification;
+  
+  const db = getDbShard(classification, meetingId);
+  
+  const meeting = await db.query.meetings.findFirst({
+    where: eq(meetings.id, meetingId)
+  });
+  
+  res.json(meeting);
+});
 
-### 3.3 Read Replica Strategy
+// List all meetings (scatter-gather across all shards)
+router.get('/api/meetings', async (req, res) => {
+  const classification = req.user.clearanceLevels[0];  // Use highest clearance
+  
+  const allMeetings = await queryAllShards(classification, (db) => 
+    db.query.meetings.findMany({ limit: 50 })
+  );
+  
+  res.json(allMeetings.slice(0, 50));  // Return first 50 after merging
+});
+```
 
-**Baseline (10K Users):**
-- **Primary:** 1 read-write instance per classification
-- **Replicas:** 1 read replica per classification (3 total)
-- **Geo-Replicas:** 1 per region (6 total for multi-region)
+### 3.5 Read Replica Strategy per Shard
 
-**Peak (300K Users):**
-- **Primary:** 1 read-write instance per classification
-- **Replicas:** 4-6 read replicas per classification (12-18 total)
-- **Geo-Replicas:** 2 per region (12 total for multi-region)
+**UNCLASSIFIED Shards (6 shards):**
+- **Baseline:** 1 primary + 2 read replicas per shard = 18 total instances
+- **Peak:** 1 primary + 4 read replicas per shard = 30 total instances
+- **Read/Write Ratio:** 80% reads, 20% writes
+- **Read Replicas Handle:** 80% of traffic distributed across 4 replicas/shard
 
-**Read/Write Split:**
-- **Writes:** 20% (meeting creation, approval, updates)
-- **Reads:** 80% (dashboards, reporting, search)
+**CONFIDENTIAL Shards (4 shards):**
+- **Baseline:** 1 primary + 2 read replicas per shard = 12 total instances
+- **Peak:** 1 primary + 4 read replicas per shard = 20 total instances
+
+**SECRET Shards (2 shards):**
+- **Baseline:** 1 primary + 1 read replica per shard = 4 total instances
+- **Peak:** 1 primary + 2 read replicas per shard = 6 total instances
+
+**Total Database Infrastructure:**
+- **Baseline:** 34 PostgreSQL instances (18 UNCLASS + 12 CONF + 4 SECRET)
+- **Peak:** 56 PostgreSQL instances (30 UNCLASS + 20 CONF + 6 SECRET)
+
+### 3.6 Connection Pooling Configuration
+
+**Per-Instance Connection Pool (PgBouncer):**
+
+```ini
+# PgBouncer configuration
+[databases]
+meetings = host=shard-1.postgres.database.usgovcloudapi.net port=5432 dbname=meetings
+
+[pgbouncer]
+pool_mode = transaction
+max_client_conn = 5000
+default_pool_size = 25
+min_pool_size = 10
+reserve_pool_size = 5
+```
+
+**Application-Side Connection Pool:**
+
+```typescript
+// server/db/connection-pool.ts
+const shardConfig = {
+  max: 40,              // Max 40 connections per App Service instance per shard
+  min: 10,              // Min 10 idle connections
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  allowExitOnIdle: false
+};
+
+// With 600 UNCLASS instances × 40 connections = 24,000 connections
+// Distributed across 6 shards = 4,000 connections/shard
+// Well within 5,000 connection limit per PostgreSQL instance
+```
+
+### 3.7 Database Scaling Per Classification
+
+**UNCLASSIFIED (70% of traffic):**
+- **Baseline:** 6 shards × GP_Gen5_8 (8 vCPU, 40 GB RAM each)
+- **Peak:** 6 shards × GP_Gen5_16 (16 vCPU, 80 GB RAM each)
+- **Cost (Baseline):** 6 × $1,600 = $9,600/month
+- **Cost (Peak):** 6 × $3,200 = $19,200/month
+
+**CONFIDENTIAL (25% of traffic):**
+- **Baseline:** 4 shards × GP_Gen5_4 (4 vCPU, 20 GB RAM each)
+- **Peak:** 4 shards × GP_Gen5_8 (8 vCPU, 40 GB RAM each)
+- **Cost (Baseline):** 4 × $800 = $3,200/month
+- **Cost (Peak):** 4 × $1,600 = $6,400/month
+
+**SECRET (5% of traffic):**
+- **Baseline:** 2 shards × GP_Gen5_2 (2 vCPU, 10 GB RAM each)
+- **Peak:** 2 shards × GP_Gen5_4 (4 vCPU, 20 GB RAM each)
+- **Cost (Baseline):** 2 × $400 = $800/month
+- **Cost (Peak):** 2 × $800 = $1,600/month
+
+**Total Database Cost:**
+- **Baseline (primaries only):** $13,600/month
+- **Peak (primaries only):** $27,200/month
+- **Peak (with read replicas):** $27,200 + (4 replicas × $27,200) = $136,000/month
 - **Read Replica Load Balancing:** Round-robin across replicas
 
 ### 3.4 Database Performance Tuning
@@ -760,20 +1064,23 @@ Scenario: 300,000 concurrent users (design capacity)
 
 | Service | Configuration | Cost/Month |
 |---------|--------------|------------|
-| App Service (Web) | 12× P3v3 instances | $8,500 |
-| App Service (AI Workers) | 6× P2v3 instances | $3,600 |
-| App Service (Doc Workers) | 4× P1v3 instances | $1,200 |
-| Azure Database for PostgreSQL | 3× GP_Gen5_8 (UNCLASS/CONF/SECRET) | $4,800 |
-| Read Replicas | 3× GP_Gen5_4 (1 per classification) | $2,400 |
+| **Compute** | | |
+| App Service Environment (ASE) | 3× ASEv3 (UNCLASS/CONF/SECRET) | $3,000 |
+| App Service Instances | 18× I3v2 (12 UNCLASS, 4 CONF, 2 SECRET) | $15,300 |
+| AI Workers (Separate ASE) | 1× ASEv3 + 6× I2v2 instances | $4,600 |
+| **Database** | | |
+| PostgreSQL Shards (Primaries) | 12× GP_Gen5_4-8 (6+4+2 by classification) | $13,600 |
+| Read Replicas | 34× GP_Gen5_2-4 (2-3 per shard) | $13,600 |
+| **Storage & Networking** | | |
 | Blob Storage (Hot) | 3 TB stored, 100 GB egress | $600 |
-| Azure Front Door | Standard tier, 1 TB egress | $400 |
-| Application Gateway (WAF) | WAF_v2, 10 units | $850 |
-| Azure OpenAI | 50K tokens/day (GPT-4o + Whisper) | $1,500 |
-| Key Vault | Premium (HSM-backed for SECRET) | $200 |
+| Azure Front Door | Premium tier, 1 TB egress | $800 |
+| **AI & Security** | | |
+| Azure OpenAI (GCC High) | 50K tokens/day (GPT-4o + Whisper) | $2,000 |
+| Key Vault Premium | HSM-backed keys for CONF/SECRET | $300 |
 | Log Analytics | 50 GB/day ingestion | $350 |
-| **Total Baseline** | | **$24,400/month** |
+| **Total Baseline** | | **$54,150/month** |
 
-**Annual Baseline Cost:** ~$293,000/year
+**Annual Baseline Cost:** ~$650,000/year
 
 ### 9.2 Peak Cost (300K Concurrent Users - Sustained)
 
@@ -781,43 +1088,62 @@ Scenario: 300,000 concurrent users (design capacity)
 
 | Service | Configuration | Cost/Month |
 |---------|--------------|------------|
-| App Service (Web) | 250× P3v3 instances | $177,000 |
-| App Service (AI Workers) | 60× P2v3 instances | $36,000 |
-| App Service (Doc Workers) | 30× P1v3 instances | $9,000 |
-| Azure Database for PostgreSQL | 3× MO_Gen5_32 (UNCLASS/CONF/SECRET) | $28,800 |
-| Read Replicas | 18× GP_Gen5_8 (6 per classification) | $28,800 |
+| **Compute** | | |
+| App Service Environment (ASE) | 12× ASEv3 (6 UNCLASS, 4 CONF, 2 SECRET) | $12,000 |
+| App Service Instances | 880× I3v2 (600+240+40 by classification) | $748,000 |
+| AI Workers (Separate ASE) | 2× ASEv3 + 60× I2v2 instances | $26,000 |
+| **Database** | | |
+| PostgreSQL Shards (Primaries) | 12× GP_Gen5_16 (scaled up at peak) | $38,400 |
+| Read Replicas | 56× GP_Gen5_8-16 (4-6 per shard) | $156,800 |
+| **Storage & Networking** | | |
 | Blob Storage (Hot) | 100 TB stored, 3 TB egress | $24,000 |
 | Azure Front Door | Premium tier, 30 TB egress | $12,000 |
-| Application Gateway (WAF) | WAF_v2, 100 units | $8,500 |
-| Azure OpenAI | 1.5M tokens/day (GPT-4o + Whisper) | $45,000 |
-| Key Vault | Premium (HSM-backed for SECRET) | $200 |
+| **AI & Security** | | |
+| Azure OpenAI (GCC High) | 1.5M tokens/day (GPT-4o + Whisper) | $60,000 |
+| Key Vault Premium | HSM-backed keys | $500 |
 | Log Analytics | 1.5 TB/day ingestion | $10,500 |
-| **Total Peak** | | **$379,800/month** |
+| **Total Peak** | | **$1,088,200/month** |
 
-**Annual Peak Cost (Sustained):** ~$4,557,600/year
+**Annual Peak Cost (Sustained):** ~$13,058,400/year
 
-**NOTE:** Peak capacity is designed for burst scenarios (hours/days), not sustained operation. Actual costs will scale dynamically based on demand.
+**NOTE:** This represents design capacity with 2× headroom. **Actual sustained 300K load** would require ~6-8 scale units (~440-560 instances) at **~$600,000-$750,000/month**.
 
-### 9.3 Cost Optimization Strategies
+### 9.3 Realistic Cost Scenarios
+
+**Scenario A: Typical Operation (10K concurrent users, 90% of time)**
+- **Cost:** $54,000/month × 0.9 = $48,600/month effective
+
+**Scenario B: Monthly Peak Event (50K concurrent users, 1 day/month)**
+- **Additional Cost:** $150,000 × (1 day / 30 days) = $5,000/month effective
+- **Total:** $48,600 + $5,000 = $53,600/month
+
+**Scenario C: Annual Crisis Exercise (300K concurrent users, 2 days/year)**
+- **Additional Cost:** $1,088,000 × (2 days / 365 days) = $6,000/year effective
+- **Total Annual:** $650,000 + $6,000 = $656,000/year
+
+**Most Likely Annual Cost:** $650,000-$750,000/year (includes baseline + occasional bursts)
+
+### 9.4 Cost Optimization Strategies
 
 **Auto-Scaling Savings:**
-- **Off-Peak Reduction:** Scale down to 50% capacity during nights/weekends
-- **Estimated Savings:** 30-40% of compute costs (~$60,000-$80,000/month at peak)
+- **Off-Peak Reduction:** Scale down to 6 instances per ASE during nights/weekends (70% time reduction)
+- **Estimated Savings:** 40% of compute costs (~$300,000/year)
 
-**Reserved Instances:**
-- **1-Year Reserved Instances:** 30% discount on baseline capacity
-- **Estimated Savings:** ~$7,300/month baseline
+**Reserved Instances (1-Year):**
+- **ASEv3 Stamp Commitment:** 30% discount on ASE licenses
+- **I3v2 Instance Commitment:** 30% discount on baseline instances
+- **Estimated Savings:** ~$12,000/month baseline (~$144,000/year)
+
+**Database Right-Sizing:**
+- **Auto-Scale Down:** Scale shards to GP_Gen5_2-4 during off-peak hours
+- **Estimated Savings:** ~$5,000/month (~$60,000/year)
 
 **Blob Storage Lifecycle:**
 - **Cool Tier (90+ days):** 50% storage cost reduction
 - **Archive Tier (365+ days):** 90% storage cost reduction
-- **Estimated Savings:** ~$5,000-$10,000/month (year 2+)
+- **Estimated Savings:** ~$8,000/month year 2+ (~$96,000/year)
 
-**Database Right-Sizing:**
-- **Automated Scaling:** Scale down database during off-peak hours
-- **Estimated Savings:** ~$2,000-$4,000/month
-
-**Total Optimized Baseline Cost:** ~$18,000-$20,000/month (~$216,000-$240,000/year)
+**Total Optimized Annual Cost:** ~$400,000-$450,000/year (with aggressive optimization)
 
 ---
 

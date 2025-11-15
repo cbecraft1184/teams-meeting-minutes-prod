@@ -794,36 +794,322 @@ export const useTheme = () => useContext(ThemeContext);
 }
 ```
 
-### Appendix D: Classification Visual Standards
+### Appendix D: DOD Classification Banner Requirements
 
-**Banner Placement:**
-```
-┌────────────────────────────────────────────┐
-│  🔴 SECRET - Authorized Personnel Only     │ ← Classification Banner
-├────────────────────────────────────────────┤
-│  Header with navigation                    │
-├────────────────────────────────────────────┤
-│  Main content area                         │
-│                                            │
-│  Meeting details with SECRET badge ─────┐ │
-│                                          │ │
-└──────────────────────────────────────────┴─┘
+**CRITICAL: All classification banners MUST comply with DOD standards for classified information systems. This is a mandatory security requirement, not optional.**
+
+#### 1. Banner Display Rules
+
+**UNCLASSIFIED Content:**
+- Top banner: Green background (#28A745), white text, "UNCLASSIFIED"
+- Bottom banner: Same as top
+- Text: `UNCLASSIFIED`
+- Height: Minimum 40px
+- Position: Fixed to viewport (always visible)
+
+**CONFIDENTIAL Content:**
+- Top banner: Orange background (#FFA500), black text, "CONFIDENTIAL"
+- Bottom banner: Same as top
+- Text: `CONFIDENTIAL`
+- Height: Minimum 40px
+- Position: Fixed to viewport (always visible)
+- Warning icon: ⚠️ (optional but recommended)
+
+**SECRET Content:**
+- Top banner: Red background (#FF0000), white text, "SECRET"
+- Bottom banner: Same as top
+- Text: `SECRET`
+- Height: Minimum 40px
+- Position: Fixed to viewport (always visible)
+- Alert icon: 🔴 (optional but recommended)
+
+#### 2. Implementation Requirements
+
+**React Component (ClassificationBanner):**
+```typescript
+// client/src/components/classification-banner.tsx
+interface ClassificationBannerProps {
+  classification: 'UNCLASSIFIED' | 'CONFIDENTIAL' | 'SECRET';
+  position: 'top' | 'bottom';
+}
+
+export function ClassificationBanner({ classification, position }: ClassificationBannerProps) {
+  const styles = {
+    UNCLASSIFIED: {
+      bg: 'bg-green-600',
+      text: 'text-white',
+      icon: '',
+    },
+    CONFIDENTIAL: {
+      bg: 'bg-orange-500',
+      text: 'text-black',
+      icon: '⚠️',
+    },
+    SECRET: {
+      bg: 'bg-red-600',
+      text: 'text-white',
+      icon: '🔴',
+    },
+  };
+
+  const style = styles[classification];
+
+  return (
+    <div
+      className={`${style.bg} ${style.text} ${
+        position === 'top' ? 'fixed top-0' : 'fixed bottom-0'
+      } left-0 right-0 h-10 flex items-center justify-center font-bold text-sm z-50`}
+      role="banner"
+      aria-label={`${classification} classification banner`}
+      data-testid={`banner-${classification.toLowerCase()}-${position}`}
+    >
+      {style.icon && <span className="mr-2">{style.icon}</span>}
+      <span>{classification}</span>
+      {classification === 'SECRET' && (
+        <span className="ml-2 font-normal">- Authorized Personnel Only</span>
+      )}
+    </div>
+  );
+}
 ```
 
-**Document Markings:**
+**Usage in App Layout:**
+```typescript
+// client/src/App.tsx
+import { ClassificationBanner } from '@/components/classification-banner';
+
+export default function App() {
+  // Determine highest classification level user is viewing
+  const currentClassification = determinePageClassification(); // 'UNCLASSIFIED', 'CONFIDENTIAL', or 'SECRET'
+
+  return (
+    <>
+      {/* Top classification banner - REQUIRED */}
+      <ClassificationBanner classification={currentClassification} position="top" />
+      
+      {/* Main application content */}
+      <main className="mt-10 mb-10"> {/* Account for fixed banners */}
+        <Router />
+      </main>
+      
+      {/* Bottom classification banner - REQUIRED */}
+      <ClassificationBanner classification={currentClassification} position="bottom" />
+    </>
+  );
+}
 ```
-┌─────────────────────────────────────┐
-│           SECRET                    │ ← Header
-│  ─────────────────────────────────  │
-│                                     │
-│  Meeting Minutes                    │
-│  Date: November 13, 2025            │
-│  Classification: SECRET             │ ← Content
-│  ...                                │
-│                                     │
-│  ─────────────────────────────────  │
-│           SECRET                    │ ← Footer
-└─────────────────────────────────────┘
+
+#### 3. Dynamic Classification Detection
+
+**Algorithm:**
+```typescript
+// Determine page classification based on content being viewed
+function determinePageClassification(): 'UNCLASSIFIED' | 'CONFIDENTIAL' | 'SECRET' {
+  const currentPath = window.location.pathname;
+  
+  // Check if viewing specific meeting
+  if (currentPath.startsWith('/meetings/')) {
+    const meetingId = currentPath.split('/')[2];
+    const meeting = getMeetingById(meetingId); // From React Query cache
+    return meeting?.classification || 'UNCLASSIFIED';
+  }
+  
+  // Check if viewing search results with mixed classifications
+  if (currentPath === '/search') {
+    const results = getSearchResults();
+    const hasSecret = results.some(r => r.classification === 'SECRET');
+    const hasConf = results.some(r => r.classification === 'CONFIDENTIAL');
+    
+    // Display highest classification present in results
+    if (hasSecret) return 'SECRET';
+    if (hasConf) return 'CONFIDENTIAL';
+    return 'UNCLASSIFIED';
+  }
+  
+  // Default to UNCLASSIFIED for dashboard, login, etc.
+  return 'UNCLASSIFIED';
+}
+```
+
+#### 4. Document Export Markings
+
+**PDF/DOCX Headers & Footers:**
+- Classification MUST appear on every page
+- Header format: `[CLASSIFICATION]` centered, all caps, bold
+- Footer format: Same as header
+- Font size: 14pt minimum
+- Color: Match web banner colors
+
+**Implementation (using pdf-lib):**
+```typescript
+import { PDFDocument, rgb } from 'pdf-lib';
+
+async function addClassificationMarkings(
+  pdfDoc: PDFDocument,
+  classification: 'UNCLASSIFIED' | 'CONFIDENTIAL' | 'SECRET'
+) {
+  const pages = pdfDoc.getPages();
+  
+  const colors = {
+    UNCLASSIFIED: rgb(0.16, 0.65, 0.27), // Green
+    CONFIDENTIAL: rgb(1.0, 0.65, 0.0),   // Orange
+    SECRET: rgb(1.0, 0.0, 0.0),          // Red
+  };
+  
+  pages.forEach((page) => {
+    const { width, height } = page.getSize();
+    
+    // Top marking
+    page.drawText(classification, {
+      x: width / 2 - 60,
+      y: height - 30,
+      size: 14,
+      color: colors[classification],
+    });
+    
+    // Bottom marking
+    page.drawText(classification, {
+      x: width / 2 - 60,
+      y: 20,
+      size: 14,
+      color: colors[classification],
+    });
+  });
+}
+```
+
+#### 5. Accessibility Requirements
+
+**Screen Reader Announcements:**
+```typescript
+// Announce classification when page loads or changes
+useEffect(() => {
+  const announcement = `Page classification: ${currentClassification}. ${
+    currentClassification === 'SECRET'
+      ? 'This page contains SECRET information. Authorized personnel only.'
+      : currentClassification === 'CONFIDENTIAL'
+      ? 'This page contains CONFIDENTIAL information.'
+      : 'This page contains UNCLASSIFIED information.'
+  }`;
+  
+  // Announce via aria-live region
+  const liveRegion = document.getElementById('classification-announcer');
+  if (liveRegion) {
+    liveRegion.textContent = announcement;
+  }
+}, [currentClassification]);
+```
+
+**ARIA Live Region:**
+```tsx
+<div
+  id="classification-announcer"
+  className="sr-only"
+  role="status"
+  aria-live="polite"
+  aria-atomic="true"
+/>
+```
+
+#### 6. Testing Requirements
+
+**Manual Testing Checklist:**
+- [ ] UNCLASSIFIED banner: Green, white text, visible top and bottom
+- [ ] CONFIDENTIAL banner: Orange, black text, visible top and bottom
+- [ ] SECRET banner: Red, white text, "Authorized Personnel Only" suffix
+- [ ] Banners remain fixed during scroll
+- [ ] Banners update when navigating to different classification pages
+- [ ] Screen reader announces classification on page load
+- [ ] Exported PDFs include classification markings on every page
+- [ ] High contrast mode: Banners still visible and distinguishable
+
+**Automated Test (Playwright):**
+```typescript
+test('Classification banners display correctly', async ({ page }) => {
+  await page.goto('/meetings/secret-meeting-123');
+  
+  // Verify top banner
+  const topBanner = page.getByTestId('banner-secret-top');
+  await expect(topBanner).toBeVisible();
+  await expect(topBanner).toContainText('SECRET');
+  await expect(topBanner).toContainText('Authorized Personnel Only');
+  
+  // Verify bottom banner
+  const bottomBanner = page.getByTestId('banner-secret-bottom');
+  await expect(bottomBanner).toBeVisible();
+  await expect(bottomBanner).toContainText('SECRET');
+  
+  // Verify banner stays visible during scroll
+  await page.mouse.wheel(0, 1000);
+  await expect(topBanner).toBeVisible();
+  await expect(bottomBanner).toBeVisible();
+});
+```
+
+#### 7. Production Validation
+
+**Before deploying to production:**
+- [ ] All CONFIDENTIAL/SECRET pages display appropriate banners
+- [ ] UNCLASSIFIED pages display green banner (not absent)
+- [ ] Banner z-index ensures always on top (z-50 or higher)
+- [ ] Exported documents include classification markings
+- [ ] ISSO review of classification marking compliance completed
+- [ ] Section 508 compliance verified for all banner states
+
+**Failure to properly implement classification banners may result in:**
+- ATO certification denial
+- Security audit failure
+- Unauthorized disclosure of classified information
+- System shutdown by DOD security personnel
+
+**Sign-Off Required:**
+- [ ] UI/UX Lead
+- [ ] Information System Security Officer (ISSO)
+- [ ] Compliance Lead
+
+#### 8. Visual Standards Reference
+
+**Banner Placement in Application:**
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  🔴 SECRET - Authorized Personnel Only                 │ ← Top Banner (Fixed, z-index: 50)
+├─────────────────────────────────────────────────────────────────┤
+│  Header with navigation and user menu                           │
+├─────────────────────────────────────────────────────────────────┤
+│  Main content area                                               │
+│                                                                  │
+│  Meeting details with SECRET badge                              │
+│  - Title: "Q4 Budget Planning"                                  │
+│  - Classification: SECRET (red badge)                           │
+│  - Attendees: 5 personnel                                       │
+│  - Minutes: Approved                                            │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  🔴 SECRET - Authorized Personnel Only              │ ← Bottom Banner (Fixed, z-index: 50)
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Document Export Markings:**
+```
+┌──────────────────────────────────────────┐
+│              SECRET                      │ ← Header (Every Page)
+│  ───────────────────────────────────────  │
+│                                           │
+│  Meeting Minutes                          │
+│  Meeting ID: meeting-789                  │
+│  Date: November 13, 2025                  │
+│  Classification: SECRET                   │
+│                                           │
+│  Attendees:                               │
+│  - CAPT Smith, USN (SECRET clearance)    │
+│  - LCDR Jones, USN (SECRET clearance)    │
+│                                           │
+│  Discussion:                              │
+│  [SECRET meeting content...]              │
+│                                           │
+│  ───────────────────────────────────────  │
+│              SECRET                      │ ← Footer (Every Page)
+└──────────────────────────────────────────┘
 ```
 
 ---

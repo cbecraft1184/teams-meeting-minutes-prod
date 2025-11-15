@@ -1297,4 +1297,134 @@ ENABLE_MESSAGE_EXTENSION=false
 
 ---
 
+## IL5 Data Segregation Validation
+
+### Purpose
+
+This section provides mandatory testing procedures to validate that Teams integration maintains IL5-compliant data segregation when processing meeting webhooks, transcripts, and recordings across UNCLASSIFIED, CONFIDENTIAL, and SECRET classification levels.
+
+### IL5 Requirements for Teams Integration
+
+**Classification-Based Meeting Processing:**
+- Webhook subscriptions MUST route classified meetings to appropriate isolated environments
+- Transcripts and recordings for SECRET meetings MUST be processed in air-gapped SECRET environment
+- Meeting metadata from one classification MUST NOT leak into another classification's processing pipeline
+
+**Access Control:**
+- Teams app MUST enforce clearance-based access: SECRET meetings only accessible to SECRET-cleared users
+- Meeting extensions MUST hide classification options above user's clearance level
+- Bot notifications MUST NOT reveal existence of higher-classified meetings to lower-cleared users
+
+### Test Case 1: Webhook Classification Routing
+
+**Objective:** Verify Teams webhooks route meetings to correct classification-specific processing environment
+
+**Test Steps:**
+1. Create three test Teams meetings with classifications:
+   - Meeting A: UNCLASSIFIED (organizer: testuser_unclass@dod.mil)
+   - Meeting B: CONFIDENTIAL (organizer: testuser_conf@dod.mil)
+   - Meeting C: SECRET (organizer: testuser_secret@dod.mil)
+2. Complete each meeting (trigger "callEnded" webhook)
+3. Verify webhook routing:
+   - UNCLASSIFIED webhook → UNCLASS ASE cluster (VNet 10.0.0.0/16)
+   - CONFIDENTIAL webhook → CONF ASE cluster (VNet 10.10.0.0/16)
+   - SECRET webhook → SECRET ASE cluster (VNet 10.20.0.0/16)
+4. Verify each environment queries only its respective database shard
+
+**Expected Routing Table:**
+| Meeting Classification | Webhook Destination | Database Shard | Network Isolation |
+|------------------------|---------------------|----------------|-------------------|
+| UNCLASSIFIED | UNCLASS ASE | UNCLASS shards 1-6 | Public/Private VNet |
+| CONFIDENTIAL | CONF ASE | CONF shards 1-4 | Private VNet only |
+| SECRET | SECRET ASE | SECRET shards 1-2 | Air-gapped VNet (no egress) |
+
+**Failure Criteria:**
+- Webhook routed to wrong ASE cluster
+- Cross-classification database query detected
+- SECRET webhook processed in non-air-gapped environment
+
+### Test Case 2: Graph API Endpoint Validation
+
+**Objective:** Verify all Graph API calls use GCC High endpoints (.us domain)
+
+**Test Steps:**
+1. Monitor network traffic from all ASE environments
+2. Verify ALL Graph API requests use https://graph.microsoft.us (NOT .com)
+3. Verify OAuth tokens acquired from https://login.microsoftonline.us
+4. Confirm no requests to commercial Azure endpoints
+
+**Network Validation:**
+```bash
+# Monitor outbound HTTPS requests
+tcpdump -i any 'port 443 and host graph.microsoft.us'  # Should see traffic
+
+# Verify NO traffic to commercial endpoints:
+tcpdump -i any 'port 443 and host graph.microsoft.com'  # Should be EMPTY
+```
+
+**Expected OAuth Token:**
+```json
+{
+  "aud": "https://graph.microsoft.us",  // CORRECT (GCC High)
+  "iss": "https://sts.windows.net/{tenant-id}/",
+  "iat": 1700000000,
+  "exp": 1700003600
+}
+```
+
+**Failure Criteria:**
+- Any request to graph.microsoft.com (commercial)
+- OAuth tokens with wrong audience claim
+- Login attempts to login.microsoftonline.com instead of .us
+
+### Test Case 3: Transcript/Recording Isolation
+
+**Objective:** Verify Teams transcripts and recordings are downloaded only in classification-appropriate environment
+
+**Test Steps:**
+1. Create SECRET meeting with recording enabled
+2. Complete meeting, wait for recording availability
+3. Verify Graph API call to download recording originates from SECRET ASE instance only
+4. Verify recording NEVER downloaded or cached in UNCLASS/CONF environments
+5. Check SECRET database for recording metadata, confirm NOT present in other shards
+
+**Expected Result:**
+```
+SECRET meeting recording download:
+- Source: SECRET ASE instance (10.20.x.x)
+- Storage: SECRET database shard 1 or 2
+- Network: No internet egress (air-gapped)
+
+UNCLASS/CONF environments:
+- No knowledge of SECRET meeting existence
+- Recording download never attempted
+```
+
+**Failure Criteria:**
+- Recording downloaded from non-SECRET environment
+- Recording cached in lower classification environment
+- SECRET meeting metadata visible in UNCLASS/CONF database
+
+### Production Validation Checklist
+
+**Before deploying Teams integration to Azure Government (GCC High) production:**
+
+- [ ] **Test Case 1:** PASSED - Webhook routing to classification-specific ASE verified
+- [ ] **Test Case 2:** PASSED - All Graph API calls use .us endpoints
+- [ ] **Test Case 3:** PASSED - Transcript/recording isolation confirmed
+- [ ] **Network Scan:** No commercial Azure endpoint traffic detected
+- [ ] **ISSO Review:** Information System Security Officer approval obtained
+- [ ] **ATO Package:** Teams integration controls documented
+
+**Sign-Off Required:**
+- [ ] System Owner
+- [ ] Information System Security Officer (ISSO)
+- [ ] Teams Administrator (GCC High)
+- [ ] Compliance Lead
+
+**Acceptance Criteria:**
+All 3 test cases must achieve 100% pass rate. Any failure in classification isolation requires immediate remediation and complete re-testing.
+
+---
+
 **This updated plan addresses all critical gaps identified in the architectural review and provides a comprehensive roadmap for production-grade Microsoft Teams integration with DOD security requirements.**

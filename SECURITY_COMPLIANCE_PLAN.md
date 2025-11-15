@@ -76,7 +76,7 @@ Encryption:
 │                           │                                        │
 │                           ▼                                        │
 │  ┌─────────────────────────────────────────────────────────────┐ │
-│  │            Application Gateway + WAF (PCI DSS)               │ │
+│  │            Azure Front Door + WAF (PCI DSS)               │ │
 │  │  - DDoS Protection                                           │ │
 │  │  - SSL/TLS Termination (TLS 1.2+)                           │ │
 │  │  - OWASP Top 10 Protection                                  │ │
@@ -697,7 +697,7 @@ echo "3. Notify ISSO/ISSM"
 | SC-7(3) Access Points | Centralized ingress via App Gateway | Architecture doc |
 | SC-7(4) External Telecommunications Services | Azure ExpressRoute (GCC High) | Circuit config |
 | SC-7(5) Deny by Default / Allow by Exception | Default deny NSG rules | NSG rule export |
-| SC-7(8) Route Traffic to Authenticated Proxy | Azure Application Gateway | WAF config |
+| SC-7(8) Route Traffic to Authenticated Proxy | Azure Front Door | WAF config |
 
 ### DISA SRG IL5 Requirements
 

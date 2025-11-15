@@ -73,11 +73,15 @@
 
 ### 1.2 Cost Estimates
 
+**Note:** Production architecture uses multi-scale-unit App Service Environment (ASEv3) design with auto-scaling capability to support up to 300,000 concurrent users if necessary. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning.
+
 | Environment | Monthly Cost | Components |
 |------------|-------------|------------|
-| **Development** | $15-20 | Azure OpenAI only (M365 trial free) |
-| **Azure Government Production** | $5,000-7,000 | App Service P3v3, PostgreSQL, Application Gateway, Azure OpenAI |
-| **Azure Government Pilot** | $1,500-2,500 | App Service B3, PostgreSQL, Azure OpenAI (50-100 users) |
+| **Development (Replit)** | $15-20 | Azure OpenAI only (M365 trial free, PostgreSQL included) |
+| **Azure Government Baseline (10K users)** | $54,150 | 3× ASEv3, 18× I3v2 instances, 12× PostgreSQL shards, Azure Front Door, Azure OpenAI |
+| **Azure Government Peak (300K users)** | $1,088,200 | 12× ASEv3, 880× I3v2 instances, 12× scaled PostgreSQL shards, Azure Front Door, Azure OpenAI |
+
+**Deployment Model:** This guide covers Replit development deployment. Production Azure Government deployment requires Infrastructure-as-Code (Terraform/Bicep) and is documented in SCALABILITY_ARCHITECTURE.md Section 7.
 
 ### 1.3 Prerequisites Checklist
 
@@ -595,84 +599,99 @@ Application auto-deploys when you:
 
 The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure Government (GCC High)** cloud infrastructure to meet DOD security requirements and compliance standards.
 
-**Key Characteristics:**
-- **Scale:** Auto-scales to support up to 300,000 concurrent users across DOD organizations
-- **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications
-- **Compliance:** FedRAMP High, DISA SRG Level 5, IL5 boundary
-- **Deployment Options:**
-  * **Pilot Deployment:** 50-100 users, $1,500-2,500/month, 2-4 weeks timeline
-  * **Production Deployment:** Auto-scaling infrastructure for up to 300,000 users, $5,000-7,000/month, 8-12 weeks timeline
-  * **Scaling Path:** Pilot → Production in 1 day (infrastructure upgrade only)
+**IMPORTANT:** This section provides a simplified overview. Production deployment uses a **multi-scale-unit App Service Environment (ASEv3) architecture** with horizontally sharded databases. For complete deployment instructions, see SCALABILITY_ARCHITECTURE.md Section 7.
 
-### 7.2 Azure Government Architecture
+**Key Characteristics:**
+- **Scale:** Auto-scaling capability to support up to 300,000 concurrent users (baseline: 10,000 users)
+- **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications with IL5 data segregation
+- **Compliance:** FedRAMP High, DISA SRG Level 5, IL5 boundary
+- **Architecture:** Multi-scale-unit ASEv3 clusters (12 units max) with 12 horizontally sharded PostgreSQL databases
+
+### 7.2 Production Architecture Overview
+
+**Note:** The following diagram shows the multi-scale-unit production architecture. Development deployment on Replit uses a simplified single-instance configuration.
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│         Azure Government (GCC High) Cloud                    │
-├──────────────────────────────────────────────────────────────┤
-│                                                               │
-│  Microsoft 365 GCC High                                      │
-│  ├─ Teams (Meeting Capture)                                  │
-│  ├─ SharePoint (Document Archival)                           │
-│  ├─ Exchange (Email Distribution)                            │
-│  └─ Azure AD (SSO & Group-based RBAC)                        │
-│                                                               │
-│  Azure App Service (P3v3 Production / B3 Pilot)              │
-│  ├─ Node.js 20 Runtime                                       │
-│  ├─ Auto-scaling: 2-20 instances (prod) / 1 instance (pilot) │
-│  └─ VNET Integration for private connectivity                │
-│                                                               │
-│  Azure Database for PostgreSQL Flexible Server               │
-│  ├─ Production: General Purpose D4s, HA Zone-Redundant       │
-│  └─ Pilot: Burstable B2s, Single Zone                        │
-│                                                               │
-│  Azure OpenAI Service (GPT-4)                                │
-│  ├─ Production: 100K TPM capacity                            │
-│  └─ Pilot: 10K TPM capacity                                  │
-│                                                               │
-│  Azure Application Gateway (Production only)                 │
-│  ├─ WAF_v2 for security                                      │
-│  ├─ TLS Termination                                          │
-│  └─ DDoS Protection                                          │
-│                                                               │
-│  Azure Key Vault                                             │
-│  ├─ API Keys & Secrets                                       │
-│  ├─ TLS Certificates                                         │
-│  └─ Managed Identity Access                                  │
-│                                                               │
-│  Azure Monitor + Application Insights                        │
-│  ├─ Application Performance Monitoring                       │
-│  ├─ Security Audit Logs                                      │
-│  └─ Custom Metrics & Alerts                                  │
-│                                                               │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│              Azure Government (GCC High) Cloud                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Microsoft 365 GCC High                                             │
+│  ├─ Teams (Meeting Capture via Graph API .us endpoints)            │
+│  ├─ SharePoint (IL5-compliant Document Archival)                   │
+│  ├─ Exchange (Email Distribution)                                   │
+│  └─ Azure AD (CAC/PIV Authentication + Clearance-based RBAC)       │
+│                                                                      │
+│  Azure Front Door Premium                                           │
+│  ├─ Global Load Balancing & Classification-based Routing            │
+│  ├─ WAF + DDoS Protection                                           │
+│  └─ TLS 1.2+ Termination                                            │
+│                                                                      │
+│  Multi-Scale-Unit ASE Clusters (Classification-Specific VNets)      │
+│  ├─ BASELINE (10K users): 3 ASEv3, 18 I3v2 instances               │
+│  │  • UNCLASS: 1 ASEv3 (12 instances) - VNet 10.0.0.0/16           │
+│  │  • CONF: 1 ASEv3 (4 instances) - VNet 10.10.0.0/16              │
+│  │  • SECRET: 1 ASEv3 (2 instances) - VNet 10.20.0.0/16 (no egress)│
+│  │                                                                   │
+│  └─ PEAK (300K users): 12 ASEv3, 880 I3v2 instances                │
+│     • UNCLASS: 6 ASEv3 (600 instances)                              │
+│     • CONF: 4 ASEv3 (240 instances)                                 │
+│     • SECRET: 2 ASEv3 (40 instances)                                │
+│                                                                      │
+│  Horizontally Sharded PostgreSQL (12 shards total)                  │
+│  ├─ UNCLASS: 6 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)      │
+│  ├─ CONF: 4 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)         │
+│  └─ SECRET: 2 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)       │
+│     • HSM-backed CMK encryption (Key Vault Premium)                 │
+│     • 90-day backups, private endpoint only                         │
+│                                                                      │
+│  Azure OpenAI Service (GCC High)                                    │
+│  ├─ GPT-4o + Whisper Models                                         │
+│  ├─ 100K TPM Capacity                                               │
+│  └─ Regional Deployment (Virginia)                                  │
+│                                                                      │
+│  Azure Key Vault (Standard + Premium HSM)                           │
+│  ├─ SECRET database encryption (Premium HSM, FIPS 140-2 Level 2)   │
+│  ├─ CONF database encryption (Standard, Customer-Managed Keys)      │
+│  └─ Application secrets and certificates                            │
+│                                                                      │
+│  Azure Monitor + Application Insights                               │
+│  ├─ Classification-aware audit logging                              │
+│  ├─ Performance monitoring across all ASE clusters                  │
+│  └─ 7-year log retention for SECRET data                            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 7.3 Resource Blueprint
 
-**Production Configuration (auto-scaling to 300,000 users):**
+**BASELINE Configuration (10,000 concurrent users):**
 
-| Resource | SKU/Configuration | Purpose | Monthly Cost |
+| Resource Category | Configuration | Purpose | Monthly Cost |
 |----------|------------------|---------|--------------|
-| **App Service Plan** | P3v3 (2-20 instances) | Application hosting with auto-scaling | $1,200-2,000 |
-| **PostgreSQL** | General Purpose D4s, HA | Database with high availability | $800-1,200 |
-| **Application Gateway** | WAF_v2, 2 instances | Load balancing, WAF, TLS | $600-800 |
-| **Azure OpenAI** | GPT-4, 100K TPM | AI processing | $2,000-3,000 |
-| **Azure Monitor** | Standard tier, 90-day retention | Monitoring & logs | $200-400 |
-| **Key Vault** | Standard tier | Secrets management | $10-20 |
-| **Networking** | VNET, Private Endpoints, NSGs | Secure networking | $100-200 |
-| **TOTAL** | | | **$5,000-7,000/month** |
+| **Compute (ASEv3)** | 3× ASE, 18× I3v2 instances | Classification-specific application hosting | $28,350 |
+| **Database** | 12× PostgreSQL shards (GP_Gen5_4-8) | Horizontally sharded storage | $14,400 |
+| **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $5,000 |
+| **Azure OpenAI** | GPT-4o + Whisper, 100K TPM | AI processing | $4,000 |
+| **Key Vault** | Standard + Premium (HSM for SECRET) | Secrets & encryption key management | $1,200 |
+| **Networking** | 3× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $800 |
+| **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $400 |
+| **TOTAL BASELINE** | | | **$54,150/month** |
 
-**Pilot Configuration (50-100 users):**
+**PEAK Configuration (300,000 concurrent users - sustained load):**
 
-| Resource | SKU/Configuration | Purpose | Monthly Cost |
+| Resource Category | Configuration | Purpose | Monthly Cost |
 |----------|------------------|---------|--------------|
-| **App Service Plan** | B3 (1 instance) | Application hosting | $100-150 |
-| **PostgreSQL** | Burstable B2s | Database | $50-100 |
-| **Azure OpenAI** | GPT-4, 10K TPM | AI processing | $200-400 |
-| **Azure Monitor** | Standard tier, 30-day retention | Monitoring & logs | $50-100 |
-| **Key Vault** | Standard tier | Secrets management | $10-20 |
-| **TOTAL** | | | **$1,500-2,500/month** |
+| **Compute (ASEv3)** | 12× ASE, 880× I3v2 instances | Scaled classification-specific hosting | $939,600 |
+| **Database** | 12× PostgreSQL shards (GP_Gen5_16) | Scaled sharded storage | $115,200 |
+| **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $10,000 |
+| **Azure OpenAI** | GPT-4o + Whisper, scaled capacity | AI processing | $15,000 |
+| **Key Vault** | Standard + Premium (HSM for SECRET) | Secrets & encryption key management | $2,400 |
+| **Networking** | 12× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $4,000 |
+| **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $2,000 |
+| **TOTAL PEAK** | | | **$1,088,200/month** |
+
+**Note:** For complete cost breakdown including read replicas, Azure Monitor metrics, and operational overhead, see SCALABILITY_ARCHITECTURE.md Section 9.
 
 ### 7.4 Deployment Workflow Summary
 
@@ -692,11 +711,11 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure G
    - Set up private endpoints for database
 
 3. **Phase 2: Application Services** (2-3 days)
-   - Create Azure App Service Plan
-   - Deploy Web App with Node.js 20 runtime
-   - Configure VNET Integration
-   - Set up auto-scaling rules
-   - Deploy Application Gateway (production only)
+   - Deploy App Service Environment v3 (ASEv3) clusters
+   - Configure classification-specific VNets (UNCLASS, CONF, SECRET)
+   - Deploy I3v2 instances with Node.js 20 runtime
+   - Configure auto-scaling rules per classification level
+   - Deploy Azure Front Door Premium for global load balancing
 
 4. **Phase 3: AI & Integration** (1-2 days)
    - Provision Azure OpenAI Service
@@ -759,10 +778,10 @@ For detailed step-by-step deployment instructions, configuration examples, troub
    - Monitoring, alerting, and incident response procedures
 
 3. **PILOT_TO_PRODUCTION_SCALING.md**
-   - One-day upgrade procedure from pilot to production
-   - Infrastructure scaling (B3 → P3v3, B2s → D4s)
-   - Zero-downtime migration strategy
-   - Cost impact analysis
+   - Multi-day upgrade procedure from pilot to production
+   - Infrastructure scaling to multi-scale-unit ASEv3 architecture
+   - Database shard deployment and data migration
+   - Cost impact analysis (baseline → peak capacity)
    - Performance validation procedures
 
 ### 7.6 Prerequisites for Azure Government Deployment

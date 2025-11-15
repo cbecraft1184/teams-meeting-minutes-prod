@@ -123,7 +123,7 @@
 
 **Infrastructure:**
 - Designed for Azure Government (GCC High) deployment
-- Production: Azure App Service + Azure Database for PostgreSQL
+- Production: Multi-scale-unit App Service Environment (ASEv3) + horizontally sharded PostgreSQL
 - Development environment: Replit
 
 **Dependencies:**
@@ -263,10 +263,10 @@
 ## Deployment Requirements
 
 **Cloud Infrastructure:**
-- Compute: Container orchestration (Azure App Service or Azure AKS)
-- Database: Azure Database for PostgreSQL (Flexible Server)
+- Compute: App Service Environment v3 (ASEv3) multi-scale-unit architecture
+- Database: Azure Database for PostgreSQL Flexible Server (horizontally sharded: 12 shards)
 - Storage: Azure Blob Storage for document storage
-- Networking: Azure Load Balancer, virtual network configuration
+- Networking: Azure Front Door Premium, classification-specific virtual networks (VNets)
 
 **External Services:**
 - Microsoft 365 tenant with appropriate licenses

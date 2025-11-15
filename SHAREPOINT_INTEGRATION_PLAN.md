@@ -778,6 +778,243 @@ Requires sign-off from: System Owner, ISSO, Operations Lead, SharePoint Administ
 
 ---
 
+## IL5 Data Segregation Validation
+
+### Purpose
+
+This section provides mandatory testing procedures to validate that SharePoint integration maintains IL5-compliant data segregation across UNCLASSIFIED, CONFIDENTIAL, and SECRET classification levels. These tests must be executed and passed before production deployment to Azure Government (GCC High).
+
+### IL5 Segregation Requirements
+
+**Classification-Specific Document Libraries:**
+- UNCLASSIFIED documents MUST be stored in `UNCLASSIFIED_Minutes` library only
+- CONFIDENTIAL documents MUST be stored in `CONFIDENTIAL_Minutes` library only
+- SECRET documents MUST be stored in `SECRET_Minutes` library only
+- No cross-classification document storage permitted
+
+**Access Control Validation:**
+- Users with UNCLASSIFIED clearance can access only UNCLASSIFIED library
+- Users with CONFIDENTIAL clearance can access UNCLASSIFIED + CONFIDENTIAL libraries
+- Users with SECRET clearance can access all three libraries
+- Unauthorized access attempts MUST be denied and logged
+
+### Test Case 1: Classification-Based Library Segregation
+
+**Objective:** Verify documents are routed to correct classification-specific libraries
+
+**Test Steps:**
+1. Create test meeting minutes with classification = "UNCLASSIFIED"
+2. Approve minutes and trigger SharePoint archival
+3. Verify document uploaded to `UNCLASSIFIED_Minutes` library
+4. Verify document metadata includes `Classification: UNCLASSIFIED`
+5. Verify retention label = `UNCLASS_5yr_Retention`
+6. Repeat for CONFIDENTIAL and SECRET classifications
+
+**Expected Results:**
+```
+UNCLASSIFIED meeting → /sites/meeting-minutes/UNCLASSIFIED_Minutes/Meeting_123.docx
+CONFIDENTIAL meeting → /sites/meeting-minutes/CONFIDENTIAL_Minutes/Meeting_456.docx
+SECRET meeting → /sites/meeting-minutes/SECRET_Minutes/Meeting_789.docx
+```
+
+**Failure Criteria:**
+- Document uploaded to wrong library
+- Missing classification metadata
+- Wrong retention label applied
+
+### Test Case 2: Cross-Classification Access Control
+
+**Objective:** Verify users cannot access documents above their clearance level
+
+**Test Steps:**
+1. Create test user accounts with each clearance level:
+   - `testuser_unclass@dod.mil` (UNCLASSIFIED clearance only)
+   - `testuser_conf@dod.mil` (CONFIDENTIAL clearance)
+   - `testuser_secret@dod.mil` (SECRET clearance)
+2. Upload test documents to each classification library
+3. Attempt to access SECRET document using UNCLASSIFIED user account
+4. Verify access DENIED with HTTP 403 Forbidden
+5. Verify audit log entry created for unauthorized access attempt
+6. Test all 9 combinations (3 users × 3 libraries)
+
+**Expected Access Matrix:**
+| User Clearance | UNCLASS Library | CONF Library | SECRET Library |
+|----------------|-----------------|--------------|----------------|
+| UNCLASSIFIED   | ✅ Allow        | ❌ Deny      | ❌ Deny        |
+| CONFIDENTIAL   | ✅ Allow        | ✅ Allow     | ❌ Deny        |
+| SECRET         | ✅ Allow        | ✅ Allow     | ✅ Allow       |
+
+**Failure Criteria:**
+- Any ❌ cell returns HTTP 200 (access granted)
+- Unauthorized access not logged to audit trail
+
+### Test Case 3: Metadata Cross-Contamination Prevention
+
+**Objective:** Verify metadata from one classification does not leak into another
+
+**Test Steps:**
+1. Create CONFIDENTIAL meeting with title "CONFIDENTIAL: Budget Discussion"
+2. Create UNCLASSIFIED meeting with title "UNCLASSIFIED: Team Standup"
+3. Query UNCLASSIFIED library metadata via Graph API
+4. Verify CONFIDENTIAL meeting metadata NOT returned in results
+5. Verify no CONFIDENTIAL content in search results
+6. Test in reverse (query CONFIDENTIAL, verify SECRET not returned)
+
+**Expected Results:**
+```json
+// Query: GET /sites/{site-id}/lists/UNCLASSIFIED_Minutes/items
+// Response should NOT contain ANY CONFIDENTIAL/SECRET metadata
+{
+  "value": [
+    {
+      "fields": {
+        "Title": "UNCLASSIFIED: Team Standup",
+        "Classification": "UNCLASSIFIED",
+        "MeetingID": "meeting-123"
+      }
+    }
+    // No CONFIDENTIAL or SECRET items present
+  ]
+}
+```
+
+**Failure Criteria:**
+- Higher classification metadata appears in lower classification queries
+- Graph API search returns cross-classification results
+
+### Test Case 4: Audit Trail Completeness
+
+**Objective:** Verify all SharePoint operations are logged with classification level
+
+**Test Steps:**
+1. Upload documents to each classification library
+2. Query M365 Unified Audit Log via PowerShell:
+```powershell
+Search-UnifiedAuditLog -StartDate (Get-Date).AddHours(-1) `
+  -EndDate (Get-Date) `
+  -RecordType SharePointFileOperation `
+  -ResultSize 5000 | Where-Object {$_.Operations -eq "FileUploaded"}
+```
+3. Verify each upload has audit entry with:
+   - User identity (UPN)
+   - Document classification level
+   - Target library name
+   - Timestamp
+   - Success/failure status
+4. Verify FAILED uploads are also logged
+
+**Expected Audit Entry:**
+```json
+{
+  "CreationDate": "2025-11-15T10:30:00Z",
+  "UserId": "admin@dod.mil",
+  "Operation": "FileUploaded",
+  "ObjectId": "https://tenant.sharepoint.us/sites/meeting-minutes/SECRET_Minutes/Meeting_789.docx",
+  "AuditData": {
+    "Classification": "SECRET",
+    "SourceFileName": "Meeting_789.docx",
+    "SiteUrl": "https://tenant.sharepoint.us/sites/meeting-minutes",
+    "UserAgent": "DOD-Meetings-App/1.0"
+  }
+}
+```
+
+**Failure Criteria:**
+- Missing audit entries for any upload operation
+- Audit entry missing classification metadata
+- Failed uploads not logged
+
+### Test Case 5: Network Isolation Validation
+
+**Objective:** Verify SECRET documents are stored in network-isolated environment
+
+**Test Steps:**
+1. Deploy SECRET SharePoint library in dedicated VNet (10.20.0.0/16)
+2. Verify SECRET library has no public endpoint
+3. Attempt to access SECRET library from internet (outside VNet)
+4. Verify connection REFUSED (network-level block)
+5. Access SECRET library from authorized ASE instance within VNet
+6. Verify access ALLOWED
+
+**Expected Results:**
+```bash
+# From internet (should FAIL):
+curl https://tenant.sharepoint.us/sites/meeting-minutes/SECRET_Minutes
+# Error: Connection refused or timeout
+
+# From authorized ASE instance (should SUCCEED):
+curl -H "Authorization: Bearer $TOKEN" \
+  https://tenant-internal.sharepoint.us/sites/meeting-minutes/SECRET_Minutes
+# Response: 200 OK
+```
+
+**Failure Criteria:**
+- SECRET library accessible from public internet
+- VNet isolation not enforced
+
+### Test Case 6: Encryption-at-Rest Validation
+
+**Objective:** Verify CONFIDENTIAL/SECRET documents use customer-managed keys (CMK)
+
+**Test Steps:**
+1. Upload CONFIDENTIAL document to SharePoint
+2. Query SharePoint encryption settings via Graph API
+3. Verify encryption key source = Azure Key Vault (Customer-Managed)
+4. Verify Key Vault key rotation policy enabled
+5. Repeat for SECRET documents (should use HSM-backed Premium Key Vault)
+
+**Expected Configuration:**
+```json
+// CONFIDENTIAL library encryption settings
+{
+  "encryptionMethod": "CustomerManaged",
+  "keyVaultName": "kv-meetings-conf",
+  "keyName": "conf-encryption-key",
+  "keyVersion": "abc123...",
+  "rotationPolicy": "90days"
+}
+
+// SECRET library encryption settings
+{
+  "encryptionMethod": "CustomerManagedHSM",
+  "keyVaultName": "kv-meetings-secret-hsm",
+  "keyName": "secret-encryption-key-hsm",
+  "keyVersion": "xyz789...",
+  "rotationPolicy": "30days",
+  "hsmCompliance": "FIPS140-2-Level2"
+}
+```
+
+**Failure Criteria:**
+- CONFIDENTIAL/SECRET using Microsoft-managed keys
+- SECRET not using HSM-backed keys
+- Key rotation not configured
+
+### Production Validation Checklist
+
+**Before deploying to Azure Government (GCC High) production:**
+
+- [ ] **Test Case 1:** PASSED - All classifications route to correct libraries
+- [ ] **Test Case 2:** PASSED - All 9 access control combinations validated
+- [ ] **Test Case 3:** PASSED - No metadata cross-contamination detected
+- [ ] **Test Case 4:** PASSED - 100% audit trail coverage verified
+- [ ] **Test Case 5:** PASSED - Network isolation for SECRET validated
+- [ ] **Test Case 6:** PASSED - CMK encryption for CONF/SECRET confirmed
+- [ ] **Penetration Test:** Third-party security assessment completed
+- [ ] **ISSO Review:** Information System Security Officer approval obtained
+- [ ] **ATO Package:** IL5 segregation controls documented in ATO submission
+
+**Sign-Off Required:**
+- [ ] System Owner
+- [ ] Information System Security Officer (ISSO)
+- [ ] SharePoint Administrator (GCC High)
+- [ ] Compliance Lead
+
+**Acceptance Criteria:**
+All 6 test cases must achieve 100% pass rate with zero failures. Any single failure requires remediation and complete re-testing before production deployment.
+
+---
+
 **Document Version:** 1.0  
 **Last Reviewed:** November 13, 2025  
 **Next Review:** Quarterly or upon major Graph API changes

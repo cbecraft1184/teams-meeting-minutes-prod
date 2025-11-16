@@ -18,9 +18,10 @@ This document provides the FedRAMP High control traceability matrix for the DOD 
 - **Customer Responsibility (Application-Only):** 10 controls (13%)
 
 **Compliance Posture:**
-- **Implemented:** 65 controls (87%)
-- **Partially Implemented:** 8 controls (11%)
-- **Planned:** 2 controls (3%)
+- **Implemented:** 67 controls (89%)
+- **Partially Implemented:** 6 controls (8%) - POA&M-001 through POA&M-005, POA&M-008
+- **Planned:** 2 controls (3%) - POA&M-006, POA&M-007
+- **Total Incomplete (POA&M Tracked):** 8 controls (11%)
 
 ---
 
@@ -42,7 +43,8 @@ This document provides the FedRAMP High control traceability matrix for the DOD 
 
 **Control Description:** Develop, document, and disseminate access control policy and procedures.
 
-**Implementation Status:** ✅ **Implemented**
+**Implementation Status:** ⚠️ **Partially Implemented**  
+**POA&M Reference:** POA&M-001 (Target Completion: Week 9)
 
 **Responsibility:** Customer
 
@@ -642,7 +644,8 @@ Set-MsolPasswordPolicy -DomainName "dod.mil" `
 
 **Control Description:** Monitor and control communications at external boundaries.
 
-**Implementation Status:** ✅ **Implemented**
+**Implementation Status:** ⚠️ **Partially Implemented**  
+**POA&M Reference:** POA&M-005 (Target Completion: Week 16)
 
 **Responsibility:** Shared (Azure + Customer)
 
@@ -783,7 +786,8 @@ resource "azurerm_postgresql_flexible_server_key" "secret_cmk" {
 
 **Control Description:** Develop, document, and maintain baseline configurations.
 
-**Implementation Status:** ✅ **Implemented**
+**Implementation Status:** ⚠️ **Partially Implemented**  
+**POA&M Reference:** POA&M-003 (Target Completion: Week 9)
 
 **Responsibility:** Customer
 
@@ -860,7 +864,8 @@ resource "azurerm_policy_assignment" "dod_compliance" {
 
 **Control Description:** Implement incident handling capability.
 
-**Implementation Status:** ✅ **Implemented**
+**Implementation Status:** ⚠️ **Partially Implemented**  
+**POA&M Reference:** POA&M-004 (Target Completion: Week 12)
 
 **Responsibility:** Customer
 
@@ -939,7 +944,8 @@ resource "azurerm_policy_assignment" "dod_compliance" {
 
 **Control Description:** Conduct security assessments annually or when significant changes occur.
 
-**Implementation Status:** ✅ **Implemented**
+**Implementation Status:** ⚠️ **Partially Implemented**  
+**POA&M Reference:** POA&M-002 (Target Completion: Week 16)
 
 **Responsibility:** Customer
 
@@ -1012,16 +1018,17 @@ resource "azurerm_policy_assignment" "dod_compliance" {
 
 | Control Family | Total Controls | Implemented | Partially Implemented | Planned |
 |----------------|-------------------|-------------|------------------------|---------|
-| AC (Access Control) | 22 | 20 | 2 | 0 |
+| AC (Access Control) | 22 | 20 | 1 (AC-1) | 1 (AC-20) |
 | AU (Audit) | 12 | 12 | 0 | 0 |
-| CA (Assessment) | 8 | 7 | 1 | 0 |
-| CM (Configuration Mgmt) | 7 | 6 | 1 | 0 |
+| CA (Assessment) | 8 | 6 | 1 (CA-2) | 1 (CA-5) |
+| CM (Configuration Mgmt) | 7 | 6 | 1 (CM-2) | 0 |
 | IA (Identity/Auth) | 10 | 10 | 0 | 0 |
-| IR (Incident Response) | 6 | 5 | 1 | 0 |
-| SC (System Protection) | 10 | 9 | 1 | 0 |
-| **TOTAL** | **75** | **69** | **6** | **0** |
+| IR (Incident Response) | 6 | 5 | 1 (IR-4) | 0 |
+| SC (System Protection) | 10 | 9 | 1 (SC-7) | 0 |
+| **TOTAL** | **75** | **67** | **5** | **2** |
 
-**Implementation Rate:** 92% (69/75 controls fully implemented)
+**Implementation Rate:** 89% (67/75 controls fully implemented)  
+**POA&M Items:** 8 total (5 partially implemented + 2 planned + 1 documentation meta-item)
 
 ---
 
@@ -1042,10 +1049,10 @@ resource "azurerm_policy_assignment" "dod_compliance" {
 
 ## Appendix C: Planned Controls (Future Phases)
 
-| Control | Control Name | Planned Implementation Date | Notes |
-|---------|--------------|------------------------------|-------|
-| AC-20 | Use of External Systems | Phase 2 (Week 20) | Third-party integrations |
-| CA-5 | Plan of Action and Milestones | ATO Process | Required for ATO package |
+| Control | Control Name | Planned Implementation Date | Notes | POA&M Reference |
+|---------|--------------|------------------------------|-------|-----------------|
+| AC-20 | Use of External Systems | Phase 2 (Week 20) | Third-party integrations | POA&M-006 |
+| CA-5 | Plan of Action and Milestones | ATO Process (Week 15) | Required for ATO package | POA&M-007 |
 
 ---
 

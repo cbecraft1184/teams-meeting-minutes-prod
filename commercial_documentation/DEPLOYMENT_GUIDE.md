@@ -1,11 +1,11 @@
 # Deployment Guide
-## DOD Teams Meeting Minutes Management System
+## Enterprise Meeting Minutes Platform
 
-**Document Purpose:** Deployment instructions for the DOD Teams Meeting Minutes Management System across development, pilot, and Azure Commercial production environments
+**Document Purpose:** Deployment instructions for the Enterprise Meeting Minutes Platform across development, pilot, and Azure Commercial production environments
 
 **Architecture Status:** Production-ready design for 16-week implementation timeline. This guide covers the complete deployment process from Azure infrastructure provisioning through production launch.
 
-**What You're Deploying:** An enterprise-grade autonomous meeting minutes system with backend services, database schema, API layer, workflow engine, Microsoft Graph integrations, and comprehensive frontend UI - all following DOD security and compliance requirements.
+**What You're Deploying:** An enterprise-grade autonomous meeting minutes system with backend services, database schema, API layer, workflow engine, Microsoft Graph integrations, and comprehensive frontend UI - all following Enterprise security and compliance requirements.
 
 **Last Updated:** November 17, 2025
 
@@ -17,7 +17,7 @@
 
 ✅ **Backend Services:**
 - Durable PostgreSQL-backed job queue with automatic retry
-- Meeting orchestrator coordinating entire workflow
+- Meeting orchestrcertificationr coordinating entire workflow
 - Microsoft Graph API client (webhooks, meetings, email, SharePoint)
 - Azure OpenAI integration for AI processing
 - Document generation (DOCX, PDF)
@@ -54,7 +54,7 @@
 4. [Azure OpenAI Setup](#4-azure-openai-setup)
 5. [SharePoint Configuration](#5-sharepoint-configuration)
 6. [Replit Development Deployment](#6-replit-development-deployment)
-7. [Azure Government Production Deployment](#7-azure-government-production-deployment)
+7. [Azure Commercial Production Deployment](#7-azure-government-production-deployment)
 8. [Teams App Packaging and Installation](#8-teams-app-packaging-and-installation)
 9. [Post-Deployment Configuration](#9-post-deployment-configuration)
 10. [Troubleshooting](#10-troubleshooting)
@@ -68,7 +68,7 @@
 | Environment | Duration | Key Steps |
 |------------|----------|-----------|
 | **Development/Testing** | 3-4 hours | M365 trial + Azure AD + Replit setup |
-| **Azure Government Production** | 6-8 hours | Infrastructure + DB + Application + Teams app |
+| **Azure Commercial Production** | 6-8 hours | Infrastructure + DB + Application + Teams app |
 | **Full Commercial Testing** | 5 hours | Complete validation before production |
 
 ### 1.2 Cost Estimates
@@ -78,23 +78,23 @@
 | Environment | Monthly Cost | Components |
 |------------|-------------|------------|
 | **Development (Replit)** | $15-20 | Azure OpenAI only (M365 trial free, PostgreSQL included) |
-| **Azure Government Baseline (10K users)** | $54,150 | 3× ASEv3, 18× I3v2 instances, 12× PostgreSQL shards, Azure Front Door, Azure OpenAI |
-| **Azure Government Peak (300K users)** | $1,088,200 | 12× ASEv3, 880× I3v2 instances, 12× scaled PostgreSQL shards, Azure Front Door, Azure OpenAI |
+| **Azure Commercial Baseline (10K users)** | $54,150 | 3× ASEv3, 18× I3v2 instances, 12× PostgreSQL shards, Azure Front Door, Azure OpenAI |
+| **Azure Commercial Peak (300K users)** | $1,088,200 | 12× ASEv3, 880× I3v2 instances, 12× scaled PostgreSQL shards, Azure Front Door, Azure OpenAI |
 
-**Deployment Model:** This guide covers Replit development deployment. Production Azure Government deployment requires Infrastructure-as-Code (Terraform/Bicep) and is documented in SCALABILITY_ARCHITECTURE.md Section 7.
+**Deployment Model:** This guide covers Replit development deployment. Production Azure Commercial deployment requires Infrastructure-as-Code (Terraform/Bicep) and is documented in SCALABILITY_ARCHITECTURE.md Section 7.
 
 ### 1.3 Prerequisites Checklist
 
 **For All Deployments:**
-- [ ] Microsoft 365 admin access (Global Administrator role)
+- [ ] Microsoft 365 admin access (Global Administrcertificationr role)
 - [ ] Azure Commercial subscription with billing enabled
 - [ ] Domain name (optional but recommended)
 - [ ] Credit card for Azure services
 
-**For Azure Government Production:**
-- [ ] Azure Government subscription (GCC High or DOD)
+**For Azure Commercial Production:**
+- [ ] Azure Commercial subscription (Commercial Cloud or Enterprise)
 - [ ] Azure CLI installed and configured
-- [ ] Appropriate clearance levels for administrators
+- [ ] Appropriate clearance levels for administrcertificationrs
 
 **For Replit Deployment:**
 - [ ] Replit account (free or Teams plan)
@@ -127,7 +127,7 @@
 7. Verify phone number (SMS or call)
 8. Wait 2-5 minutes for provisioning
 
-**Success indicator:** You see "You're all set!" message
+**Success indiccertificationr:** You see "You're all set!" message
 
 #### Step 2: Bookmark Admin Centers
 
@@ -220,24 +220,24 @@ Create 5-10 test users for access control validation:
 
 Click **+ New group** for each:
 
-**Group 1: UNCLASSIFIED Clearance**
+**Group 1: Standard Clearance**
 - Group type: **Security**
-- Group name: `Clearance-UNCLASSIFIED`
-- Description: `Users cleared for UNCLASSIFIED meetings`
+- Group name: `Clearance-Standard`
+- Description: `Users cleared for Standard meetings`
 - Membership type: **Assigned** (or Dynamic for automation)
 - Add members: All test users
 
-**Group 2: CONFIDENTIAL Clearance**
+**Group 2: Standard Clearance**
 - Group type: **Security**
-- Group name: `Clearance-CONFIDENTIAL`
-- Description: `Users cleared for CONFIDENTIAL meetings (includes UNCLASSIFIED)`
+- Group name: `Clearance-Standard`
+- Description: `Users cleared for Standard meetings (includes Standard)`
 - Membership type: **Assigned**
 - Add members: jane.smith, bob.johnson
 
-**Group 3: SECRET Clearance**
+**Group 3: Standard Clearance**
 - Group type: **Security**
-- Group name: `Clearance-SECRET`
-- Description: `Users cleared for SECRET meetings (includes all lower)`
+- Group name: `Clearance-Standard`
+- Description: `Users cleared for Standard meetings (includes all lower)`
 - Membership type: **Assigned**
 - Add members: jane.smith only
 
@@ -263,7 +263,7 @@ Click **+ New group** for each:
 - Description: `Full system access and configuration`
 - Add members: jane.smith
 
-**Success indicator:** All 7 groups created and members assigned
+**Success indiccertificationr:** All 7 groups created and members assigned
 
 ---
 
@@ -288,7 +288,7 @@ Click **+ New group** for each:
 **Redirect URI:**
 - Platform: **Web**
 - For Replit: `https://your-workspace.replit.app/auth/callback`
-- For Azure Government: `https://your-domain.com/auth/callback`
+- For Azure Commercial: `https://your-domain.com/auth/callback`
 - Leave blank for now (update later)
 
 Click **Register**
@@ -310,7 +310,7 @@ Directory (tenant) ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
    - Description: `Meeting Minutes Secret`
    - Expires: **24 months** (recommended for production)
 4. Click **Add**
-5. **IMMEDIATELY COPY THE SECRET VALUE** (shows only once!)
+5. **IMMEDIATELY COPY THE Standard VALUE** (shows only once!)
    - Example: `abc123~DEF456.G7H8I9J0K1L2M3N4O5P6Q7R8S9T0`
 
 **⚠️ WARNING:** You cannot retrieve this secret later. Save it securely!
@@ -369,7 +369,7 @@ Add these application permissions:
 2. Confirm by clicking **Yes**
 3. Verify all permissions show **Granted** with green checkmarks
 
-**Success indicator:** All permissions display green checkmarks in "Status" column
+**Success indiccertificationr:** All permissions display green checkmarks in "Status" column
 
 ### 3.4 Configure Authentication Settings
 
@@ -486,9 +486,9 @@ Create this folder hierarchy in the library:
 /Minutes Archive/
   ├─ 2025/
   │   ├─ 01-January/
-  │   │   ├─ UNCLASSIFIED/
-  │   │   ├─ CONFIDENTIAL/
-  │   │   └─ SECRET/
+  │   │   ├─ Standard/
+  │   │   ├─ Standard/
+  │   │   └─ Standard/
   │   ├─ 02-February/
   │   │   └─ (same structure)
   └─ (repeat for each year/month)
@@ -525,7 +525,7 @@ Content-Type: application/json
 }
 ```
 
-**Success indicator:** Response with `id` and granted permission
+**Success indiccertificationr:** Response with `id` and granted permission
 
 ---
 
@@ -543,7 +543,7 @@ Content-Type: application/json
 ```
 GRAPH_TENANT_ID=your-tenant-id
 GRAPH_CLIENT_ID=your-client-id
-GRAPH_CLIENT_SECRET=your-client-secret
+GRAPH_CLIENT_Standard=your-client-secret
 ```
 
 **Azure OpenAI:**
@@ -562,7 +562,7 @@ SHAREPOINT_LIBRARY=Minutes Archive
 **Database (auto-configured by Replit):**
 ```
 DATABASE_URL=postgresql://...
-SESSION_SECRET=auto-generated
+SESSION_Standard=auto-generated
 ```
 
 ### 6.2 Update Redirect URI
@@ -580,7 +580,7 @@ Application auto-deploys when you:
 2. Wait for workflow to start
 3. Open webview to see application
 
-**Success indicator:** Application loads, shows login page
+**Success indiccertificationr:** Application loads, shows login page
 
 ### 6.4 Test Authentication
 
@@ -591,20 +591,20 @@ Application auto-deploys when you:
 
 ---
 
-## 7. Azure Government Production Deployment
+## 7. Azure Commercial Production Deployment
 
 **Document Purpose:** This section provides an overview of Azure Commercial production deployment. For detailed step-by-step instructions, refer to the comprehensive deployment plans referenced below.
 
 ### 7.1 Overview
 
-The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure Commercial** cloud infrastructure to meet DOD security requirements and compliance standards.
+The Enterprise Meeting Minutes Platform deploys exclusively to **Azure Commercial** cloud infrastructure to meet Enterprise security requirements and compliance standards.
 
 **IMPORTANT:** This section provides a simplified overview. Production deployment uses a **multi-scale-unit App Service Environment (ASEv3) architecture** with horizontally sharded databases. For complete deployment instructions, see SCALABILITY_ARCHITECTURE.md Section 7.
 
 **Key Characteristics:**
 - **Scale:** Auto-scaling capability to support up to 300,000 concurrent users (baseline: 10,000 users)
-- **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications with enterprise data isolation
-- **Compliance:** SOC 2 Type II, DISA SRG Level 5, IL5 boundary
+- **Classification:** Supports Standard, Standard, and Standard classifications with enterprise data isolation
+- **Compliance:** SOC 2 Type II, DISA SRG Level 5, Enterprise boundary
 - **Architecture:** Multi-scale-unit ASEv3 clusters (12 units max) with 12 horizontally sharded PostgreSQL databases
 
 ### 7.2 Production Architecture Overview
@@ -616,9 +616,9 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure C
 │              Azure Commercial Cloud                       │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
-│  Microsoft 365 GCC High                                             │
+│  Microsoft 365 Commercial Cloud                                             │
 │  ├─ Teams (Meeting Capture via Graph API .us endpoints)            │
-│  ├─ SharePoint (IL5-compliant Document Archival)                   │
+│  ├─ SharePoint (Enterprise-compliant Document Archival)                   │
 │  ├─ Exchange (Email Distribution)                                   │
 │  └─ Azure AD (CAC/PIV Authentication + Clearance-based RBAC)       │
 │                                                                      │
@@ -631,34 +631,34 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure C
 │  ├─ BASELINE (10K users): 3 ASEv3, 18 I3v2 instances               │
 │  │  • UNCLASS: 1 ASEv3 (12 instances) - VNet 10.0.0.0/16           │
 │  │  • CONF: 1 ASEv3 (4 instances) - VNet 10.10.0.0/16              │
-│  │  • SECRET: 1 ASEv3 (2 instances) - VNet 10.20.0.0/16 (no egress)│
+│  │  • Standard: 1 ASEv3 (2 instances) - VNet 10.20.0.0/16 (no egress)│
 │  │                                                                   │
 │  └─ PEAK (300K users): 12 ASEv3, 880 I3v2 instances                │
 │     • UNCLASS: 6 ASEv3 (600 instances)                              │
 │     • CONF: 4 ASEv3 (240 instances)                                 │
-│     • SECRET: 2 ASEv3 (40 instances)                                │
+│     • Standard: 2 ASEv3 (40 instances)                                │
 │                                                                      │
 │  Horizontally Sharded PostgreSQL (12 shards total)                  │
 │  ├─ UNCLASS: 6 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)      │
 │  ├─ CONF: 4 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)         │
-│  └─ SECRET: 2 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)       │
+│  └─ Standard: 2 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)       │
 │     • HSM-backed CMK encryption (Key Vault Premium)                 │
 │     • 90-day backups, private endpoint only                         │
 │                                                                      │
-│  Azure OpenAI Service (GCC High)                                    │
+│  Azure OpenAI Service (Commercial Cloud)                                    │
 │  ├─ GPT-4o + Whisper Models                                         │
 │  ├─ 100K TPM Capacity                                               │
 │  └─ Regional Deployment (Virginia)                                  │
 │                                                                      │
 │  Azure Key Vault (Standard + Premium HSM)                           │
-│  ├─ SECRET database encryption (Premium HSM, FIPS 140-2 Level 2)   │
+│  ├─ Standard database encryption (Premium HSM, FIPS 140-2 Level 2)   │
 │  ├─ CONF database encryption (Standard, Customer-Managed Keys)      │
 │  └─ Application secrets and certificates                            │
 │                                                                      │
 │  Azure Monitor + Application Insights                               │
 │  ├─ Classification-aware audit logging                              │
 │  ├─ Performance monitoring across all ASE clusters                  │
-│  └─ 7-year log retention for SECRET data                            │
+│  └─ 7-year log retention for Standard data                            │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -673,7 +673,7 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure C
 | **Database** | 12× PostgreSQL shards (GP_Gen5_4-8) | Horizontally sharded storage | $14,400 |
 | **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $5,000 |
 | **Azure OpenAI** | GPT-4o + Whisper, 100K TPM | AI processing | $4,000 |
-| **Key Vault** | Standard + Premium (HSM for SECRET) | Secrets & encryption key management | $1,200 |
+| **Key Vault** | Standard + Premium (HSM for Standard) | Secrets & encryption key management | $1,200 |
 | **Networking** | 3× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $800 |
 | **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $400 |
 | **TOTAL BASELINE** | | | **$54,150/month** |
@@ -686,7 +686,7 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure C
 | **Database** | 12× PostgreSQL shards (GP_Gen5_16) | Scaled sharded storage | $115,200 |
 | **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $10,000 |
 | **Azure OpenAI** | GPT-4o + Whisper, scaled capacity | AI processing | $15,000 |
-| **Key Vault** | Standard + Premium (HSM for SECRET) | Secrets & encryption key management | $2,400 |
+| **Key Vault** | Standard + Premium (HSM for Standard) | Secrets & encryption key management | $2,400 |
 | **Networking** | 12× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $4,000 |
 | **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $2,000 |
 | **TOTAL PEAK** | | | **$1,088,200/month** |
@@ -699,9 +699,9 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure C
 
 1. **Prerequisites Validation** (1-2 days)
    - Azure Commercial subscription active
-   - Microsoft 365 GCC High tenant configured
+   - Microsoft 365 Commercial Cloud tenant configured
    - Azure AD admin permissions verified
-   - Clearance levels documented for administrators
+   - Clearance levels documented for administrcertificationrs
 
 2. **Phase 1: Azure Infrastructure** (2-3 days)
    - Create Resource Group in usgovvirginia region
@@ -712,7 +712,7 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure C
 
 3. **Phase 2: Application Services** (2-3 days)
    - Deploy App Service Environment v3 (ASEv3) clusters
-   - Configure classification-specific VNets (UNCLASS, CONF, SECRET)
+   - Configure classification-specific VNets (UNCLASS, CONF, Standard)
    - Deploy I3v2 instances with Node.js 20 runtime
    - Configure auto-scaling rules per classification level
    - Deploy Azure Front Door Premium for global load balancing
@@ -747,7 +747,7 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure C
    - Security validation (clearance levels, classifications)
    - Performance testing (load, scale)
    - User acceptance testing
-   - Security Authority to Operate (ATO) preparation
+   - Security Authority to Operate (certification) preparation
 
 ### 7.5 Comprehensive Deployment Documentation
 
@@ -756,7 +756,7 @@ For detailed step-by-step deployment instructions, configuration examples, troub
 | Deployment Scenario | Document | Lines | Timeline | Users |
 |-------------------|----------|-------|----------|-------|
 | **Pilot (Recommended First Step)** | `AZURE_GOV_PILOT_PLAN.md` | 1,282 | 2-4 weeks | 50-100 |
-| **Production (Full Scale)** | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | Comprehensive | 16 weeks (+16mo ATO) | 300,000 |
+| **Production (Full Scale)** | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | Comprehensive | 16 weeks (+16mo certification) | 300,000 |
 | **Scaling (Pilot → Production)** | `PILOT_TO_PRODUCTION_SCALING.md` | Detailed | 1 day | 100 → 300K |
 
 **Key Documents:**
@@ -774,7 +774,7 @@ For detailed step-by-step deployment instructions, configuration examples, troub
    - High availability, disaster recovery, security hardening
    - SOC 2 Type II, DISA SRG Level 5 compliance
    - Complete resource manifests and deployment scripts
-   - ATO preparation guidance
+   - certification preparation guidance
    - Monitoring, alerting, and incident response procedures
 
 3. **PILOT_TO_PRODUCTION_SCALING.md**
@@ -784,23 +784,23 @@ For detailed step-by-step deployment instructions, configuration examples, troub
    - Cost impact analysis (baseline → peak capacity)
    - Performance validation procedures
 
-### 7.6 Prerequisites for Azure Government Deployment
+### 7.6 Prerequisites for Azure Commercial Deployment
 
 **Required Access:**
-- [ ] Azure Government subscription (GCC High or DOD)
-- [ ] Microsoft 365 GCC High tenant
-- [ ] Azure AD Global Administrator access
+- [ ] Azure Commercial subscription (Commercial Cloud or Enterprise)
+- [ ] Microsoft 365 Commercial Cloud tenant
+- [ ] Azure AD Global Administrcertificationr access
 - [ ] Billing account configured
-- [ ] SECRET clearance for system administrators (production)
+- [ ] Standard clearance for system administrcertificationrs (production)
 
 **Required Tools:**
-- [ ] Azure CLI configured for Azure Government (`az cloud set --name AzureUSGovernment`)
+- [ ] Azure CLI configured for Azure Commercial (`az cloud set --name AzureUSGovernment`)
 - [ ] PowerShell 7+ with Az modules
 - [ ] Node.js 20 LTS for local development/testing
 - [ ] Git for source control
 
 **Required Documentation:**
-- [ ] Security Authorization to Operate (ATO) requirements (production)
+- [ ] Security Authorization to Operate (certification) requirements (production)
 - [ ] Data classification policies documented
 - [ ] Incident response procedures defined
 - [ ] Disaster recovery plan approved
@@ -828,7 +828,7 @@ For detailed step-by-step deployment instructions, configuration examples, troub
   },
   "name": {
     "short": "Meeting Minutes",
-    "full": "DOD Teams Meeting Minutes Management System"
+    "full": "Enterprise Meeting Minutes Platform"
   },
   "description": {
     "short": "Automated Teams meeting minutes generation and distribution",
@@ -915,7 +915,7 @@ zip -r meeting-minutes-app.zip manifest.json color.png outline.png
 3. Right-click app → **Pin**
 4. App now appears in left sidebar
 
-**Success indicator:** App opens in Teams, shows login page
+**Success indiccertificationr:** App opens in Teams, shows login page
 
 ---
 
@@ -948,7 +948,7 @@ Authorization: Bearer YOUR_TOKEN
   "notificationUrl": "https://your-domain.com/api/webhooks/teams",
   "resource": "communications/onlineMeetings",
   "expirationDateTime": "2025-12-06T00:00:00Z",
-  "clientState": "YOUR_SECRET_VALUE"
+  "clientState": "YOUR_Standard_VALUE"
 }
 ```
 
@@ -979,7 +979,7 @@ Authorization: Bearer YOUR_TOKEN
    - Verify email distribution
    - Check SharePoint archival
 
-**Success indicators:**
+**Success indiccertificationrs:**
 - ✅ Meeting auto-captured
 - ✅ Minutes generated
 - ✅ Action items extracted
@@ -1000,8 +1000,8 @@ az webapp log tail --name app-teams-minutes-prod --resource-group rg-teams-minut
 
 **Key log patterns to verify:**
 - `[GraphWebhookService] Received meeting notification`
-- `[MeetingOrchestrator] Processing meeting`
-- `[MinutesGenerator] Generated minutes`
+- `[MeetingOrchestrcertificationr] Processing meeting`
+- `[MinutesGenercertificationr] Generated minutes`
 - `[SharePointClient] Uploaded document`
 - `[EmailService] Sent distribution email`
 
@@ -1107,7 +1107,7 @@ curl "https://graph.microsoft.com/v1.0/subscriptions" \
 # Microsoft Graph API
 GRAPH_TENANT_ID=          # Azure AD tenant ID
 GRAPH_CLIENT_ID=          # App registration client ID
-GRAPH_CLIENT_SECRET=      # App client secret
+GRAPH_CLIENT_Standard=      # App client secret
 
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=    # https://resource.openai.azure.com/
@@ -1118,7 +1118,7 @@ AZURE_OPENAI_DEPLOYMENT=  # Deployment name (e.g., gpt-4)
 DATABASE_URL=             # PostgreSQL connection string
 
 # Session
-SESSION_SECRET=           # Random 64-character string
+SESSION_Standard=           # Random 64-character string
 
 # SharePoint (optional)
 SHAREPOINT_SITE_URL=      # https://tenant.sharepoint.com/sites/...

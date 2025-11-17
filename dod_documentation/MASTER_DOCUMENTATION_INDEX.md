@@ -104,12 +104,12 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Purpose:** Investment analysis for DOD Enterprise System product launch  
 **Length:** ~15 pages  
 **Key Contents:**
-- DOD Enterprise System market opportunity (DOD Enterprise Meeting, $280M addressable)
+- DOD Enterprise System market opportunity (DOD enterprise TAM, $280M addressable)
 - Competitive landscape and 12-18 month first-mover window
 - Financial model ($1.4M investment, $650K-$13M/year operations, government cost recovery)
-- Multi-year growth projection (scaled DOD operations revenue potential)
+- Multi-year growth projection (scaled operations revenue potential)
 - Strategic fit with IBM portfolio and go-to-market strategy
-- 16 weeks + 16 months ATO timeline
+- 16-week commercialization sprint timeline
 
 **When to Read:** For IBM commercial product investment decisions
 

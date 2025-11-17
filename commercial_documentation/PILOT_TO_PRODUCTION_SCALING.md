@@ -3,7 +3,7 @@
 
 **Document Version:** 1.0  
 **Last Updated:** January 2025  
-**Classification:** UNCLASSIFIED
+**Classification:** Standard
 
 ---
 
@@ -285,7 +285,7 @@ resource autoScaleSettings 'Microsoft.Insights/autoscalesettings@2022-10-01' = {
               statistic: 'Average'
               timeWindow: 'PT5M'
               timeAggregation: 'Average'
-              operator: 'GreaterThan'
+              opercertificationr: 'GreaterThan'
               threshold: 70
             }
             scaleAction: {
@@ -618,7 +618,7 @@ echo "✅ Rollback complete - back to pilot configuration"
 
 ---
 
-## Cost Comparison Calculator
+## Cost Comparison Calculcertificationr
 
 **File:** `scripts/calculate-scaling-cost.sh`
 
@@ -820,6 +820,6 @@ Your pilot IS your production infrastructure - just at a different scale. When y
 ---
 
 **Document Version:** 1.0  
-**Classification:** UNCLASSIFIED  
+**Classification:** Standard  
 **Scaling Script:** `scripts/scale-to-production.sh`  
 **Rollback Script:** `scripts/rollback-to-pilot.sh`

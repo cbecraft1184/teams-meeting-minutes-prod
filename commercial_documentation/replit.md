@@ -1,25 +1,25 @@
-# DOD Teams Meeting Minutes Management System
+# Enterprise Meeting Minutes Platform
 
 ## Overview
-This project is an autonomous, Microsoft-native solution for managing Microsoft Teams meeting minutes within DOD deployments. The system is designed with **auto-scaling capability to handle up to 300,000 concurrent users** (baseline deployment targets 10,000 users). It automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings and transcripts using AI, and distributes approved minutes to attendees. The system focuses on automated workflow for meeting minutes, operating independently of general AI tools like CapraGPT/DON-GPT, yet coexisting with them.
+This project is an autonomous, Microsoft-native solution for managing Microsoft Teams meeting minutes within Enterprise deployments. The system is designed with **auto-scaling capability to handle up to 300,000 concurrent users** (baseline deployment targets 10,000 users). It automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings and transcripts using AI, and distributes approved minutes to attendees. The system focuses on automated workflow for meeting minutes, operating independently of general AI tools like CapraGPT/DON-GPT, yet coexisting with them.
 
-**Timeline:** 16-week commercial deployment + 16-month DOD ATO process (security authorization) for production deployment in Azure Commercial. The project follows a phased production rollout approach, beginning with commercial Azure environment deployment to establish operational baseline before transitioning to Azure Commercial for final DOD production deployment, emphasizing security, compliance, and integration with existing DOD infrastructure.
+**Timeline:** 16-week commercial deployment + 16-month Enterprise certification (security authorization) for production deployment in Azure Commercial. The project follows a phased production rollout approach, beginning with commercial Azure environment deployment to establish operational baseline before transitioning to Azure Commercial for final Enterprise production deployment, emphasizing security, compliance, and integration with existing Enterprise infrastructure.
 
 ## User Preferences
 I prefer simple language and clear, concise explanations.
 I want iterative development with frequent, small updates.
 Ask before making major architectural changes or introducing new dependencies.
 Do not make changes to files outside the explicitly specified project scope.
-Prioritize security and compliance, especially regarding DOD standards.
+Prioritize security and compliance, especially regarding Enterprise standards.
 Ensure all AI processing uses Azure OpenAI in Gov Cloud.
-All classification markings must follow DOD standards.
+All classification markings must follow Enterprise standards.
 I want the agent to assume the role of an expert architect/developer.
 I prefer to focus on high-level features and architectural decisions rather than granular implementation details.
 
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses React with TypeScript, Wouter for routing, Shadcn UI with Radix primitives for components, and Tailwind CSS following Microsoft Fluent design principles. It incorporates a dual UI theme system (Microsoft Teams + IBM Carbon look-and-feel) and a DOD-grade professional appearance with classification badges. The design emphasizes information clarity, accessibility (WCAG 2.1 AA compliant), responsiveness, and dark mode support.
+The frontend uses React with TypeScript, Wouter for routing, Shadcn UI with Radix primitives for components, and Tailwind CSS following Microsoft Fluent design principles. It incorporates a dual UI theme system (Microsoft Teams + IBM Carbon look-and-feel) and a Enterprise-grade professional appearance with classification badges. The design emphasizes information clarity, accessibility (WCAG 2.1 AA compliant), responsiveness, and dark mode support.
 
 ### Technical Implementations
 The backend is built with Node.js and Express. Data storage is PostgreSQL (Azure Database for PostgreSQL or Replit-hosted) with Drizzle ORM. Microsoft Graph API is used for Teams meeting capture, SharePoint integration for document archival, and Teams webhooks for real-time events. AI processing is handled by Azure OpenAI (Gov Cloud deployment). Document generation supports DOCX and PDF export.
@@ -30,11 +30,11 @@ Key features include:
 - **AI-Powered Minutes**: Transcription and minute generation using Azure OpenAI.
 - **Approval Workflow**: States for pending review, approved, and rejected.
 - **Email Distribution**: Approved minutes sent to attendees with attachments.
-- **Classification Support**: Standard, Enhanced, Premium tiers levels with proper marking and access control.
-- **SharePoint Archival**: Automatic archival with metadata to DOD SharePoint.
+- **Classification Support**: Standard, Enhanced, Premium levels with proper marking and access control.
+- **SharePoint Archival**: Automatic archival with metadata to Enterprise SharePoint.
 - **Action Item Tracking**: Automatic extraction and management.
 - **Meeting Templates**: Pre-configured templates for various meeting types.
-- **DOD Compliance**: Adherence to security classifications, audit trails, and formatting standards.
+- **Enterprise Compliance**: Adherence to security classifications, audit trails, and formatting standards.
 
 ### System Design Choices
 - **Access Control**: Azure AD group-based multi-level access control with auto-scaling capability to support up to 300,000 concurrent users, utilizing Clearance-Level and Role groups. Implements a fail-closed security model with performance caching (session and database cache with 15-minute TTL).
@@ -48,7 +48,7 @@ Key features include:
 - **Microsoft Teams**: For scheduling and conducting meetings.
 - **Microsoft Graph API**: For capturing meeting events, accessing recordings/transcripts, retrieving attendee information, and email distribution.
 - **Azure AD**: For authentication (SSO) and group-based access control.
-- **SharePoint**: For document storage and archival, specifically DOD instances.
+- **SharePoint**: For document storage and archival, specifically Enterprise instances.
 - **Azure OpenAI Service**: For AI-powered minute generation and processing (deployed in Azure Commercial for production).
 - **PostgreSQL**: Database for storing application data (Azure Database for PostgreSQL for production, Replit-hosted for dev).
-- **Azure Government Infrastructure**: Azure App Service Environment (ASEv3), Azure Database for PostgreSQL, Azure Key Vault, Azure Front Door for production hosting and secure infrastructure (GCC High deployment only).
+- **Azure Commercial Infrastructure**: Azure App Service Environment (ASEv3), Azure Database for PostgreSQL, Azure Key Vault, Azure Front Door for production hosting and secure infrastructure (Commercial Cloud deployment only).

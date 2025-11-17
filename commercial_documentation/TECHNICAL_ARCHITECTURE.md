@@ -1,5 +1,5 @@
 # Technical Architecture
-## DOD Teams Meeting Minutes Management System
+## Enterprise Meeting Minutes Platform
 
 **Document Purpose:** Comprehensive technical reference documenting the production-ready architecture design, technology stack, and access control implementation for 16-week deployment
 
@@ -15,9 +15,9 @@
 
 ✅ **Backend Services (Production Design):**
 - PostgreSQL-backed durable job queue with retry logic and dead-letter queue
-- Meeting lifecycle orchestrator with transactional control
+- Meeting lifecycle orchestrcertificationr with transactional control
 - Microsoft Graph API integration (webhooks, meeting capture, attendee lookup)
-- Azure OpenAI integration for AI-powered minutes generation (GCC High deployment)
+- Azure OpenAI integration for AI-powered minutes generation (Commercial Cloud deployment)
 - SharePoint client for document archival with metadata
 - Email distribution service via Microsoft Graph API
 - DOCX and PDF document generation
@@ -26,8 +26,8 @@
 - **Implementation Timeline:** Weeks 1-8 of deployment
 
 ✅ **Database Schema (Production Design):**
-- Multi-shard PostgreSQL data model (12 shards: 6 UNCLASS + 4 CONF + 2 SECRET)
-- Support for classification levels (Standard, Enhanced, Premium tiers)
+- Multi-shard PostgreSQL data model (12 shards: 6 UNCLASS + 4 CONF + 2 Standard)
+- Support for classification levels (Standard, Enhanced, Premium)
 - Meeting workflow status tracking
 - Action item management
 - User and session management
@@ -81,11 +81,11 @@
 │                       Azure Commercial Cloud                           │
 │                                                                                    │
 │  ┌───────────────────────────────────────────────────────────────────────────┐   │
-│  │                      Microsoft 365 GCC High Services                       │   │
+│  │                      Microsoft 365 Commercial Cloud Services                       │   │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────────┐   │   │
 │  │  │ Microsoft    │  │ SharePoint   │  │    Azure AD                    │   │   │
 │  │  │ Teams        │  │ Online       │  │    - CAC/PIV Authentication    │   │   │
-│  │  │ - Meetings   │  │ - IL5 Sites  │  │    - Clearance Groups (RBAC)   │   │   │
+│  │  │ - Meetings   │  │ - Enterprise Sites  │  │    - Clearance Groups (RBAC)   │   │   │
 │  │  │ - Webhooks   │  │ - Metadata   │  │    - MFA + Device Compliance   │   │   │
 │  │  └──────┬───────┘  └──────┬───────┘  └───────────────────────────────┘   │   │
 │  └─────────┼──────────────────┼──────────────────────────────────────────────┘   │
@@ -101,7 +101,7 @@
 │  └──────────────┬──────────────────┬──────────────────┬──────────────────────┘   │
 │                 │                  │                  │                           │
 │      ┌──────────▼─────────┐ ┌──────▼────────┐ ┌──────▼──────────┐                │
-│      │ UNCLASS VNet       │ │ CONF VNet     │ │ SECRET VNet     │                │
+│      │ UNCLASS VNet       │ │ CONF VNet     │ │ Standard VNet     │                │
 │      │ (10.0.0.0/16)      │ │ (10.10.0.0/16)│ │ (10.20.0.0/16)  │                │
 │      │                    │ │               │ │ (No Egress)     │                │
 │      └────────────────────┘ └───────────────┘ └─────────────────┘                │
@@ -114,7 +114,7 @@
 │  │  │ 3× ASEv3 Scale Units │        │ 12× ASEv3 Scale Units                │ │  │
 │  │  │ - 1 UNCLASS (12 I3v2)│        │ - 6 UNCLASS (600 I3v2 total)         │ │  │
 │  │  │ - 1 CONF (4 I3v2)    │        │ - 4 CONF (240 I3v2 total)            │ │  │
-│  │  │ - 1 SECRET (2 I3v2)  │        │ - 2 SECRET (40 I3v2 total)           │ │  │
+│  │  │ - 1 Standard (2 I3v2)  │        │ - 2 Standard (40 I3v2 total)           │ │  │
 │  │  │ Total: 18 instances  │        │ Total: 880 instances                 │ │  │
 │  │  └──────────────────────┘        └──────────────────────────────────────┘ │  │
 │  │                                                                             │  │
@@ -127,7 +127,7 @@
 │                        │                       │                                 │
 │                        ▼                       ▼                                 │
 │  ┌──────────────────────────────────┐   ┌─────────────────────────────────────┐ │
-│  │ Horizontal Database Sharding     │   │  Azure OpenAI Service (GCC High)    │ │
+│  │ Horizontal Database Sharding     │   │  Azure OpenAI Service (Commercial Cloud)    │ │
 │  │ (12 PostgreSQL Flexible Servers) │   │  - GPT-4o + Whisper Models          │ │
 │  │                                  │   │  - Regional Deployment (Virginia)   │ │
 │  │ UNCLASS: 6 shards                │   │  - Managed Identity Auth            │ │
@@ -137,10 +137,10 @@
 │  │                                  │   ┌─────────────────────────────────────┐ │
 │  │ CONF: 4 shards                   │   │  Azure Key Vault Premium (HSM)      │ │
 │  │ - GP_Gen5_4-8 (baseline)         │   │  - Customer-Managed Keys (CMK)      │ │
-│  │ - GP_Gen5_16 (peak)              │   │  - SECRET database encryption       │ │
+│  │ - GP_Gen5_16 (peak)              │   │  - Standard database encryption       │ │
 │  │ - TDE w/ CMK (Key Vault Standard)│   │  - FIPS 140-2 Level 2               │ │
 │  │                                  │   │  - Purge protection enabled         │ │
-│  │ SECRET: 2 shards                 │   └─────────────────────────────────────┘ │
+│  │ Standard: 2 shards                 │   └─────────────────────────────────────┘ │
 │  │ - GP_Gen5_4-8 (baseline)         │                                           │
 │  │ - GP_Gen5_16 (peak)              │                                           │
 │  │ - TDE w/ HSM-backed CMK (Premium)│                                           │
@@ -166,17 +166,17 @@
                          (Authenticated via Azure AD SSO)
 ```
 
-### 1.2 Azure Government Deployment
+### 1.2 Azure Commercial Deployment
 
 **Production Architecture Components:**
 - **Compute:** Azure App Service (P3v3, 2-20 instances with auto-scaling)
 - **Database:** Azure Database for PostgreSQL Flexible Server (v14, General Purpose D4s with HA)
-- **AI Processing:** Azure OpenAI Service (GPT-4, GCC High deployment)
+- **AI Processing:** Azure OpenAI Service (GPT-4, Commercial Cloud deployment)
 - **Load Balancing:** Azure Application Gateway with WAF_v2
 - **Networking:** VNET with private endpoints for database access
 - **Security:** Azure Key Vault for secrets, Managed Identities for service authentication
 - **Monitoring:** Azure Monitor and Application Insights
-- **Microsoft 365:** GCC High tenant with Teams, SharePoint, Exchange, Azure AD
+- **Microsoft 365:** Commercial Cloud tenant with Teams, SharePoint, Exchange, Azure AD
 
 **Pilot Architecture Components:**
 - **Compute:** Azure App Service (B3, single instance)
@@ -185,7 +185,7 @@
 - **Load Balancing:** Built-in App Service load balancing
 - **Security:** Same as production (Azure Key Vault, Managed Identities)
 - **Monitoring:** Azure Monitor with 30-day retention
-- **Microsoft 365:** Same GCC High tenant as production
+- **Microsoft 365:** Same Commercial Cloud tenant as production
 
 ---
 
@@ -311,7 +311,7 @@
 │  Component Library                                           │
 │  ├─ Shadcn UI Components         (buttons, cards, etc)      │
 │  ├─ Classification Badges        (security levels)          │
-│  ├─ Status Indicators            (processing states)        │
+│  ├─ Status Indiccertificationrs            (processing states)        │
 │  ├─ Meeting Cards                (summary display)          │
 │  └─ Sidebar Navigation           (app navigation)           │
 ├─────────────────────────────────────────────────────────────┤
@@ -340,8 +340,8 @@
 │  └─ /api/health                  (health check)             │
 ├─────────────────────────────────────────────────────────────┤
 │  Business Logic Layer                                        │
-│  ├─ Meeting Orchestrator         (workflow coordination)    │
-│  ├─ Minutes Generator            (AI processing)            │
+│  ├─ Meeting Orchestrcertificationr         (workflow coordination)    │
+│  ├─ Minutes Genercertificationr            (AI processing)            │
 │  ├─ Durable Queue Service        (job management)           │
 │  ├─ Email Distribution           (Graph API email)          │
 │  ├─ SharePoint Client            (document archival)        │
@@ -357,7 +357,7 @@
 │  ├─ Microsoft Graph Client       (Teams API)                │
 │  ├─ Azure OpenAI Client          (GPT-4 API)                │
 │  ├─ SharePoint Connector         (OAuth authenticated)      │
-│  └─ Webhook Validator            (signature verification)   │
+│  └─ Webhook Validcertificationr            (signature verification)   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -401,12 +401,12 @@ interface Job {
 
 **Clearance-Level Groups:**
 ```
-Clearance-UNCLASSIFIED   → Can view UNCLASSIFIED meetings
-Clearance-CONFIDENTIAL   → Can view UNCLASSIFIED + CONFIDENTIAL
-Clearance-SECRET         → Can view UNCLASSIFIED + CONFIDENTIAL + SECRET
+Clearance-Standard   → Can view Standard meetings
+Clearance-Standard   → Can view Standard + Standard
+Clearance-Standard         → Can view Standard + Standard + Standard
 ```
 
-**Hierarchy:** SECRET > CONFIDENTIAL > UNCLASSIFIED
+**Hierarchy:** Standard > Standard > Standard
 
 **Role Groups:**
 ```
@@ -477,9 +477,9 @@ GET https://graph.microsoft.com/v1.0/users/{userId}/memberOf
 **Classification Levels (Enum):**
 ```sql
 CREATE TYPE classification_level AS ENUM (
-  'UNCLASSIFIED',
-  'CONFIDENTIAL',
-  'SECRET'
+  'Standard',
+  'Standard',
+  'Standard'
 );
 ```
 
@@ -558,9 +558,9 @@ Microsoft Teams → Graph API Webhook → Application Endpoint
 /Meeting Minutes/
   ├─ 2025/
   │   ├─ 01-January/
-  │   │   ├─ UNCLASSIFIED/
-  │   │   ├─ CONFIDENTIAL/
-  │   │   └─ SECRET/
+  │   │   ├─ Standard/
+  │   │   ├─ Standard/
+  │   │   └─ Standard/
   │   └─ 02-February/
   │       └─ ...
   └─ 2026/

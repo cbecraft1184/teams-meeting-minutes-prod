@@ -287,7 +287,7 @@ Create a file named `manifest.json` with this content:
   },
   "name": {
     "short": "Meeting Minutes",
-    "full": "DOD Teams Meeting Minutes Management"
+    "full": "Enterprise Teams Meeting Minutes Management"
   },
   "description": {
     "short": "AI-powered meeting minutes",
@@ -320,7 +320,7 @@ Create a file named `manifest.json` with this content:
 **IMPORTANT CHANGES:**
 
 1. **Generate a unique ID:**
-   - Go to https://www.uuidgenerator.net/
+   - Go to https://www.uuidgenercertificationr.net/
    - Copy the generated UUID
    - Replace `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` with your UUID
 
@@ -592,7 +592,7 @@ If you want users to upload the app themselves:
 - [ ] Navigate to completed meeting
 - [ ] Display AI-generated minutes
 - [ ] Demonstrate approval workflow
-- [ ] Show classification badges (UNCLASSIFIED, etc.)
+- [ ] Show classification badges (Standard, etc.)
 - [ ] Demo action items extraction
 - [ ] Show email distribution notification
 - [ ] Download and display DOCX/PDF output

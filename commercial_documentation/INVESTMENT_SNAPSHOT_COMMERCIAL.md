@@ -1,5 +1,5 @@
 # Investment Snapshot
-## DOD Teams Meeting Minutes Management System - Commercial SaaS Opportunity
+## Enterprise Meeting Minutes Platform - Commercial SaaS Opportunity
 
 **Document Purpose:** Executive-level investment analysis for commercializing an enterprise meeting minutes automation platform as IBM SaaS product
 
@@ -74,7 +74,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 - ✅ **Approval Workflow**: Review, edit, approve/reject flow with complete audit trail
 - ✅ **Email Distribution**: Automatic delivery to all attendees with formatted attachments
 - ✅ **SharePoint Archival**: Organized storage with metadata and search
-- ✅ **Classification Support**: Standard, Enhanced, Premium tiers for government/regulated industries
+- ✅ **Classification Support**: Standard, Standard, Standard for government/regulated industries
 - ✅ **Action Item Tracking**: Automatic extraction with assignees and deadlines
 
 ### Technology Stack
@@ -83,7 +83,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 - **Backend:** Node.js, Express, TypeScript
 - **Frontend:** React, Tailwind CSS, Shadcn UI (Microsoft Fluent + IBM Carbon design)
 - **Database:** PostgreSQL with horizontal sharding (auto-scales to 300K concurrent users)
-- **Cloud:** Azure (commercial) or Azure Government (GCC High for government customers)
+- **Cloud:** Azure (commercial) or Azure Commercial (Commercial Cloud for government customers)
 - **AI:** Azure OpenAI (GPT-4o for summarization, Whisper for transcription)
 - **Integrations:** Microsoft Graph API, Azure AD, SharePoint Online, Exchange Online
 
@@ -116,7 +116,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 |------|-------|-------------------|----------------------|----------------|
 | **Small Business** | 100-500 | $600 | $60K-$300K | SMB with compliance needs |
 | **Enterprise** | 500-5,000 | $500 | $250K-$2.5M | Mid-market and large enterprise |
-| **Government** | 1,000-10,000 | $400 | $400K-$4M | Federal/state agencies with FedRAMP |
+| **Government** | 1,000-10,000 | $400 | $400K-$4M | Federal/state agencies with SOC 2 |
 
 **Conservative Year 1 Projection:**
 - **Target:** 100 enterprise customers
@@ -153,7 +153,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 - ✅ **IBM brand credibility** for government and regulated industries
 - ✅ **Enterprise sales channels** already established
 - ✅ **Microsoft partnership** enables co-selling opportunities
-- ✅ **Government relationships** for DOD and federal contracts
+- ✅ **Government relationships** for Enterprise and federal contracts
 
 **Technical Differentiation:**
 - ✅ **Cloud expertise** (Azure, security, compliance)
@@ -303,7 +303,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 **30-Day Milestones:**
 - Infrastructure operational (multi-tenant Azure deployment)
 - First beta customer onboarded (proof of concept)
-- Sales enablement materials complete (demos, pricing, ROI calculator)
+- Sales enablement materials complete (demos, pricing, ROI calculcertificationr)
 
 **90-Day Target:**
 - 10 paying customers deployed

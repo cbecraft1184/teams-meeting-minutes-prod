@@ -1,4 +1,4 @@
-# DOD Teams Meeting Minutes Management System
+# Enterprise Meeting Minutes Platform
 ## Strategic Commercialization Opportunity for IBM
 
 **Prepared For:** IBM Executive Leadership  
@@ -71,16 +71,16 @@
 **Validated production design** for the complete meeting minutes lifecycle:
 
 1. **Automated Capture** - Microsoft Graph webhook integration detects completed meetings, retrieves recordings, transcripts, and attendee data
-2. **AI Processing** - Azure OpenAI (GCC High) generates summaries, key points, decisions, and extracts action items with assignees
+2. **AI Processing** - Azure OpenAI (Commercial Cloud) generates summaries, key points, decisions, and extracts action items with assignees
 3. **Approval Workflow** - Review process with edit capability, approval/rejection flow, and complete audit trail
 4. **Automated Distribution** - Email delivery to attendees with DOCX and PDF attachments via Microsoft Graph
 5. **Secure Archival** - SharePoint integration with classification metadata and organized folder structure
-6. **Enterprise Access Control** - Azure AD group-based permissions supporting clearance levels (UNCLASS/CONF/SECRET) and role-based access
+6. **Enterprise Access Control** - Azure AD group-based permissions supporting clearance levels (UNCLASS/CONF/Standard) and role-based access
 
 **Technology Stack:**
 - Backend: Node.js/TypeScript, Express.js, PostgreSQL, Drizzle ORM
 - Frontend: React, Vite, Shadcn UI (Microsoft Fluent + IBM Carbon design), Tailwind CSS
-- Integrations: Microsoft Graph API, Azure OpenAI (GCC High), Azure AD, SharePoint
+- Integrations: Microsoft Graph API, Azure OpenAI (Commercial Cloud), Azure AD, SharePoint
 - Infrastructure: Multi-scale-unit ASEv3 architecture for Azure Commercial
 
 **Architecture Validation:**
@@ -96,7 +96,7 @@
 
 **Security & Compliance (Weeks 1-12):**
 - SOC 2 Type II control implementation (7 incomplete controls to be addressed)
-- 3PAO security assessment execution
+- third-party auditor security assessment execution
 - Penetration testing (external and internal)
 - HIGH/CRITICAL finding remediation
 - ISSO/ISSM approval processes
@@ -162,13 +162,13 @@
 **Activities:**
 - Security penetration testing by third-party firm
 - Fix vulnerabilities identified during testing
-- Implement FedRAMP and FISMA compliance controls (for government market)
+- Implement SOC 2 and FISMA compliance controls (for government market)
 - Security audit and certification
 - Document security architecture and controls
 
 **Deliverables:**
 - Clean penetration test results
-- FedRAMP/FISMA compliance documentation
+- SOC 2/FISMA compliance documentation
 - Security certification for enterprise deployment
 
 **Resources:** 1 security engineer, security consultant firm
@@ -325,7 +325,7 @@
 **IBM can create in 16 weeks:**
 - Microsoft partnership and co-selling relationship
 - Enterprise customer references and case studies
-- FedRAMP/FISMA compliance head start
+- SOC 2/FISMA compliance head start
 - Integration depth and reliability at scale
 
 **Defensive moat:**

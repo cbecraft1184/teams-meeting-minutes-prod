@@ -1,5 +1,5 @@
 # API Documentation
-## DOD Teams Meeting Minutes Management System
+## Enterprise Meeting Minutes Platform
 
 ### Base URL
 ```
@@ -64,9 +64,9 @@ Retrieve all meetings with optional filtering.
       "description": "Review project progress and blockers",
       "scheduledAt": "2025-10-30T14:00:00Z",
       "duration": "1h 30m",
-      "attendees": ["john.doe@dod.gov", "jane.smith@dod.gov"],
+      "attendees": ["john.doe@company.com", "jane.smith@company.com"],
       "status": "completed",
-      "classificationLevel": "UNCLASSIFIED",
+      "classificationLevel": "Standard",
       "recordingUrl": "https://...",
       "transcriptUrl": "https://...",
       "createdAt": "2025-10-30T12:00:00Z",
@@ -76,7 +76,7 @@ Retrieve all meetings with optional filtering.
         "summary": "Discussed project milestones...",
         "keyDiscussions": ["Budget allocation", "Timeline review"],
         "decisions": ["Approved budget increase"],
-        "attendeesPresent": ["john.doe@dod.gov"],
+        "attendeesPresent": ["john.doe@company.com"],
         "processingStatus": "completed",
         "sharepointUrl": "https://sharepoint.../document.pdf",
         "docxUrl": "https://...",
@@ -90,7 +90,7 @@ Retrieve all meetings with optional filtering.
           "meetingId": "abc123",
           "minutesId": "min456",
           "task": "Review budget proposal",
-          "assignee": "john.doe@dod.gov",
+          "assignee": "john.doe@company.com",
           "dueDate": "2025-11-05T00:00:00Z",
           "priority": "high",
           "status": "pending",
@@ -127,8 +127,8 @@ Create a new meeting record.
   "description": "Discuss emergency response procedures",
   "scheduledAt": "2025-11-01T10:00:00Z",
   "duration": "2h",
-  "attendees": ["user1@dod.gov", "user2@dod.gov"],
-  "classificationLevel": "CONFIDENTIAL"
+  "attendees": ["user1@company.com", "user2@company.com"],
+  "classificationLevel": "Standard"
 }
 ```
 
@@ -196,7 +196,7 @@ Retrieve all meeting minutes.
         "Approved hiring 2 new team members",
         "Increased travel budget by 15%"
       ],
-      "attendeesPresent": ["user1@dod.gov", "user2@dod.gov"],
+      "attendeesPresent": ["user1@company.com", "user2@company.com"],
       "processingStatus": "completed",
       "sharepointUrl": "https://sharepoint.../minutes.pdf",
       "docxUrl": "https://.../minutes.docx",
@@ -278,7 +278,7 @@ Retrieve all action items.
       "meetingId": "abc123",
       "minutesId": "min456",
       "task": "Prepare Q4 budget proposal",
-      "assignee": "john.doe@dod.gov",
+      "assignee": "john.doe@company.com",
       "dueDate": "2025-11-15T00:00:00Z",
       "priority": "high",
       "status": "pending",
@@ -303,7 +303,7 @@ Create a new action item.
   "meetingId": "abc123",
   "minutesId": "min456",
   "task": "Review security protocols",
-  "assignee": "security.officer@dod.gov",
+  "assignee": "security.officer@company.com",
   "dueDate": "2025-11-10T00:00:00Z",
   "priority": "high"
 }
@@ -361,7 +361,7 @@ Search across meetings and minutes.
       "title": "Budget Planning Session",
       "snippet": "...discussed quarterly budget allocation...",
       "scheduledAt": "2025-10-30T14:00:00Z",
-      "classificationLevel": "UNCLASSIFIED",
+      "classificationLevel": "Standard",
       "relevanceScore": 0.95
     },
     {
@@ -641,8 +641,8 @@ const newMeeting = await client.post('/meetings', {
   title: 'Project Review',
   scheduledAt: '2025-11-01T14:00:00Z',
   duration: '1h',
-  attendees: ['user@dod.gov'],
-  classificationLevel: 'UNCLASSIFIED'
+  attendees: ['user@company.com'],
+  classificationLevel: 'Standard'
 });
 
 // Search
@@ -670,8 +670,8 @@ curl -X POST "https://your-domain.gov/api/meetings" \
     "title": "Security Briefing",
     "scheduledAt": "2025-11-01T10:00:00Z",
     "duration": "45m",
-    "attendees": ["officer@dod.gov"],
-    "classificationLevel": "SECRET"
+    "attendees": ["officer@company.com"],
+    "classificationLevel": "Standard"
   }'
 
 # Download minutes
@@ -682,6 +682,6 @@ curl -X GET "https://your-domain.gov/api/minutes/min456/download?format=pdf" \
 
 ---
 
-**Document Classification**: UNCLASSIFIED  
+**Document Classification**: Standard  
 **Last Updated**: October 30, 2025  
 **Version**: 1.0

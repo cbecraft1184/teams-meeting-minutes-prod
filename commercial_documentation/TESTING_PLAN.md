@@ -1,7 +1,7 @@
 # Testing Plan
-## DOD Teams Meeting Minutes Management System
+## Enterprise Meeting Minutes Platform
 
-**Document Purpose:** Comprehensive testing strategy for SECRET-level classification handling, multi-phase validation, and production readiness in Azure Commercial
+**Document Purpose:** Comprehensive testing strategy for Standard-level classification handling, multi-phase validation, and production readiness in Azure Commercial
 
 **Last Updated:** November 13, 2025  
 **Status:** Implementation Guide  
@@ -13,7 +13,7 @@
 
 ### Purpose
 
-This document defines the complete testing strategy for validating the DOD Teams Meeting Minutes Management System across functional, security, performance, and compliance dimensions before Azure Commercial deployment.
+This document defines the complete testing strategy for validating the Enterprise Meeting Minutes Platform across functional, security, performance, and compliance dimensions before Azure Commercial deployment.
 
 ### Scope
 
@@ -23,7 +23,7 @@ This document defines the complete testing strategy for validating the DOD Teams
 - End-to-end testing (UI workflows via Playwright)
 - Performance/load testing (auto-scaling validation)
 - Security testing (SAST, DAST, penetration testing)
-- Compliance validation (SECRET-level handling, audit logging)
+- Compliance validation (Standard-level handling, audit logging)
 - Operational readiness (disaster recovery, incident response)
 
 **Out of Scope:**
@@ -44,7 +44,7 @@ Shift-Left Testing:
 Classification-Aware Testing:
   - Test data sanitization for lower environments
   - Separate test suites by classification level
-  - Access control validation mandatory
+  - Access control validation mandcertificationry
   - No classified data in development/test environments
 
 Automation-First:
@@ -55,7 +55,7 @@ Automation-First:
 
 Environment Parity:
   - Test environment mirrors production
-  - Azure Government services used in staging
+  - Azure Commercial services used in staging
   - Realistic data volumes in load tests
   - Network topology matches production
 ```
@@ -70,15 +70,15 @@ Environment Parity:
 |-------------|---------|-------------------|-------------------|-------------|
 | **Development** | Feature development | Synthetic (UNCLASS) | Dev subscription | All developers |
 | **Integration** | API integration testing | Synthetic (UNCLASS) | Dev subscription | Dev + QA |
-| **Staging** | Pre-production validation | Synthetic (UNCLASS-SECRET) | GCC High staging | QA + Security |
-| **Production** | Live operations | Real (UNCLASS-SECRET) | GCC High production | Authorized users only |
+| **Staging** | Pre-production validation | Synthetic (UNCLASS-Standard) | Commercial Cloud staging | QA + Security |
+| **Production** | Live operations | Real (UNCLASS-Standard) | Commercial Cloud production | Authorized users only |
 
 ### Test Data Management
 
 **Synthetic Data Generation:**
 
 ```typescript
-// server/tests/fixtures/test-data-generator.ts
+// server/tests/fixtures/test-data-genercertificationr.ts
 
 import { faker } from '@faker-js/faker';
 
@@ -91,7 +91,7 @@ export function generateSyntheticMeeting() {
       email: `test.user.${faker.string.uuid()}@test.dod.mil`,
       name: faker.person.fullName()
     })),
-    classification: faker.helpers.arrayElement(['UNCLASSIFIED', 'CONFIDENTIAL', 'SECRET']),
+    classification: faker.helpers.arrayElement(['Standard', 'Standard', 'Standard']),
     organizer: 'test.organizer@test.dod.mil'
   };
 }
@@ -114,7 +114,7 @@ export function generateSyntheticMinutes() {
 
 ```yaml
 NEVER use in non-production:
-  - Real names of Fortune 500 enterprises
+  - Real names of Enterprise personnel
   - Actual meeting subjects/content
   - Real email addresses (.mil domains)
   - Classified information of any kind
@@ -141,23 +141,23 @@ ALWAYS use in non-production:
 
 **Step 1.1: Backend Service Unit Tests**
 
-**File**: `server/tests/services/meeting-orchestrator.test.ts`
+**File**: `server/tests/services/meeting-orchestrcertificationr.test.ts`
 
 ```typescript
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MeetingOrchestrator } from '../../services/meeting-orchestrator';
-import { generateSyntheticMeeting } from '../fixtures/test-data-generator';
+import { MeetingOrchestrcertificationr } from '../../services/meeting-orchestrcertificationr';
+import { generateSyntheticMeeting } from '../fixtures/test-data-genercertificationr';
 
-describe('MeetingOrchestrator', () => {
-  let orchestrator: MeetingOrchestrator;
+describe('MeetingOrchestrcertificationr', () => {
+  let orchestrcertificationr: MeetingOrchestrcertificationr;
   
   beforeEach(() => {
-    orchestrator = new MeetingOrchestrator();
+    orchestrcertificationr = new MeetingOrchestrcertificationr();
   });
   
   it('should process new meeting webhook', async () => {
     const meeting = generateSyntheticMeeting();
-    const result = await orchestrator.handleNewMeeting(meeting);
+    const result = await orchestrcertificationr.handleNewMeeting(meeting);
     
     expect(result).toBeDefined();
     expect(result.status).toBe('pending');
@@ -165,20 +165,20 @@ describe('MeetingOrchestrator', () => {
   
   it('should handle classification upgrade correctly', async () => {
     const meeting = generateSyntheticMeeting();
-    meeting.classification = 'SECRET';
+    meeting.classification = 'Standard';
     
-    const result = await orchestrator.handleNewMeeting(meeting);
+    const result = await orchestrcertificationr.handleNewMeeting(meeting);
     
-    expect(result.classification).toBe('SECRET');
+    expect(result.classification).toBe('Standard');
     expect(result.requiresApproval).toBe(true);
   });
   
   it('should retry on transient failures', async () => {
-    const graphClient = vi.spyOn(orchestrator.graphClient, 'getMeetingDetails')
+    const graphClient = vi.spyOn(orchestrcertificationr.graphClient, 'getMeetingDetails')
       .mockRejectedValueOnce(new Error('503 Service Unavailable'))
       .mockResolvedValueOnce({ id: '123', subject: 'Test' });
     
-    const result = await orchestrator.handleNewMeeting(generateSyntheticMeeting());
+    const result = await orchestrcertificationr.handleNewMeeting(generateSyntheticMeeting());
     
     expect(graphClient).toHaveBeenCalledTimes(2);
     expect(result).toBeDefined();
@@ -196,8 +196,8 @@ import { Request, Response } from 'express';
 import { classificationGuard } from '../../middleware/classification-guard';
 
 describe('Classification Guard', () => {
-  it('should allow UNCLASSIFIED user to access UNCLASSIFIED content', async () => {
-    const req = mockRequest({ clearance: 'UNCLASSIFIED', classification: 'UNCLASSIFIED' });
+  it('should allow Standard user to access Standard content', async () => {
+    const req = mockRequest({ clearance: 'Standard', classification: 'Standard' });
     const res = mockResponse();
     const next = vi.fn();
     
@@ -207,8 +207,8 @@ describe('Classification Guard', () => {
     expect(res.status).not.toHaveBeenCalled();
   });
   
-  it('should block CONFIDENTIAL user from SECRET content', async () => {
-    const req = mockRequest({ clearance: 'CONFIDENTIAL', classification: 'SECRET' });
+  it('should block Standard user from Standard content', async () => {
+    const req = mockRequest({ clearance: 'Standard', classification: 'Standard' });
     const res = mockResponse();
     const next = vi.fn();
     
@@ -220,7 +220,7 @@ describe('Classification Guard', () => {
   
   it('should log unauthorized access attempts', async () => {
     const consoleError = vi.spyOn(console, 'error');
-    const req = mockRequest({ clearance: 'UNCLASSIFIED', classification: 'SECRET' });
+    const req = mockRequest({ clearance: 'Standard', classification: 'Standard' });
     const res = mockResponse();
     
     await classificationGuard(req, res, vi.fn());
@@ -258,7 +258,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../../index';
 import { db } from '../../db';
-import { generateSyntheticMeeting } from '../fixtures/test-data-generator';
+import { generateSyntheticMeeting } from '../fixtures/test-data-genercertificationr';
 
 describe('Meetings API', () => {
   let authToken: string;
@@ -297,8 +297,8 @@ describe('Meetings API', () => {
   });
   
   it('should return 403 for insufficient clearance', async () => {
-    const secretMeeting = await createTestMeeting({ classification: 'SECRET' });
-    const unclassToken = await getTestAuthToken({ clearance: 'UNCLASSIFIED' });
+    const secretMeeting = await createTestMeeting({ classification: 'Standard' });
+    const unclassToken = await getTestAuthToken({ clearance: 'Standard' });
     
     await request(app)
       .get(`/api/meetings/${secretMeeting.id}`)
@@ -324,11 +324,11 @@ describe('Database Operations', () => {
       subject: 'Test Meeting',
       startTime: new Date(),
       endTime: new Date(),
-      classification: 'UNCLASSIFIED'
+      classification: 'Standard'
     }).returning();
     
     expect(meeting[0].id).toBeDefined();
-    expect(meeting[0].classification).toBe('UNCLASSIFIED');
+    expect(meeting[0].classification).toBe('Standard');
   });
   
   it('should cascade delete action items when minutes deleted', async () => {
@@ -370,7 +370,7 @@ import { authenticateWithTestUser } from './auth-helpers';
 export const test = base.extend({
   authenticatedPage: async ({ page }, use) => {
     // Authenticate before each test
-    await authenticateWithTestUser(page, { clearance: 'SECRET' });
+    await authenticateWithTestUser(page, { clearance: 'Standard' });
     await use(page);
   }
 });
@@ -428,17 +428,17 @@ test.describe('Meeting Approval Workflow', () => {
 import { test, expect } from '@playwright/test';
 import { authenticateWithTestUser } from './auth-helpers';
 
-test('CONFIDENTIAL user cannot access SECRET content', async ({ page }) => {
-  // Authenticate as CONFIDENTIAL clearance user
-  await authenticateWithTestUser(page, { clearance: 'CONFIDENTIAL' });
+test('Standard user cannot access Standard content', async ({ page }) => {
+  // Authenticate as Standard clearance user
+  await authenticateWithTestUser(page, { clearance: 'Standard' });
   
-  // Attempt to access SECRET meeting
+  // Attempt to access Standard meeting
   await page.goto('/meetings/secret-meeting-123');
   
   // Should see access denied message
   await expect(page.getByText('Insufficient clearance level')).toBeVisible();
-  await expect(page.getByText('Required: SECRET')).toBeVisible();
-  await expect(page.getByText('Your level: CONFIDENTIAL')).toBeVisible();
+  await expect(page.getByText('Required: Standard')).toBeVisible();
+  await expect(page.getByText('Your level: Standard')).toBeVisible();
 });
 ```
 
@@ -571,19 +571,19 @@ Deliverable:
 
 ### Phase 6: Compliance Validation (Week 6-7)
 
-**Objective:** Verify SECRET-level classification handling and audit logging
+**Objective:** Verify Standard-level classification handling and audit logging
 
 **Test Case 1: Classification Downgrade Prevention**
 
 ```typescript
 test('should prevent classification downgrade', async () => {
-  const secretMeeting = await createTestMeeting({ classification: 'SECRET' });
+  const secretMeeting = await createTestMeeting({ classification: 'Standard' });
   
-  // Attempt to downgrade to CONFIDENTIAL
+  // Attempt to downgrade to Standard
   const response = await request(app)
     .patch(`/api/meetings/${secretMeeting.id}`)
     .set('Authorization', `Bearer ${secretToken}`)
-    .send({ classification: 'CONFIDENTIAL' })
+    .send({ classification: 'Standard' })
     .expect(403);
   
   expect(response.body.error).toContain('Cannot downgrade classification');
@@ -594,7 +594,7 @@ test('should prevent classification downgrade', async () => {
 
 ```typescript
 test('should log all classified data access', async () => {
-  const secretMeeting = await createTestMeeting({ classification: 'SECRET' });
+  const secretMeeting = await createTestMeeting({ classification: 'Standard' });
   
   // Access meeting
   await request(app)
@@ -611,7 +611,7 @@ test('should log all classified data access', async () => {
   expect(logs.length).toBeGreaterThan(0);
   expect(logs[0]).toMatchObject({
     user: expect.any(String),
-    classification: 'SECRET',
+    classification: 'Standard',
     action: 'GET /api/meetings/:id',
     timestamp: expect.any(String)
   });
@@ -645,10 +645,10 @@ Success Criteria:
 **Step 7.2: Incident Response Drill**
 
 ```yaml
-Scenario: Unauthorized SECRET data access attempt
+Scenario: Unauthorized Standard data access attempt
 
 Steps:
-  1. Simulate unauthorized access (CONFIDENTIAL user → SECRET data)
+  1. Simulate unauthorized access (Standard user → Standard data)
   2. Verify alert triggered within 15 minutes
   3. ISSO/ISSM notified
   4. User account automatically suspended
@@ -705,7 +705,7 @@ On Release Tag:
 | **Incident Response Drill** | Quarterly | Security | 2 hours |
 | **Accessibility Audit** | Before each release | QA + Accessibility specialist | 1 week |
 | **Load Testing** | Before major releases | DevOps | 1 day |
-| **Security Audit** | Annually (for ATO) | ISSO/ISSM | 2 weeks |
+| **Security Audit** | Annually (for certification) | ISSO/ISSM | 2 weeks |
 
 ---
 
@@ -746,7 +746,7 @@ On Release Tag:
 | Purpose | Tool | Version | Justification |
 |---------|------|---------|---------------|
 | **Unit Testing** | Vitest | 2.x | Fast, TypeScript native, Vite integration |
-| **E2E Testing** | Playwright | 1.x | Cross-browser, GCC High compatible |
+| **E2E Testing** | Playwright | 1.x | Cross-browser, Commercial Cloud compatible |
 | **API Testing** | Supertest | 7.x | Express integration, simple assertions |
 | **Load Testing** | k6 | 0.x | Cloud-native, Grafana integration |
 | **SAST** | Semgrep | Latest | Policy-as-code, OWASP rules |
@@ -899,4 +899,4 @@ Requires sign-off from: QA Lead, Security Lead, Operations Lead, System Owner
 
 **Document Version:** 1.0  
 **Last Reviewed:** November 13, 2025  
-**Next Review:** Before each major release or ATO package submission
+**Next Review:** Before each major release or certification package submission

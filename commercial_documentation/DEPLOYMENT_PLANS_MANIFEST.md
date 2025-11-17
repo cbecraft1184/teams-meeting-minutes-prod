@@ -1,15 +1,15 @@
-# DOD Teams Meeting Minutes - Deployment Plans Manifest
+# Enterprise Teams Meeting Minutes - Deployment Plans Manifest
 ## Complete Documentation Guide
 
 **Document Version:** 1.0  
 **Last Updated:** January 2025  
-**Classification:** UNCLASSIFIED
+**Classification:** Standard
 
 ---
 
 ## 📋 Quick Reference
 
-This manifest provides an overview of all deployment planning documents for the DOD Teams Meeting Minutes Management System. Choose your deployment path based on your timeline and requirements.
+This manifest provides an overview of all deployment planning documents for the Enterprise Meeting Minutes Platform. Choose your deployment path based on your timeline and requirements.
 
 ---
 
@@ -24,7 +24,7 @@ This manifest provides an overview of all deployment planning documents for the 
 │ Backend:   Node.js 20 + Express                 │
 │ Database:  PostgreSQL 15                        │
 │ AI:        Azure OpenAI (GPT-4)                 │
-│ Cloud:     Azure Government (GCC High/DOD)      │
+│ Cloud:     Azure Commercial (Commercial Cloud/Enterprise)      │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -33,7 +33,7 @@ This manifest provides an overview of all deployment planning documents for the 
 | Layer | Technology | Purpose |
 |-------|------------|---------|
 | **Frontend** | React 18 + TypeScript | Modern web UI |
-| | Shadcn UI + Tailwind CSS | Professional DOD design |
+| | Shadcn UI + Tailwind CSS | Professional Enterprise design |
 | | TanStack Query | Real-time data sync |
 | **Backend** | Node.js 20 + Express | Application server |
 | | TypeScript 5 | Type-safe development |
@@ -59,9 +59,9 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### Security & Compliance
 - **SOC 2 Type II** certified components
-- **Azure Government Cloud** (GCC High/DOD regions)
+- **Azure Commercial Cloud** (Commercial Cloud/Enterprise regions)
 - **DISA SRG Level 5** compliant architecture
-- **SECRET** classification support
+- **Standard** classification support
 
 **Full Technical Details:** See `TECHNICAL_ARCHITECTURE.md` Section 2
 
@@ -73,7 +73,7 @@ This manifest provides an overview of all deployment planning documents for the 
 |----------|-----------------|------------------|----------|
 | **Quick commercial demo for IBM** | Demo Setup | `MICROSOFT_DEMO_SETUP_GUIDE.md` | Immediate |
 | **Validate technology with 100 users** | Pilot Deployment | `AZURE_GOV_PILOT_PLAN.md` | 2-4 weeks |
-| **Full DOD production deployment** | Production | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | 16 weeks (+16mo ATO) |
+| **Full Enterprise production deployment** | Production | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | 16 weeks (+16mo certification) |
 | **Scale pilot to production** | Scaling Guide | `PILOT_TO_PRODUCTION_SCALING.md` | 1 day |
 
 ---
@@ -82,7 +82,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### 1. AZURE_GOV_PILOT_PLAN.md
 **Purpose:** 60-day pilot deployment for 50-100 users  
-**Classification:** UNCLASSIFIED  
+**Classification:** Standard  
 **Audience:** Project managers, technical leads, ISSO  
 **Length:** 1,282 lines
 
@@ -93,7 +93,7 @@ This manifest provides an overview of all deployment planning documents for the 
 - ✅ Pilot-specific configurations and feature flags
 - ✅ Success criteria and go/no-go decision framework
 - ✅ Built-in scaling path to production (1-day upgrade)
-- ✅ Azure Government GCC High setup
+- ✅ Azure Commercial Commercial Cloud setup
 - ✅ Step-by-step deployment instructions
 - ✅ Pilot user group management
 - ✅ Testing and validation procedures
@@ -115,11 +115,11 @@ This manifest provides an overview of all deployment planning documents for the 
 14. Transition to Production (3 options)
 
 **Prerequisites:**
-- Azure Government subscription (GCC High)
-- Microsoft 365 GCC High tenant
+- Azure Commercial subscription (Commercial Cloud)
+- Microsoft 365 Commercial Cloud tenant
 - Azure AD admin permissions
-- SECRET clearance for administrators
-- DISA/FedRAMP awareness (full compliance not required for pilot)
+- Standard clearance for administrcertificationrs
+- DISA/SOC 2 awareness (full compliance not required for pilot)
 
 **Deliverables:**
 - Working pilot system (50-100 users)
@@ -134,7 +134,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### 2. AZURE_GOV_IMPLEMENTATION_PLAN.md
 **Purpose:** Full-scale production deployment for 300,000 users  
-**Classification:** UNCLASSIFIED  
+**Classification:** Standard  
 **Audience:** Enterprise architects, security officers, Azure engineers  
 **Length:** 1,505 lines
 
@@ -152,7 +152,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 **Key Sections:**
 1. Executive Summary
-2. Azure Government Cloud Architecture
+2. Azure Commercial Cloud Architecture
 3. Required Azure Services (production-grade)
 4. Prerequisites & Access Requirements
 5. Phase 1: Azure Infrastructure Setup
@@ -166,10 +166,10 @@ This manifest provides an overview of all deployment planning documents for the 
 
 **Prerequisites:**
 - All pilot prerequisites PLUS:
-- DISA ATO (Authority to Operate) process initiated
+- DISA certification (Authority to Operate) process initiated
 - ISSO (Information System Security Officer) assigned
 - System Security Plan (SSP) approved
-- FedRAMP compliance review completed
+- SOC 2 compliance review completed
 - Privacy Impact Assessment (PIA) approved
 - Budget approval for $5-7k/month
 
@@ -195,7 +195,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### 3. PILOT_TO_PRODUCTION_SCALING.md
 **Purpose:** Seamless scaling from pilot (100 users) to production (300,000 users)  
-**Classification:** UNCLASSIFIED  
+**Classification:** Standard  
 **Audience:** DevOps engineers, cloud architects, technical leads  
 **Length:** 826 lines
 
@@ -281,7 +281,7 @@ This manifest provides an overview of all deployment planning documents for the 
           │
           ▼
 ┌────────────────────┐
-│ 4. Production      │  (16 weeks rollout + 16mo ATO)
+│ 4. Production      │  (16 weeks rollout + 16mo certification)
 │ 300,000 users      │  $5,000-7,000/mo
 │ Full compliance    │  99.9% SLA
 └────────────────────┘
@@ -296,7 +296,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ```
 ┌────────────────────┐
-│ 1. Full Production │  (16 weeks + 16mo ATO)
+│ 1. Full Production │  (16 weeks + 16mo certification)
 │ IMPLEMENTATION.md  │  $5,000-7,000/mo
 │ 300,000 users      │  
 └─────────┬──────────┘
@@ -337,11 +337,11 @@ This manifest provides an overview of all deployment planning documents for the 
 
 | Requirement | Pilot | Production | Document Reference |
 |-------------|-------|------------|-------------------|
-| **Azure Commercial** | GCC High | GCC High or DOD | Both plans |
-| **Classification Support** | UNCLASSIFIED | Up to SECRET | Implementation Plan §5 |
-| **FedRAMP** | Awareness | SOC 2 Type II Full | Implementation Plan §5.4 |
+| **Azure Commercial** | Commercial Cloud | Commercial Cloud or Enterprise | Both plans |
+| **Classification Support** | Standard | Up to Standard | Implementation Plan §5 |
+| **SOC 2** | Awareness | SOC 2 Type II Full | Implementation Plan §5.4 |
 | **DISA SRG** | Not required | Level 5 | Implementation Plan §5.5 |
-| **ATO** | Not required | Required | Implementation Plan Prerequisites |
+| **certification** | Not required | Required | Implementation Plan Prerequisites |
 | **ISSO** | Optional | Required | Implementation Plan Prerequisites |
 | **SSP** | Not required | Required | Implementation Plan Prerequisites |
 | **Clearance-based Access** | Yes | Yes | Both plans |
@@ -412,26 +412,26 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### Before Starting (Both Paths)
 
-- [ ] **Azure Government Access**
+- [ ] **Azure Commercial Access**
   - [ ] Verified government entity status
   - [ ] Azure Gov subscription created (https://portal.azure.us)
   - [ ] Billing account configured
 
-- [ ] **Microsoft 365 GCC High**
+- [ ] **Microsoft 365 Commercial Cloud**
   - [ ] Tenant provisioned
   - [ ] Global Admin access confirmed
   - [ ] Teams and SharePoint licenses available
 
 - [ ] **Personnel**
-  - [ ] Administrators have SECRET clearance
+  - [ ] Administrcertificationrs have Standard clearance
   - [ ] US citizenship verified
   - [ ] Background checks completed
 
 - [ ] **Approvals** (Production only)
-  - [ ] DISA ATO process initiated
+  - [ ] DISA certification initiated
   - [ ] ISSO assigned
   - [ ] SSP approved
-  - [ ] FedRAMP compliance review
+  - [ ] SOC 2 compliance review
   - [ ] PIA approved
 
 ### For Pilot Deployment
@@ -509,8 +509,8 @@ az group create --name rg-teams-minutes-prod --location usgovvirginia
 
 ### Security Officer / ISSO
 1. Review security sections in deployment plans
-2. Verify FedRAMP/DISA compliance requirements
-3. Plan ATO process (if production)
+2. Verify SOC 2/DISA compliance requirements
+3. Plan certification (if production)
 4. Review audit and monitoring specifications
 
 ### DevOps / Cloud Engineer

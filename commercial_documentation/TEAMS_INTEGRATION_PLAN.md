@@ -1,13 +1,13 @@
 # Microsoft Teams Integration Plan
 
 ## Overview
-Integrate the DOD Teams Meeting Minutes Management System as a **multi-surface Teams application** with:
+Integrate the Enterprise Meeting Minutes Platform as a **multi-surface Teams application** with:
 - **Personal Tab** (sidebar) - Primary interface for post-meeting workflows
 - **Meeting Extension** (stage/side panel) - In-meeting approval interface
 - **Notification Bot** (optional) - Proactive alerts for pending approvals
 - **Message Extension** (optional) - Quick sharing of minutes in chats
 
-This plan addresses DOD security requirements including CAC/PIV MFA, conditional access, SOC 2 Type II logging, and on-behalf-of (OBO) token flow for backend authentication.
+This plan addresses Enterprise security requirements including CAC/PIV MFA, conditional access, SOC 2 Type II logging, and on-behalf-of (OBO) token flow for backend authentication.
 
 ## Architecture Design
 
@@ -15,7 +15,7 @@ This plan addresses DOD security requirements including CAC/PIV MFA, conditional
 - **Placement**: Pinned in left sidebar (similar to OneDrive, Planner)
 - **Scope**: Personal (individual user), not channel-specific
 - **Technology**: Web app embedded in iframe via Teams SDK
-- **Access**: Available to all 300,000 DOD users via org-wide deployment
+- **Access**: Available to all 300,000 Enterprise users via org-wide deployment
 
 ### 2. Integration Components
 
@@ -24,7 +24,7 @@ This plan addresses DOD security requirements including CAC/PIV MFA, conditional
 │   Microsoft Teams Client                │
 │  ┌───────────────────────────────────┐  │
 │  │   Sidebar Icon/Badge              │  │
-│  │   "DOD Meeting Minutes"           │  │
+│  │   "Enterprise Meeting Minutes"           │  │
 │  └─────────────┬─────────────────────┘  │
 │                │                         │
 │                ↓                         │
@@ -98,7 +98,7 @@ export async function initializeTeamsApp() {
 export async function getTeamsAuthToken(): Promise<string | null> {
   try {
     const token = await authentication.getAuthToken({
-      resources: ['https://graph.microsoft.us'], // GCC High endpoint
+      resources: ['https://graph.microsoft.us'], // Commercial Cloud endpoint
       silent: false
     });
     return token;
@@ -136,18 +136,18 @@ useEffect(() => {
   "id": "<GUID-GENERATED-BY-TEAMS-ADMIN>",
   "packageName": "gov.dod.teams.meetingminutes",
   "developer": {
-    "name": "Department of Defense",
+    "name": "Enterprise",
     "websiteUrl": "https://defense.gov",
     "privacyUrl": "https://defense.gov/privacy",
     "termsOfUseUrl": "https://defense.gov/terms"
   },
   "name": {
     "short": "Meeting Minutes",
-    "full": "DOD Teams Meeting Minutes Management"
+    "full": "Enterprise Teams Meeting Minutes Management"
   },
   "description": {
     "short": "AI-powered meeting minutes capture and distribution",
-    "full": "Automatically capture, process, and distribute Microsoft Teams meeting minutes with AI-generated summaries, action items, and classification markings for DOD compliance."
+    "full": "Automatically capture, process, and distribute Microsoft Teams meeting minutes with AI-generated summaries, action items, and classification markings for Enterprise compliance."
   },
   "icons": {
     "color": "icon-color-192x192.png",
@@ -186,7 +186,7 @@ useEffect(() => {
 
 **Azure AD App Registration:**
 1. Navigate to: https://portal.azure.com → Azure Active Directory → App registrations
-2. Create new registration: "DOD Teams Meeting Minutes"
+2. Create new registration: "Enterprise Teams Meeting Minutes"
 3. **Redirect URIs**: 
    - Web: `https://teams-minutes.dod.mil/auth-end`
    - SPA: `https://teams-minutes.dod.mil`
@@ -247,17 +247,17 @@ useEffect(() => {
    - Teams → Apps → Manage your apps → Upload an app
    - Select `.zip` file
 
-#### Production (Azure Commercial + DOD Teams)
+#### Production (Azure Commercial + Enterprise Teams)
 1. **Host application**: Azure Commercial (Azure App Service)
-2. **Domain**: `teams-minutes.dod.mil` (DOD-approved domain)
-3. **SSL Certificate**: DOD-issued TLS certificate
+2. **Domain**: `teams-minutes.dod.mil` (Enterprise-approved domain)
+3. **SSL Certificate**: Enterprise-issued TLS certificate
 4. **Manifest deployment** via **Teams Admin Center**:
    - https://admin.teams.microsoft.com
    - Teams apps → Manage apps → Upload
    - Review and approve app
 5. **Org-wide deployment** via **Setup Policy**:
    - Teams apps → Setup policies
-   - Create policy: "DOD Meeting Minutes Auto-Install"
+   - Create policy: "Enterprise Meeting Minutes Auto-Install"
    - Add app to "Installed apps"
    - Pin app to sidebar
    - Assign policy to all users or security groups
@@ -330,7 +330,7 @@ if (context.page?.subPageId) {
 ### Data Residency
 - All data stored in Azure Commercial (CONUS)
 - Microsoft Graph API calls to Gov Cloud endpoints
-- No data leaves DOD boundary
+- No data leaves Enterprise boundary
 
 ## Limitations & Considerations
 
@@ -341,12 +341,12 @@ if (context.page?.subPageId) {
 4. **Permissions**: Users must grant consent for Graph API access
 5. **Installation**: Requires Teams admin approval for org-wide deployment
 
-### DOD-Specific Requirements
+### Enterprise-Specific Requirements
 1. **CAC/PIV Authentication**: May need additional middleware for CAC cards
 2. **NIPR/SIPR Networks**: Separate deployments for classified networks
 3. **Offline Access**: Not available (Teams requires internet)
 4. **Mobile Support**: Teams mobile app supported but limited screen size
-5. **Compliance**: STIG hardening, ATO certification required for production
+5. **Compliance**: STIG hardening, certification certification required for production
 
 ## Testing Checklist
 
@@ -387,7 +387,7 @@ if (context.page?.subPageId) {
 ## Cost Implications
 
 ### Microsoft Licensing
-- **Requires**: Microsoft 365 E3 or E5 (already provided to DOD)
+- **Requires**: Microsoft 365 E3 or E5 (already provided to Enterprise)
 - **Graph API**: Included in license (throttling limits apply)
 - **Teams Apps**: Free to deploy internally
 
@@ -404,9 +404,9 @@ if (context.page?.subPageId) {
 1. **Install Teams SDK** in current application
 2. **Create Teams manifest** with proper configuration
 3. **Test in commercial Teams** environment (development)
-4. **Request Azure AD app registration** from DOD IT
+4. **Request Azure AD app registration** from Enterprise IT
 5. **Deploy to Azure Commercial** test environment
-6. **Submit for ATO certification** (6-12 month process)
+6. **Submit for certification certification** (6-12 month process)
 7. **Pilot with select users** on NIPR
 8. **Full rollout** after validation
 
@@ -418,7 +418,7 @@ if (context.page?.subPageId) {
 - **App Manifest Schema**: https://learn.microsoft.com/microsoftteams/platform/resources/schema/manifest-schema
 - **Teams Admin Center**: https://admin.teams.microsoft.com
 
-## DOD Security & Compliance Architecture
+## Enterprise Security & Compliance Architecture
 
 ### Enhanced Authentication Flow (On-Behalf-Of)
 
@@ -472,7 +472,7 @@ import { ConfidentialClientApplication } from '@azure/msal-node';
 const msalClient = new ConfidentialClientApplication({
   auth: {
     clientId: process.env.AZURE_AD_CLIENT_ID!,
-    clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
+    clientSecret: process.env.AZURE_AD_CLIENT_Standard!,
     authority: `https://login.microsoftonline.us/${process.env.AZURE_AD_TENANT_ID}` // Gov Cloud
   }
 });
@@ -545,7 +545,7 @@ export async function validateTeamsToken(req: Request, res: Response, next: Next
 **Azure AD Conditional Access Policy:**
 ```json
 {
-  "displayName": "Require CAC/PIV for DOD Meeting Minutes App",
+  "displayName": "Require CAC/PIV for Enterprise Meeting Minutes App",
   "state": "enabled",
   "conditions": {
     "users": {
@@ -557,7 +557,7 @@ export async function validateTeamsToken(req: Request, res: Response, next: Next
     "clientAppTypes": ["all"]
   },
   "grantControls": {
-    "operator": "AND",
+    "opercertificationr": "AND",
     "builtInControls": [
       "mfa",
       "compliantDevice"
@@ -580,7 +580,7 @@ export async function validateTeamsToken(req: Request, res: Response, next: Next
 
 **Requirements:**
 - **Phishing-resistant MFA**: CAC/PIV certificate authentication
-- **Compliant device**: Intune-managed, encrypted DOD devices
+- **Compliant device**: Intune-managed, encrypted Enterprise devices
 - **Session timeout**: Re-authenticate every 8 hours
 - **No persistent sessions**: Users must re-auth after browser close
 
@@ -643,7 +643,7 @@ interface AuditLog {
 // Send to centralized logging (Splunk, Azure Monitor, etc.)
 function auditLog(log: AuditLog) {
   console.log(JSON.stringify(log)); // Azure Monitor Logs
-  // Also send to DOD SIEM if required
+  // Also send to Enterprise SIEM if required
 }
 ```
 
@@ -683,7 +683,7 @@ export function validateJWT(token: string): Promise<any> {
 ### Conditional Access Enforcement
 
 **Network Location Restrictions:**
-- Allow only from DOD network IP ranges (NIPR)
+- Allow only from Enterprise network IP ranges (NIPR)
 - Block all public internet access
 - Require VPN if remote access needed
 
@@ -696,7 +696,7 @@ export function validateJWT(token: string): Promise<any> {
 **User Risk Detection:**
 - Block sign-ins from risky locations
 - Block sign-ins after multiple failed attempts
-- Require step-up auth for high-risk actions (e.g., SECRET classification access)
+- Require step-up auth for high-risk actions (e.g., Standard classification access)
 
 ## Meeting Extension (In-Meeting Panel)
 
@@ -902,7 +902,7 @@ AutoScaling:
 
 ### Phase 2: Expanded Pilot (Week 5-8)
 
-**Cohort 2: 5,000 users** (across 5 DOD commands)
+**Cohort 2: 5,000 users** (across 5 Enterprise commands)
 - Deploy to production tenant (limited distribution)
 - Setup policy for specific Azure AD groups
 - Monitor Graph API throttling
@@ -1174,7 +1174,7 @@ window.addEventListener('online', () => {
 
 ### Disaster Scenarios
 
-**Scenario 1: Regional Outage (Azure Government USGov West)**
+**Scenario 1: Regional Outage (Azure Commercial USGov West)**
 1. Route 53 detects unhealthy endpoints (1-2 min)
 2. DNS routes traffic to `us-gov-east-1` (2-3 min)
 3. Standby RDS promoted to primary (10-15 min)
@@ -1216,7 +1216,7 @@ window.addEventListener('online', () => {
 ### One-Time Costs
 
 - Teams app development: $50,000-100,000 (if outsourced)
-- ATO certification: $100,000-300,000
+- certification certification: $100,000-300,000
 - Security audit: $50,000-100,000
 - Training materials: $20,000
 - **Total One-Time**: $220,000-520,000
@@ -1241,7 +1241,7 @@ window.addEventListener('online', () => {
 - Accessibility compliance (Section 508)
 - User acceptance testing
 
-### Month 7-12: ATO Certification
+### Month 7-12: certification Certification
 - Security documentation
 - Risk assessment
 - Authority review
@@ -1269,7 +1269,7 @@ window.addEventListener('online', () => {
 # Azure AD (Government Cloud)
 AZURE_AD_TENANT_ID=<tenant-id>
 AZURE_AD_CLIENT_ID=<client-id>
-AZURE_AD_CLIENT_SECRET=<client-secret>
+AZURE_AD_CLIENT_Standard=<client-secret>
 AZURE_AD_AUTHORITY=https://login.microsoftonline.us
 
 # Microsoft Graph (Government Cloud)
@@ -1301,17 +1301,17 @@ ENABLE_MESSAGE_EXTENSION=false
 
 ### Purpose
 
-This section provides mandatory testing procedures to validate that Teams integration maintains IL5-compliant data segregation when processing meeting webhooks, transcripts, and recordings across UNCLASSIFIED, CONFIDENTIAL, and SECRET classification levels.
+This section provides mandcertificationry testing procedures to validate that Teams integration maintains Enterprise-compliant data segregation when processing meeting webhooks, transcripts, and recordings across Standard, Standard, and Standard classification levels.
 
-### IL5 Requirements for Teams Integration
+### Enterprise Requirements for Teams Integration
 
 **Classification-Based Meeting Processing:**
 - Webhook subscriptions MUST route classified meetings to appropriate isolated environments
-- Transcripts and recordings for SECRET meetings MUST be processed in air-gapped SECRET environment
+- Transcripts and recordings for Standard meetings MUST be processed in air-gapped Standard environment
 - Meeting metadata from one classification MUST NOT leak into another classification's processing pipeline
 
 **Access Control:**
-- Teams app MUST enforce clearance-based access: SECRET meetings only accessible to SECRET-cleared users
+- Teams app MUST enforce clearance-based access: Standard meetings only accessible to Standard-cleared users
 - Meeting extensions MUST hide classification options above user's clearance level
 - Bot notifications MUST NOT reveal existence of higher-classified meetings to lower-cleared users
 
@@ -1321,31 +1321,31 @@ This section provides mandatory testing procedures to validate that Teams integr
 
 **Test Steps:**
 1. Create three test Teams meetings with classifications:
-   - Meeting A: UNCLASSIFIED (organizer: testuser_unclass@dod.mil)
-   - Meeting B: CONFIDENTIAL (organizer: testuser_conf@dod.mil)
-   - Meeting C: SECRET (organizer: testuser_secret@dod.mil)
+   - Meeting A: Standard (organizer: testuser_unclass@dod.mil)
+   - Meeting B: Standard (organizer: testuser_conf@dod.mil)
+   - Meeting C: Standard (organizer: testuser_secret@dod.mil)
 2. Complete each meeting (trigger "callEnded" webhook)
 3. Verify webhook routing:
-   - UNCLASSIFIED webhook → UNCLASS ASE cluster (VNet 10.0.0.0/16)
-   - CONFIDENTIAL webhook → CONF ASE cluster (VNet 10.10.0.0/16)
-   - SECRET webhook → SECRET ASE cluster (VNet 10.20.0.0/16)
+   - Standard webhook → UNCLASS ASE cluster (VNet 10.0.0.0/16)
+   - Standard webhook → CONF ASE cluster (VNet 10.10.0.0/16)
+   - Standard webhook → Standard ASE cluster (VNet 10.20.0.0/16)
 4. Verify each environment queries only its respective database shard
 
 **Expected Routing Table:**
 | Meeting Classification | Webhook Destination | Database Shard | Network Isolation |
 |------------------------|---------------------|----------------|-------------------|
-| UNCLASSIFIED | UNCLASS ASE | UNCLASS shards 1-6 | Public/Private VNet |
-| CONFIDENTIAL | CONF ASE | CONF shards 1-4 | Private VNet only |
-| SECRET | SECRET ASE | SECRET shards 1-2 | Air-gapped VNet (no egress) |
+| Standard | UNCLASS ASE | UNCLASS shards 1-6 | Public/Private VNet |
+| Standard | CONF ASE | CONF shards 1-4 | Private VNet only |
+| Standard | Standard ASE | Standard shards 1-2 | Air-gapped VNet (no egress) |
 
 **Failure Criteria:**
 - Webhook routed to wrong ASE cluster
 - Cross-classification database query detected
-- SECRET webhook processed in non-air-gapped environment
+- Standard webhook processed in non-air-gapped environment
 
 ### Test Case 2: Graph API Endpoint Validation
 
-**Objective:** Verify all Graph API calls use GCC High endpoints (.us domain)
+**Objective:** Verify all Graph API calls use Commercial Cloud endpoints (.us domain)
 
 **Test Steps:**
 1. Monitor network traffic from all ASE environments
@@ -1365,7 +1365,7 @@ tcpdump -i any 'port 443 and host graph.microsoft.com'  # Should be EMPTY
 **Expected OAuth Token:**
 ```json
 {
-  "aud": "https://graph.microsoft.us",  // CORRECT (GCC High)
+  "aud": "https://graph.microsoft.us",  // CORRECT (Commercial Cloud)
   "iss": "https://sts.windows.net/{tenant-id}/",
   "iat": 1700000000,
   "exp": 1700003600
@@ -1382,28 +1382,28 @@ tcpdump -i any 'port 443 and host graph.microsoft.com'  # Should be EMPTY
 **Objective:** Verify Teams transcripts and recordings are downloaded only in classification-appropriate environment
 
 **Test Steps:**
-1. Create SECRET meeting with recording enabled
+1. Create Standard meeting with recording enabled
 2. Complete meeting, wait for recording availability
-3. Verify Graph API call to download recording originates from SECRET ASE instance only
+3. Verify Graph API call to download recording originates from Standard ASE instance only
 4. Verify recording NEVER downloaded or cached in UNCLASS/CONF environments
-5. Check SECRET database for recording metadata, confirm NOT present in other shards
+5. Check Standard database for recording metadata, confirm NOT present in other shards
 
 **Expected Result:**
 ```
-SECRET meeting recording download:
-- Source: SECRET ASE instance (10.20.x.x)
-- Storage: SECRET database shard 1 or 2
+Standard meeting recording download:
+- Source: Standard ASE instance (10.20.x.x)
+- Storage: Standard database shard 1 or 2
 - Network: No internet egress (air-gapped)
 
 UNCLASS/CONF environments:
-- No knowledge of SECRET meeting existence
+- No knowledge of Standard meeting existence
 - Recording download never attempted
 ```
 
 **Failure Criteria:**
-- Recording downloaded from non-SECRET environment
+- Recording downloaded from non-Standard environment
 - Recording cached in lower classification environment
-- SECRET meeting metadata visible in UNCLASS/CONF database
+- Standard meeting metadata visible in UNCLASS/CONF database
 
 ### Production Validation Checklist
 
@@ -1414,12 +1414,12 @@ UNCLASS/CONF environments:
 - [ ] **Test Case 3:** PASSED - Transcript/recording isolation confirmed
 - [ ] **Network Scan:** No commercial Azure endpoint traffic detected
 - [ ] **ISSO Review:** Information System Security Officer approval obtained
-- [ ] **ATO Package:** Teams integration controls documented
+- [ ] **certification Package:** Teams integration controls documented
 
 **Sign-Off Required:**
 - [ ] System Owner
 - [ ] Information System Security Officer (ISSO)
-- [ ] Teams Administrator (GCC High)
+- [ ] Teams Administrcertificationr (Commercial Cloud)
 - [ ] Compliance Lead
 
 **Acceptance Criteria:**
@@ -1427,4 +1427,4 @@ All 3 test cases must achieve 100% pass rate. Any failure in classification isol
 
 ---
 
-**This updated plan addresses all critical gaps identified in the architectural review and provides a comprehensive roadmap for production-grade Microsoft Teams integration with DOD security requirements.**
+**This updated plan addresses all critical gaps identified in the architectural review and provides a comprehensive roadmap for production-grade Microsoft Teams integration with Enterprise security requirements.**

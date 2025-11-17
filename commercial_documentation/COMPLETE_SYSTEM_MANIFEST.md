@@ -1,13 +1,13 @@
 # Complete System Manifest
-## DOD Teams Meeting Minutes Management System
+## Enterprise Meeting Minutes Platform
 
 **Document Version:** 1.0  
 **Last Updated:** January 2025  
-**Classification:** UNCLASSIFIED
+**Classification:** Standard
 
 ---
 
-## Azure Government Cloud Resources
+## Azure Commercial Cloud Resources
 
 ### Resource Group
 ```yaml
@@ -15,9 +15,9 @@ Name: rg-teams-minutes-prod
 Location: usgovvirginia
 Tags:
   Environment: Production
-  Classification: SECRET
+  Classification: Standard
   System: TeamsMeetingMinutes
-  Owner: DOD-CIO
+  Owner: Enterprise-CIO
 ```
 
 ---
@@ -158,11 +158,11 @@ Network ACLs: Allow subnet-app only
 |-------------|---------|
 | DATABASE-URL | PostgreSQL connection string |
 | AZURE-AD-CLIENT-ID | Azure AD app registration ID |
-| AZURE-AD-CLIENT-SECRET | Azure AD app secret |
+| AZURE-AD-CLIENT-Standard | Azure AD app secret |
 | AZURE-AD-TENANT-ID | Azure AD tenant ID |
 | AZURE-OPENAI-ENDPOINT | OpenAI endpoint URL |
 | AZURE-OPENAI-KEY | OpenAI API key |
-| SESSION-SECRET | Express session secret |
+| SESSION-Standard | Express session secret |
 | SHAREPOINT-SITE-URL | SharePoint archive site |
 
 ### Managed Identity
@@ -234,9 +234,9 @@ Data Connectors:
 
 ### Azure AD App Registration
 ```yaml
-Name: DOD-Teams-Minutes-System
+Name: Enterprise-Teams-Minutes-System
 Application ID: <Generated>
-Tenant: <Your DOD Tenant>
+Tenant: <Your Enterprise Tenant>
 Redirect URI: https://teams-minutes.dod.mil/auth/callback
 ```
 
@@ -265,7 +265,7 @@ Document Library:
   Content Approval: Required
   
 Metadata Columns:
-  - Classification: Choice (UNCLASSIFIED/CONFIDENTIAL/SECRET)
+  - Classification: Choice (Standard/Standard/Standard)
   - MeetingDate: DateTime
   - Organizer: Text
   - ApprovalStatus: Choice (Pending/Approved/Rejected)
@@ -327,7 +327,7 @@ Metadata Columns:
     "@radix-ui/react-dropdown-menu": "^2.0.6",
     "@radix-ui/react-label": "^2.0.2",
     "@radix-ui/react-select": "^2.0.0",
-    "@radix-ui/react-separator": "^1.0.3",
+    "@radix-ui/react-separcertificationr": "^1.0.3",
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-toast": "^1.1.5",
     "lucide-react": "^0.300.0",
@@ -390,7 +390,7 @@ DATABASE_URL=<from Key Vault>
 
 # Azure AD
 AZURE_AD_CLIENT_ID=<from Key Vault>
-AZURE_AD_CLIENT_SECRET=<from Key Vault>
+AZURE_AD_CLIENT_Standard=<from Key Vault>
 AZURE_AD_TENANT_ID=<from Key Vault>
 AZURE_AD_AUTHORITY=https://login.microsoftonline.us/<TENANT_ID>
 GRAPH_API_ENDPOINT=https://graph.microsoft.us
@@ -404,7 +404,7 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4
 SHAREPOINT_SITE_URL=<from Key Vault>
 
 # Session
-SESSION_SECRET=<from Key Vault>
+SESSION_Standard=<from Key Vault>
 
 # Application Insights
 APPLICATIONINSIGHTS_CONNECTION_STRING=<from Azure>
@@ -433,11 +433,11 @@ APPLICATIONINSIGHTS_CONNECTION_STRING=<from Azure>
 ### Microsoft Services
 | Service | Tier | Purpose |
 |---------|------|---------|
-| Microsoft 365 GCC High | E5 | Teams, SharePoint, Exchange |
+| Microsoft 365 Commercial Cloud | E5 | Teams, SharePoint, Exchange |
 | Azure AD Premium | P2 | Authentication, conditional access |
 | Microsoft Graph API | v1.0 | Meeting data access |
 
-### Azure Government Services
+### Azure Commercial Services
 | Service | Purpose |
 |---------|---------|
 | App Service | Application hosting |
@@ -496,8 +496,8 @@ Release Pipeline:
 ### Certificates
 | Type | Issuer | Purpose | Expiration |
 |------|--------|---------|------------|
-| TLS Certificate | DOD PKI | HTTPS (*.dod.mil) | Annual renewal |
-| Code Signing | DOD PKI | Application signing | Annual renewal |
+| TLS Certificate | Enterprise PKI | HTTPS (*.dod.mil) | Annual renewal |
+| Code Signing | Enterprise PKI | Application signing | Annual renewal |
 | Service Principal | Azure AD | API authentication | 24 months |
 
 ### Compliance Frameworks
@@ -544,8 +544,8 @@ Network Security:
 ### Staffing
 | Role | Count | Responsibilities |
 |------|-------|------------------|
-| System Administrator | 2 | Infrastructure, deployments |
-| Database Administrator | 1 | Database management, backups |
+| System Administrcertificationr | 2 | Infrastructure, deployments |
+| Database Administrcertificationr | 1 | Database management, backups |
 | Security Engineer | 1 | Security monitoring, incidents |
 | Application Support | 2 | User support, issue resolution |
 | DevOps Engineer | 1 | CI/CD, automation |
@@ -645,12 +645,12 @@ Total Annual: $95,000-160,000 (infrastructure only)
 
 ### Microsoft Support
 ```yaml
-Azure Government Support:
+Azure Commercial Support:
   - Portal: https://portal.azure.us
   - Phone: 1-800-867-1389
   - Tier: Premier Support
 
-Microsoft 365 GCC High:
+Microsoft 365 Commercial Cloud:
   - Portal: https://admin.microsoft.us
   - Phone: 1-800-865-9408
   - Hours: 24/7
@@ -672,7 +672,7 @@ Help Desk: <Email>, <Phone>
 **Prepared By:** System Implementation Team  
 **Reviewed By:** Security Office, ISSO  
 **Approved By:** Authorizing Official  
-**Classification:** UNCLASSIFIED  
+**Classification:** Standard  
 **Distribution:** Limited to authorized personnel  
 **Next Review:** Quarterly or upon significant changes
 

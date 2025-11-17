@@ -1,7 +1,7 @@
 # Investment Snapshot
-## DOD Teams Meeting Minutes Management System - Commercial SaaS Opportunity
+## DOD Teams Meeting Minutes Management System - DOD Enterprise System Opportunity
 
-**Document Purpose:** Executive-level investment analysis for commercializing an enterprise meeting minutes automation platform as IBM SaaS product
+**Document Purpose:** Executive-level investment analysis for commercializing an enterprise meeting minutes automation platform as DOD Enterprise System
 
 **Classification:** IBM Confidential - Strategic Planning  
 **Date:** November 2025  
@@ -11,13 +11,13 @@
 
 ## Executive Summary
 
-This investment snapshot presents a **production-ready architectural design** for an autonomous, Microsoft-native meeting minutes management system positioned for IBM commercial SaaS offering. IBM has the opportunity to capture first-mover advantage in the emerging $2B+ enterprise meeting documentation market by launching within 16 weeks.
+This investment snapshot presents a **production-ready architectural design** for an autonomous, Microsoft-native meeting minutes management system positioned for DOD Enterprise System offering. IBM has the opportunity to capture first-mover advantage in the emerging $2B+ enterprise meeting documentation market by launching within 16 weeks.
 
 **Investment Highlights:**
-- **Market Opportunity:** $280M addressable market (280M Teams users globally)
-- **Investment Required:** $1.24M-$1.46M for 16-week commercialization sprint
+- **Market Opportunity:** $280M addressable market (2.75M DOD personnel globally)
+- **Investment Required:** $1.24M-$1.46M for 16 weeks + 16 months ATO
 - **Year 1 Revenue Potential:** $15M (conservative: 100 enterprise customers @ $150K/year)
-- **Year 1 ROI:** 8-10x return on investment ($12M gross profit on $1.4M investment)
+- **Year 1 ROI:** government cost recovery on investment ($12M gross profit on $1.4M investment)
 - **Competitive Window:** 12-18 months before Microsoft likely expands Copilot
 - **Strategic Positioning:** First enterprise-grade automated Teams documentation solution
 
@@ -35,7 +35,7 @@ This investment snapshot presents a **production-ready architectural design** fo
 **Serviceable Market:**
 - Large enterprises (10,000+ employees): ~15,000 organizations globally
 - Average contract value: $150K annually (300 users @ $500/user/year)
-- **Conservative target:** 100 customers in Year 1 = **$15M revenue**
+- **Conservative target:** 100 customers in Year 1 = **$650K-$13M/year operations**
 
 **Labor Cost Opportunity:**
 - Fortune 500 company (50,000 employees) spends ~$12M annually on manual meeting documentation
@@ -74,7 +74,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 - ✅ **Approval Workflow**: Review, edit, approve/reject flow with complete audit trail
 - ✅ **Email Distribution**: Automatic delivery to all attendees with formatted attachments
 - ✅ **SharePoint Archival**: Organized storage with metadata and search
-- ✅ **Classification Support**: Standard, Enhanced, Premium tiers for government/regulated industries
+- ✅ **Classification Support**: UNCLASSIFIED, CONFIDENTIAL, SECRET for government/regulated industries
 - ✅ **Action Item Tracking**: Automatic extraction with assignees and deadlines
 
 ### Technology Stack
@@ -98,7 +98,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 
 ### Investment Required
 
-**16-Week Commercialization Sprint:**
+**16 weeks + 16 months ATO:**
 
 | Category | Cost | Notes |
 |----------|------|-------|
@@ -128,7 +128,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 **ROI Calculation:**
 - **Investment:** $1.24M-$1.46M
 - **Year 1 Gross Profit:** $12M
-- **ROI:** **8-10x return** in first year alone
+- **ROI:** **government cost recovery** in first year alone
 
 ### Multi-Year Growth Projection
 
@@ -141,7 +141,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 **Potential Exit/Acquisition:**
 - Enterprise SaaS multiples: 8-12x revenue
 - **Year 2 Valuation:** $360M-$540M (at $45M revenue)
-- **Year 3 Valuation:** $720M-$1.08B (at $90M revenue)
+- **Year 3 Valuation:** $720M-$1.08B (at scaled DOD operations)
 
 ---
 
@@ -187,7 +187,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 
 ## Implementation Timeline
 
-### 16-Week Commercialization Sprint
+### 16 weeks + 16 months ATO
 
 **Weeks 1-4: Foundation**
 - Infrastructure provisioning (Azure commercial + Government)
@@ -270,7 +270,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 
 ## Recommendation
 
-**PROCEED with 16-week commercialization sprint** to capture first-mover advantage in $2B+ enterprise meeting documentation market before competitive window closes.
+**PROCEED with 16 weeks + 16 months ATO** to capture first-mover advantage in $2B+ enterprise meeting documentation market before competitive window closes.
 
 ### Why IBM Must Act Now
 
@@ -282,7 +282,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 
 **Financial Opportunity (8-10x Year 1 ROI):**
 - ✅ $1.4M investment generates $12M gross profit (Year 1)
-- ✅ $90M revenue potential by Year 3
+- ✅ scaled DOD operations potential by Year 3
 - ✅ Potential $720M-$1.08B valuation at Year 3 scale
 - ✅ High-margin recurring revenue model (80% gross margin)
 
@@ -313,9 +313,9 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 ---
 
 **Document Classification:** IBM Confidential - Strategic Planning  
-**Prepared For:** IBM Executive Leadership  
+**Prepared For:** DOD Leadership  
 **Date:** November 2025  
-**Decision Required:** Go/No-Go on 16-week commercialization sprint
+**Decision Required:** Go/No-Go on 16 weeks + 16 months ATO
 
 **Investment Ask:** $1.24M-$1.46M  
 **Expected Return:** $12M gross profit (Year 1), $72M (Year 3)  

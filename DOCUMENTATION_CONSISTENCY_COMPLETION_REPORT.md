@@ -92,7 +92,7 @@ Added canonical timeline scenarios table to DOCUMENTATION_CONSISTENCY_AUDIT.md S
 | Scenario | Duration | Description | Context |
 |----------|----------|-------------|---------|
 | **Commercial/Pilot Timeline** | 16 weeks | Replit development completion to commercial pilot | Development in open commercial environment |
-| **Full DOD Production Timeline** | 16 months | Complete production deployment with ATO | Includes 9-12 month ATO process for DOD production |
+| **Full DOD Production Timeline** | 16 months | Complete production deployment with ATO | Includes 16-month ATO process for DOD production |
 
 **Clarification:** Resolved confusion between two distinct deployment scenarios now documented as separate, non-contradictory timelines.
 
@@ -189,7 +189,7 @@ On-Premises References: 0
 | Scenario | Canonical Phrasing |
 |----------|-------------------|
 | **Commercial/Pilot** | "16 weeks to commercial pilot" OR "16-week development completion" |
-| **Full DOD Production** | "16 months to full DOD production deployment" OR "includes 9-12 month ATO process" |
+| **Full DOD Production** | "16 months to full DOD production deployment" OR "includes 16-month ATO process" |
 
 ---
 

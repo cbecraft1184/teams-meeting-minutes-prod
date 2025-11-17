@@ -629,18 +629,18 @@ The Enterprise Meeting Minutes Platform deploys exclusively to **Azure Commercia
 │                                                                      │
 │  Multi-Scale-Unit ASE Clusters (Classification-Specific VNets)      │
 │  ├─ BASELINE (10K users): 3 ASEv3, 18 I3v2 instances               │
-│  │  • UNCLASS: 1 ASEv3 (12 instances) - VNet 10.0.0.0/16           │
-│  │  • CONF: 1 ASEv3 (4 instances) - VNet 10.10.0.0/16              │
+│  │  • Standard: 1 ASEv3 (12 instances) - VNet 10.0.0.0/16           │
+│  │  • Enhanced: 1 ASEv3 (4 instances) - VNet 10.10.0.0/16              │
 │  │  • Standard: 1 ASEv3 (2 instances) - VNet 10.20.0.0/16 (no egress)│
 │  │                                                                   │
 │  └─ PEAK (300K users): 12 ASEv3, 880 I3v2 instances                │
-│     • UNCLASS: 6 ASEv3 (600 instances)                              │
-│     • CONF: 4 ASEv3 (240 instances)                                 │
+│     • Standard: 6 ASEv3 (600 instances)                              │
+│     • Enhanced: 4 ASEv3 (240 instances)                                 │
 │     • Standard: 2 ASEv3 (40 instances)                                │
 │                                                                      │
 │  Horizontally Sharded PostgreSQL (12 shards total)                  │
-│  ├─ UNCLASS: 6 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)      │
-│  ├─ CONF: 4 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)         │
+│  ├─ Standard: 6 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)      │
+│  ├─ Enhanced: 4 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)         │
 │  └─ Standard: 2 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)       │
 │     • HSM-backed CMK encryption (Key Vault Premium)                 │
 │     • 90-day backups, private endpoint only                         │
@@ -652,7 +652,7 @@ The Enterprise Meeting Minutes Platform deploys exclusively to **Azure Commercia
 │                                                                      │
 │  Azure Key Vault (Standard + Premium HSM)                           │
 │  ├─ Standard database encryption (Premium HSM, FIPS 140-2 Level 2)   │
-│  ├─ CONF database encryption (Standard, Customer-Managed Keys)      │
+│  ├─ Enhanced database encryption (Standard, Customer-Managed Keys)      │
 │  └─ Application secrets and certificates                            │
 │                                                                      │
 │  Azure Monitor + Application Insights                               │
@@ -704,7 +704,7 @@ The Enterprise Meeting Minutes Platform deploys exclusively to **Azure Commercia
    - Clearance levels documented for administrcertificationrs
 
 2. **Phase 1: Azure Infrastructure** (2-3 days)
-   - Create Resource Group in usgovvirginia region
+   - Create Resource Group in eastus region
    - Deploy VNET with subnets (public, app, data, management)
    - Configure Network Security Groups (NSGs)
    - Deploy Azure Database for PostgreSQL Flexible Server
@@ -712,7 +712,7 @@ The Enterprise Meeting Minutes Platform deploys exclusively to **Azure Commercia
 
 3. **Phase 2: Application Services** (2-3 days)
    - Deploy App Service Environment v3 (ASEv3) clusters
-   - Configure classification-specific VNets (UNCLASS, CONF, Standard)
+   - Configure classification-specific VNets (Standard, Enhanced, Standard)
    - Deploy I3v2 instances with Node.js 20 runtime
    - Configure auto-scaling rules per classification level
    - Deploy Azure Front Door Premium for global load balancing
@@ -755,13 +755,13 @@ For detailed step-by-step deployment instructions, configuration examples, troub
 
 | Deployment Scenario | Document | Lines | Timeline | Users |
 |-------------------|----------|-------|----------|-------|
-| **Pilot (Recommended First Step)** | `AZURE_GOV_PILOT_PLAN.md` | 1,282 | 2-4 weeks | 50-100 |
-| **Production (Full Scale)** | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | Comprehensive | 16 weeks (+16mo certification) | 300,000 |
+| **Pilot (Recommended First Step)** | `` | 1,282 | 2-4 weeks | 50-100 |
+| **Production (Full Scale)** | `` | Comprehensive | 16 weeks (+16mo certification) | 300,000 |
 | **Scaling (Pilot → Production)** | `PILOT_TO_PRODUCTION_SCALING.md` | Detailed | 1 day | 100 → 300K |
 
 **Key Documents:**
 
-1. **AZURE_GOV_PILOT_PLAN.md**
+1. ****
    - Cost-optimized pilot deployment ($1,500-2,500/month)
    - Simplified architecture for 50-100 users
    - 60-day evaluation period
@@ -769,7 +769,7 @@ For detailed step-by-step deployment instructions, configuration examples, troub
    - Go/no-go decision framework
    - Complete Azure CLI commands and configuration examples
 
-2. **AZURE_GOV_IMPLEMENTATION_PLAN.md**
+2. ****
    - Production-grade architecture with auto-scaling for up to 300,000 concurrent users
    - High availability, disaster recovery, security hardening
    - SOC 2 Type II, DISA SRG Level 5 compliance

@@ -98,7 +98,7 @@ export async function initializeTeamsApp() {
 export async function getTeamsAuthToken(): Promise<string | null> {
   try {
     const token = await authentication.getAuthToken({
-      resources: ['https://graph.microsoft.us'], // Commercial Cloud endpoint
+      resources: ['https://graph.microsoft.com'], // Commercial Cloud endpoint
       silent: false
     });
     return token;
@@ -137,9 +137,9 @@ useEffect(() => {
   "packageName": "com.company.teams.meetingminutes",
   "developer": {
     "name": "Enterprise",
-    "websiteUrl": "https://defense.gov",
-    "privacyUrl": "https://defense.gov/privacy",
-    "termsOfUseUrl": "https://defense.gov/terms"
+    "websiteUrl": "https://company.com",
+    "privacyUrl": "https://company.com/privacy",
+    "termsOfUseUrl": "https://company.com/terms"
   },
   "name": {
     "short": "Meeting Minutes",
@@ -493,10 +493,10 @@ export async function validateTeamsToken(req: Request, res: Response, next: Next
     const oboRequest = {
       oboAssertion: userToken,
       scopes: [
-        'https://graph.microsoft.us/Calendars.Read',
-        'https://graph.microsoft.us/OnlineMeetings.Read',
-        'https://graph.microsoft.us/Mail.Send',
-        'https://graph.microsoft.us/Sites.ReadWrite.All'
+        'https://graph.microsoft.com/Calendars.Read',
+        'https://graph.microsoft.com/OnlineMeetings.Read',
+        'https://graph.microsoft.com/Mail.Send',
+        'https://graph.microsoft.com/Sites.ReadWrite.All'
       ]
     };
 
@@ -1273,7 +1273,7 @@ AZURE_AD_CLIENT_Standard=<client-secret>
 AZURE_AD_AUTHORITY=https://login.microsoftonline.us
 
 # Microsoft Graph (Government Cloud)
-GRAPH_API_ENDPOINT=https://graph.microsoft.us
+GRAPH_API_ENDPOINT=https://graph.microsoft.com
 
 # Azure OpenAI (Government Cloud)
 AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.us
@@ -1326,16 +1326,16 @@ This section provides mandcertificationry testing procedures to validate that Te
    - Meeting C: Standard (organizer: testuser_premium@company.com)
 2. Complete each meeting (trigger "callEnded" webhook)
 3. Verify webhook routing:
-   - Standard webhook → UNCLASS ASE cluster (VNet 10.0.0.0/16)
-   - Standard webhook → CONF ASE cluster (VNet 10.10.0.0/16)
+   - Standard webhook → Standard ASE cluster (VNet 10.0.0.0/16)
+   - Standard webhook → Enhanced ASE cluster (VNet 10.10.0.0/16)
    - Standard webhook → Standard ASE cluster (VNet 10.20.0.0/16)
 4. Verify each environment queries only its respective database shard
 
 **Expected Routing Table:**
 | Meeting Classification | Webhook Destination | Database Shard | Network Isolation |
 |------------------------|---------------------|----------------|-------------------|
-| Standard | UNCLASS ASE | UNCLASS shards 1-6 | Public/Private VNet |
-| Standard | CONF ASE | CONF shards 1-4 | Private VNet only |
+| Standard | Standard ASE | Standard shards 1-6 | Public/Private VNet |
+| Standard | Enhanced ASE | Enhanced shards 1-4 | Private VNet only |
 | Standard | Standard ASE | Standard shards 1-2 | Air-gapped VNet (no egress) |
 
 **Failure Criteria:**
@@ -1349,14 +1349,14 @@ This section provides mandcertificationry testing procedures to validate that Te
 
 **Test Steps:**
 1. Monitor network traffic from all ASE environments
-2. Verify ALL Graph API requests use https://graph.microsoft.us (NOT .com)
+2. Verify ALL Graph API requests use https://graph.microsoft.com (NOT .com)
 3. Verify OAuth tokens acquired from https://login.microsoftonline.us
 4. Confirm no requests to commercial Azure endpoints
 
 **Network Validation:**
 ```bash
 # Monitor outbound HTTPS requests
-tcpdump -i any 'port 443 and host graph.microsoft.us'  # Should see traffic
+tcpdump -i any 'port 443 and host graph.microsoft.com'  # Should see traffic
 
 # Verify NO traffic to commercial endpoints:
 tcpdump -i any 'port 443 and host graph.microsoft.com'  # Should be EMPTY
@@ -1365,7 +1365,7 @@ tcpdump -i any 'port 443 and host graph.microsoft.com'  # Should be EMPTY
 **Expected OAuth Token:**
 ```json
 {
-  "aud": "https://graph.microsoft.us",  // CORRECT (Commercial Cloud)
+  "aud": "https://graph.microsoft.com",  // CORRECT (Commercial Cloud)
   "iss": "https://sts.windows.net/{tenant-id}/",
   "iat": 1700000000,
   "exp": 1700003600
@@ -1385,7 +1385,7 @@ tcpdump -i any 'port 443 and host graph.microsoft.com'  # Should be EMPTY
 1. Create Standard meeting with recording enabled
 2. Complete meeting, wait for recording availability
 3. Verify Graph API call to download recording originates from Standard ASE instance only
-4. Verify recording NEVER downloaded or cached in UNCLASS/CONF environments
+4. Verify recording NEVER downloaded or cached in Standard/Enhanced environments
 5. Check Standard database for recording metadata, confirm NOT present in other shards
 
 **Expected Result:**
@@ -1395,7 +1395,7 @@ Standard meeting recording download:
 - Storage: Standard database shard 1 or 2
 - Network: No internet egress (air-gapped)
 
-UNCLASS/CONF environments:
+Standard/Enhanced environments:
 - No knowledge of Standard meeting existence
 - Recording download never attempted
 ```
@@ -1403,7 +1403,7 @@ UNCLASS/CONF environments:
 **Failure Criteria:**
 - Recording downloaded from non-Standard environment
 - Recording cached in lower classification environment
-- Standard meeting metadata visible in UNCLASS/CONF database
+- Standard meeting metadata visible in Standard/Enhanced database
 
 ### Production Validation Checklist
 

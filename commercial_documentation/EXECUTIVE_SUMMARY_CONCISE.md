@@ -75,7 +75,7 @@
 3. **Approval Workflow** - Review process with edit capability, approval/rejection flow, and complete audit trail
 4. **Automated Distribution** - Email delivery to attendees with DOCX and PDF attachments via Microsoft Graph
 5. **Secure Archival** - SharePoint integration with classification metadata and organized folder structure
-6. **Enterprise Access Control** - Azure AD group-based permissions supporting clearance levels (UNCLASS/CONF/Standard) and role-based access
+6. **Enterprise Access Control** - Azure AD group-based permissions supporting clearance levels (Standard/Enhanced/Standard) and role-based access
 
 **Technology Stack:**
 - Backend: Node.js/TypeScript, Express.js, PostgreSQL, Drizzle ORM

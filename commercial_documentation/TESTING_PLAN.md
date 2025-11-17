@@ -68,10 +68,10 @@ Environment Parity:
 
 | Environment | Purpose | Data Classification | Azure Subscription | User Access |
 |-------------|---------|-------------------|-------------------|-------------|
-| **Development** | Feature development | Synthetic (UNCLASS) | Dev subscription | All developers |
-| **Integration** | API integration testing | Synthetic (UNCLASS) | Dev subscription | Dev + QA |
-| **Staging** | Pre-production validation | Synthetic (UNCLASS-Standard) | Commercial Cloud staging | QA + Security |
-| **Production** | Live operations | Real (UNCLASS-Standard) | Commercial Cloud production | Authorized users only |
+| **Development** | Feature development | Synthetic (Standard) | Dev subscription | All developers |
+| **Integration** | API integration testing | Synthetic (Standard) | Dev subscription | Dev + QA |
+| **Staging** | Pre-production validation | Synthetic (Standard-Standard) | Commercial Cloud staging | QA + Security |
+| **Production** | Live operations | Real (Standard-Standard) | Commercial Cloud production | Authorized users only |
 
 ### Test Data Management
 

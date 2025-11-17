@@ -57,7 +57,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Key Contents:**
 - Market opportunity and competitive positioning
 - Technology differentiation vs NIPRGPT/Copilot
-- 16-week commercialization timeline
+- 16-week deployment timeline
 - Investment requirements ($400K-600K)
 - Risk assessment and go/no-go decision framework
 - Critical success metrics
@@ -73,7 +73,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Key Contents:**
 - Production-ready architecture design validated by 5 architects
 - Detailed market and competitive analysis
-- Strategic fit with IBM portfolio
+- Strategic fit with DOD portfolio
 - Resource requirements (6-8 FTEs for 16-week deployment)
 - Complete risk assessment matrix
 - 16-week implementation timeline + 16-month ATO process
@@ -84,7 +84,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 ---
 
 #### 3a. INVESTMENT_SNAPSHOT_DOD.md
-**Audience:** DOD Leadership, IBM Government Solutions Team  
+**Audience:** DOD Leadership, DOD Implementation Team  
 **Purpose:** Investment analysis for DOD enterprise deployment contract  
 **Length:** ~15 pages  
 **Key Contents:**
@@ -104,14 +104,14 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Purpose:** Investment analysis for DOD Enterprise System product launch  
 **Length:** ~15 pages  
 **Key Contents:**
-- DOD Enterprise System market opportunity (DOD enterprise TAM, $280M addressable)
+- DOD Enterprise System mission capability (DOD enterprise TAM, $280M addressable)
 - Competitive landscape and 12-18 month first-mover window
 - Financial model ($1.4M investment, $650K-$13M/year operations, government cost recovery)
-- Multi-year growth projection (scaled operations revenue potential)
-- Strategic fit with IBM portfolio and go-to-market strategy
-- 16-week commercialization sprint timeline
+- Multi-year growth projection (scaled operations cost recovery)
+- Strategic fit with DOD portfolio and go-to-market strategy
+- 16-week pilot deployment timeline
 
-**When to Read:** For IBM commercial product investment decisions
+**When to Read:** For DOD commercial product investment decisions
 
 ---
 
@@ -343,7 +343,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Purpose:** UI/UX design standards and component guidelines  
 **Length:** ~10 pages  
 **Key Contents:**
-- Dual-theme design system (Microsoft Teams + IBM Carbon)
+- Dual-theme design system (Microsoft Teams + DOD Fluent)
 - Color palette (professional DOD-grade)
 - Typography standards
 - Component library (Shadcn UI + Radix)

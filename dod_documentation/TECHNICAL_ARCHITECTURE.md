@@ -44,7 +44,7 @@
 
 ✅ **Frontend (Production Design):**
 - React application with TypeScript
-- Shadcn/Radix UI components (Microsoft Fluent + IBM Carbon design)
+- Shadcn/Radix UI components (Microsoft Fluent + DOD Fluent design)
 - Comprehensive UI coverage for all user workflows
 - Dual-theme system (light/dark mode)
 - Accessibility features (WCAG 2.1 AA compliant)
@@ -779,6 +779,6 @@ canViewMeeting(user, meeting) {
 
 ---
 
-**Document Classification:** IBM Internal - Technical Reference  
+**Document Classification:** DOD Internal - Technical Reference  
 **Version:** 1.0  
 **Last Updated:** November 2025

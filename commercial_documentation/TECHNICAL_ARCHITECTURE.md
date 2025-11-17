@@ -26,7 +26,7 @@
 - **Implementation Timeline:** Weeks 1-8 of deployment
 
 ✅ **Database Schema (Production Design):**
-- Multi-shard PostgreSQL data model (12 shards: 6 UNCLASS + 4 CONF + 2 Standard)
+- Multi-shard PostgreSQL data model (12 shards: 6 Standard + 4 Enhanced + 2 Standard)
 - Support for classification levels (Standard, Enhanced, Premium)
 - Meeting workflow status tracking
 - Action item management
@@ -101,7 +101,7 @@
 │  └──────────────┬──────────────────┬──────────────────┬──────────────────────┘   │
 │                 │                  │                  │                           │
 │      ┌──────────▼─────────┐ ┌──────▼────────┐ ┌──────▼──────────┐                │
-│      │ UNCLASS VNet       │ │ CONF VNet     │ │ Standard VNet     │                │
+│      │ Standard VNet       │ │ Enhanced VNet     │ │ Standard VNet     │                │
 │      │ (10.0.0.0/16)      │ │ (10.10.0.0/16)│ │ (10.20.0.0/16)  │                │
 │      │                    │ │               │ │ (No Egress)     │                │
 │      └────────────────────┘ └───────────────┘ └─────────────────┘                │
@@ -112,8 +112,8 @@
 │  │  BASELINE (10K users):           PEAK (300K users):                        │  │
 │  │  ┌──────────────────────┐        ┌──────────────────────────────────────┐ │  │
 │  │  │ 3× ASEv3 Scale Units │        │ 12× ASEv3 Scale Units                │ │  │
-│  │  │ - 1 UNCLASS (12 I3v2)│        │ - 6 UNCLASS (600 I3v2 total)         │ │  │
-│  │  │ - 1 CONF (4 I3v2)    │        │ - 4 CONF (240 I3v2 total)            │ │  │
+│  │  │ - 1 Standard (12 I3v2)│        │ - 6 Standard (600 I3v2 total)         │ │  │
+│  │  │ - 1 Enhanced (4 I3v2)    │        │ - 4 Enhanced (240 I3v2 total)            │ │  │
 │  │  │ - 1 Standard (2 I3v2)  │        │ - 2 Standard (40 I3v2 total)           │ │  │
 │  │  │ Total: 18 instances  │        │ Total: 880 instances                 │ │  │
 │  │  └──────────────────────┘        └──────────────────────────────────────┘ │  │
@@ -130,12 +130,12 @@
 │  │ Horizontal Database Sharding     │   │  Azure OpenAI Service (Commercial Cloud)    │ │
 │  │ (12 PostgreSQL Flexible Servers) │   │  - GPT-4o + Whisper Models          │ │
 │  │                                  │   │  - Regional Deployment (Virginia)   │ │
-│  │ UNCLASS: 6 shards                │   │  - Managed Identity Auth            │ │
+│  │ Standard: 6 shards                │   │  - Managed Identity Auth            │ │
 │  │ - GP_Gen5_4-8 (baseline)         │   │  - 100K TPM Capacity                │ │
 │  │ - GP_Gen5_16 (peak)              │   └─────────────────────────────────────┘ │
 │  │ - TDE w/ Microsoft-managed keys  │                                           │
 │  │                                  │   ┌─────────────────────────────────────┐ │
-│  │ CONF: 4 shards                   │   │  Azure Key Vault Premium (HSM)      │ │
+│  │ Enhanced: 4 shards                   │   │  Azure Key Vault Premium (HSM)      │ │
 │  │ - GP_Gen5_4-8 (baseline)         │   │  - Customer-Managed Keys (CMK)      │ │
 │  │ - GP_Gen5_16 (peak)              │   │  - Standard database encryption       │ │
 │  │ - TDE w/ CMK (Key Vault Standard)│   │  - FIPS 140-2 Level 2               │ │

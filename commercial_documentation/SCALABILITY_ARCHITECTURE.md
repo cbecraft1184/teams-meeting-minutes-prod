@@ -14,7 +14,7 @@ This document defines the quantified scalability architecture for the Enterprise
 **Key Design Principles:**
 - **Elastic Scalability:** Horizontal scaling across all tiers
 - **Multi-Region High Availability:** Active-active deployment across multiple Azure Commercial regions
-- **Classification-Aware Partitioning:** Separate infrastructure pools for UNCLASS/Standard/Standard
+- **Tier-Based Partitioning:** Separate infrastructure pools for Standard/Enhanced/Premium service tiers
 - **Zero-Trust Architecture:** Assume breach, verify explicitly, least privilege
 - **Cost Optimization:** Scale down to minimal footprint during low-demand periods
 
@@ -95,10 +95,10 @@ This document defines the quantified scalability architecture for the Enterprise
                               ↓
         ┌─────────────────────┴─────────────────────┐
         ↓                                           ↓
-    Virginia Region                            Arizona Region
-    ├── UNCLASS Scale Unit 1-3                ├── UNCLASS Scale Unit 4-6
-    ├── CONF Scale Unit 1-2                   ├── CONF Scale Unit 3-4
-    └── Standard Scale Unit 1                   └── Standard Scale Unit 2
+    East US Region                            West US Region
+    ├── Standard Tier Scale Unit 1-3          ├── Standard Tier Scale Unit 4-6
+    ├── Enhanced Tier Scale Unit 1-2          ├── Enhanced Tier Scale Unit 3-4
+    └── Premium Tier Scale Unit 1             └── Premium Tier Scale Unit 2
 ```
 
 **Scale Unit Definition:**
@@ -107,25 +107,25 @@ This document defines the quantified scalability architecture for the Enterprise
 - **Scale Unit Capacity:** 100 instances × 400 req/sec = 40,000 req/sec per unit
 - **User Capacity:** 100 instances × 3,000 users/instance = 300,000 users per unit
 
-### 2.2 Enterprise Classification-Based Compute Segregation
+### 2.2 Service Tier-Based Compute Segregation
 
 **Peak Capacity Architecture (300K Concurrent Users):**
 
-**Standard Scale Units:**
-- **Active Units at Peak:** 6 total (3 in Virginia + 3 in Arizona)
+**Standard Tier Scale Units:**
+- **Active Units at Peak:** 6 total (3 in East US + 3 in West US)
 - **Instances per Unit:** 100 I3v2 instances (fully scaled)
 - **Total Capacity:** 600 instances (4,800 vCPU, 19.2 TB RAM)
 - **Request Throughput:** 6 × 40,000 = 240,000 req/sec
 - **User Capacity:** 600 × 3,000 = 1,800,000 concurrent users (6× design capacity)
 
-**Standard Scale Units:**
-- **Active Units at Peak:** 4 total (2 in Virginia + 2 in Arizona)
+**Enhanced Tier Scale Units:**
+- **Active Units at Peak:** 4 total (2 in East US + 2 in West US)
 - **Instances per Unit:** 60 I3v2 instances (scaled for 25% of traffic)
 - **Total Capacity:** 240 instances (1,920 vCPU, 7.7 TB RAM)
 - **Request Throughput:** 4 × 24,000 = 96,000 req/sec
 - **User Capacity:** 240 × 3,000 = 720,000 concurrent users (2.4× design capacity)
 
-**Standard Scale Units:**
+**Premium Tier Scale Units:**
 - **Active Units at Peak:** 2 total (1 in Virginia + 1 in Arizona)
 - **Instances per Unit:** 20 I3v2 instances (scaled for 5% of traffic)
 - **Total Capacity:** 40 instances (320 vCPU, 1.3 TB RAM)
@@ -133,7 +133,7 @@ This document defines the quantified scalability architecture for the Enterprise
 - **User Capacity:** 40 × 3,000 = 120,000 concurrent users (0.4× design capacity)
 
 **Total Peak Infrastructure (All Classifications):**
-- **Scale Units:** 12 total (6 UNCLASS + 4 CONF + 2 Standard)
+- **Scale Units:** 12 total (6 Standard + 4 Enhanced + 2 Standard)
 - **Instances:** 880 (at full peak capacity)
 - **vCPU:** 7,040
 - **RAM:** 28.2 TB
@@ -144,8 +144,8 @@ This document defines the quantified scalability architecture for the Enterprise
 ### 2.3 Baseline Deployment (10K Concurrent Users)
 
 **Minimal Viable Configuration:**
-- **UNCLASS:** 1 scale unit × 12 instances (I3v2) = 96 vCPU, 384 GB RAM
-- **CONF:** 1 scale unit × 4 instances (I3v2) = 32 vCPU, 128 GB RAM
+- **Standard:** 1 scale unit × 12 instances (I3v2) = 96 vCPU, 384 GB RAM
+- **Enhanced:** 1 scale unit × 4 instances (I3v2) = 32 vCPU, 128 GB RAM
 - **Standard:** 1 scale unit × 2 instances (I3v2) = 16 vCPU, 64 GB RAM
 - **Total:** 3 scale units (ASEs), 18 instances, 144 vCPU, 576 GB RAM
 - **Compute Cost:** ~$18,300/month (3 ASE @ $1K + 18 I3v2 @ $850)
@@ -154,8 +154,8 @@ This document defines the quantified scalability architecture for the Enterprise
 ### 2.4 Peak Deployment (300K Concurrent Users)
 
 **Full-Scale Configuration:**
-- **UNCLASS:** 6 scale units × 100 instances = 600 I3v2 instances
-- **CONF:** 4 scale units × 60 instances = 240 I3v2 instances
+- **Standard:** 6 scale units × 100 instances = 600 I3v2 instances
+- **Enhanced:** 4 scale units × 60 instances = 240 I3v2 instances
 - **Standard:** 2 scale units × 20 instances = 40 I3v2 instances
 - **Total:** 12 scale units (ASEs), 880 instances, 7,040 vCPU, 28.2 TB RAM
 - **Compute Cost:** ~$760,000/month (12 ASE @ $1K + 880 I3v2 @ $850)
@@ -194,7 +194,7 @@ resource "azurerm_cdn_frontdoor_origin_group" "unclass" {
   }
 }
 
-# Add origins: Virginia UNCLASS units 1-3
+# Add origins: Virginia Standard units 1-3
 resource "azurerm_cdn_frontdoor_origin" "unclass_va_1" {
   name                          = "unclass-va-unit-1"
   cdn_frontdoor_origin_group_id = azurerm_cdn_frontdoor_origin_group.unclass.id
@@ -202,13 +202,13 @@ resource "azurerm_cdn_frontdoor_origin" "unclass_va_1" {
   priority                      = 1
   weight                        = 1000
 }
-# ... repeat for all 6 UNCLASS units
+# ... repeat for all 6 Standard units
 ```
 
 **Routing Logic:**
 1. Client request hits Azure Front Door
 2. Request header contains classification level (e.g., `X-Classification: Standard`)
-3. Front Door routes to appropriate origin group (UNCLASS/CONF/Standard)
+3. Front Door routes to appropriate origin group (Standard/Enhanced/Standard)
 4. Origin group load-balances across regional scale units
 5. Scale unit load-balances across instances within ASE
 
@@ -219,7 +219,7 @@ resource "azurerm_cdn_frontdoor_origin" "unclass_va_1" {
 - **Baseline Min:** 2-10 instances per scale unit (classification-dependent)
 - **Peak Max:** 100 instances per scale unit (Azure hard limit)
 
-**Standard Scale Unit Auto-Scaling:**
+**Premium Tier Scale Unit Auto-Scaling:**
 ```json
 {
   "scaleRules": {
@@ -254,7 +254,7 @@ resource "azurerm_cdn_frontdoor_origin" "unclass_va_1" {
 }
 ```
 
-**Standard Scale Unit Auto-Scaling:**
+**Premium Tier Scale Unit Auto-Scaling:**
 ```json
 {
   "scaleRules": {
@@ -280,7 +280,7 @@ resource "azurerm_cdn_frontdoor_origin" "unclass_va_1" {
 }
 ```
 
-**Standard Scale Unit Auto-Scaling:**
+**Premium Tier Scale Unit Auto-Scaling:**
 ```json
 {
   "scaleRules": {
@@ -385,7 +385,7 @@ Standard Database Cluster (2 shards)
 - **Headroom:** 8,400 connections (84%) for burst and admin
 
 **Total Database Capacity:**
-- **Shards:** 12 total (6 UNCLASS + 4 CONF + 2 Standard)
+- **Shards:** 12 total (6 Standard + 4 Enhanced + 2 Standard)
 - **Total Connections:** 60,000 connections
 - **Application Connections:** 35,200 connections
 - **Connection Utilization:** 59% (healthy)
@@ -401,12 +401,12 @@ import postgres from 'postgres';
 
 // Standard shards (6 total)
 const unclassShards = [
-  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_1!)),
-  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_2!)),
-  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_3!)),
-  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_4!)),
-  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_5!)),
-  drizzle(postgres(process.env.DATABASE_URL_UNCLASS_SHARD_6!)),
+  drizzle(postgres(process.env.DATABASE_URL_Standard_SHARD_1!)),
+  drizzle(postgres(process.env.DATABASE_URL_Standard_SHARD_2!)),
+  drizzle(postgres(process.env.DATABASE_URL_Standard_SHARD_3!)),
+  drizzle(postgres(process.env.DATABASE_URL_Standard_SHARD_4!)),
+  drizzle(postgres(process.env.DATABASE_URL_Standard_SHARD_5!)),
+  drizzle(postgres(process.env.DATABASE_URL_Standard_SHARD_6!)),
 ];
 
 // Standard shards (4 total)
@@ -522,8 +522,8 @@ router.get('/api/meetings', async (req, res) => {
 - **Peak:** 1 primary + 2 read replicas per shard = 6 total instances
 
 **Total Database Infrastructure:**
-- **Baseline:** 34 PostgreSQL instances (18 UNCLASS + 12 CONF + 4 Standard)
-- **Peak:** 56 PostgreSQL instances (30 UNCLASS + 20 CONF + 6 Standard)
+- **Baseline:** 34 PostgreSQL instances (18 Standard + 12 Enhanced + 4 Standard)
+- **Peak:** 56 PostgreSQL instances (30 Standard + 20 Enhanced + 6 Standard)
 
 ### 3.6 Connection Pooling Configuration
 
@@ -532,7 +532,7 @@ router.get('/api/meetings', async (req, res) => {
 ```ini
 # PgBouncer configuration
 [databases]
-meetings = host=shard-1.postgres.database.usgovcloudapi.net port=5432 dbname=meetings
+meetings = host=shard-1.postgres.database.uscloudapi.net port=5432 dbname=meetings
 
 [pgbouncer]
 pool_mode = transaction
@@ -554,7 +554,7 @@ const shardConfig = {
   allowExitOnIdle: false
 };
 
-// With 600 UNCLASS instances × 40 connections = 24,000 connections
+// With 600 Standard instances × 40 connections = 24,000 connections
 // Distributed across 6 shards = 4,000 connections/shard
 // Well within 5,000 connection limit per PostgreSQL instance
 ```
@@ -672,7 +672,7 @@ meetings-storage/
 ```
 
 **Access Control:**
-- **Standard:** Azure AD group `UNCLASS_Users` with Read/Write
+- **Standard:** Azure AD group `Standard_Users` with Read/Write
 - **Standard:** Azure AD group `CONF_Users` with Read/Write
 - **Standard:** Azure AD group `Standard_Users` with Read/Write
 - **Service Principal:** Least-privilege access per classification
@@ -919,8 +919,8 @@ Azure Blob Storage (Geo-Redundant)
 
 ### 7.1 Active-Active Multi-Region Deployment
 
-**Primary Region:** USGov Virginia (usgovvirginia)  
-**Secondary Region:** USGov Arizona (usgovarizona)
+**Primary Region:** USGov Virginia (eastus)  
+**Secondary Region:** USGov Arizona (usarizona)
 
 **Architecture:**
 ```
@@ -928,10 +928,10 @@ Azure Blob Storage (Geo-Redundant)
                               ↓
         ┌─────────────────────┴─────────────────────┐
         ↓                                           ↓
-    Virginia Region                            Arizona Region
+    East US Region                            West US Region
     ├── App Service (100-125 instances)        ├── App Service (100-125 instances)
-    ├── PostgreSQL Primary (UNCLASS)           ├── PostgreSQL Replica (UNCLASS)
-    ├── PostgreSQL Primary (CONF)              ├── PostgreSQL Replica (CONF)
+    ├── PostgreSQL Primary (Standard)           ├── PostgreSQL Replica (Standard)
+    ├── PostgreSQL Primary (Enhanced)              ├── PostgreSQL Replica (Enhanced)
     ├── PostgreSQL Primary (Standard)            ├── PostgreSQL Replica (Standard)
     ├── Blob Storage (GRS)                     ├── Blob Storage (RA-GRS Read Access)
     └── Azure OpenAI (Primary)                 └── Azure OpenAI (Failover)
@@ -1065,8 +1065,8 @@ Scenario: 300,000 concurrent users (design capacity)
 | Service | Configuration | Cost/Month |
 |---------|--------------|------------|
 | **Compute** | | |
-| App Service Environment (ASE) | 3× ASEv3 (UNCLASS/CONF/Standard) | $3,000 |
-| App Service Instances | 18× I3v2 (12 UNCLASS, 4 CONF, 2 Standard) | $15,300 |
+| App Service Environment (ASE) | 3× ASEv3 (Standard/Enhanced/Standard) | $3,000 |
+| App Service Instances | 18× I3v2 (12 Standard, 4 Enhanced, 2 Standard) | $15,300 |
 | AI Workers (Separate ASE) | 1× ASEv3 + 6× I2v2 instances | $4,600 |
 | **Database** | | |
 | PostgreSQL Shards (Primaries) | 12× GP_Gen5_4-8 (6+4+2 by classification) | $13,600 |
@@ -1076,7 +1076,7 @@ Scenario: 300,000 concurrent users (design capacity)
 | Azure Front Door | Premium tier, 1 TB egress | $800 |
 | **AI & Security** | | |
 | Azure OpenAI (Commercial Cloud) | 50K tokens/day (GPT-4o + Whisper) | $2,000 |
-| Key Vault Premium | HSM-backed keys for CONF/Standard | $300 |
+| Key Vault Premium | HSM-backed keys for Enhanced/Standard | $300 |
 | Log Analytics | 50 GB/day ingestion | $350 |
 | **Total Baseline** | | **$54,150/month** |
 
@@ -1089,7 +1089,7 @@ Scenario: 300,000 concurrent users (design capacity)
 | Service | Configuration | Cost/Month |
 |---------|--------------|------------|
 | **Compute** | | |
-| App Service Environment (ASE) | 12× ASEv3 (6 UNCLASS, 4 CONF, 2 Standard) | $12,000 |
+| App Service Environment (ASE) | 12× ASEv3 (6 Standard, 4 Enhanced, 2 Standard) | $12,000 |
 | App Service Instances | 880× I3v2 (600+240+40 by classification) | $748,000 |
 | AI Workers (Separate ASE) | 2× ASEv3 + 60× I2v2 instances | $26,000 |
 | **Database** | | |
@@ -1187,11 +1187,11 @@ Scenario: 300,000 concurrent users (design capacity)
 
 **Recovery:** (10 minutes - 4 hours)
 - Investigate root cause of Virginia outage
-- Monitor Arizona region for capacity constraints
+- Monitor West US region for capacity constraints
 - Scale up Arizona resources if needed (20-40 additional instances)
 
 **Restoration:** (4-24 hours)
-- Virginia region restored and validated
+- East US region restored and validated
 - Re-establish database replication (Virginia ← Arizona)
 - Gradually shift traffic back to 50/50 split
 - Demote Arizona databases back to read replicas

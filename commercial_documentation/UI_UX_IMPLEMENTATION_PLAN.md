@@ -642,7 +642,7 @@ export function Modal({ isOpen, onClose, children }) {
 
 **DAC-2: Classification Visual Indiccertificationrs**
 - ✅ Classification badge visible on all classified content
-- ✅ Badge colors: Green (UNCLASS), Orange (CONF), Red (Standard)
+- ✅ Badge colors: Green (Standard), Orange (Enhanced), Red (Standard)
 - ✅ Banner displays at top when viewing Standard content
 - ✅ Documents show classification markings in header/footer
 
@@ -730,7 +730,7 @@ Expected: Fully functional on small screens
 | **Select** | default | sm, default | ARIA expanded | ✅ Built-in |
 | **Dialog** | default | - | Focus trap, Esc close | ✅ Built-in |
 | **Tooltip** | default | - | ARIA described-by | ✅ Built-in |
-| **ClassificationBadge** | UNCLASS, CONF, Standard | - | Role, color contrast | ⚠️ Custom |
+| **ClassificationBadge** | Standard, Enhanced, Standard | - | Role, color contrast | ⚠️ Custom |
 | **MeetingCard** | default | - | Click handler, keyboard | ⚠️ Custom |
 
 ### Appendix B: Dark Mode Implementation

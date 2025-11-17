@@ -88,7 +88,7 @@ Compliance: enterprise compliance, NARA, ISO 15489, SOC 2 Type II
 │  │  │  └─ Standard_Minutes             │  │                  │
 │  │  │                                 │  │                  │
 │  │  │  Retention Labels:              │  │                  │
-│  │  │  ├─ UNCLASS_5yr_Retention      │  │                  │
+│  │  │  ├─ Standard_5yr_Retention      │  │                  │
 │  │  │  ├─ CONF_10yr_Retention        │  │                  │
 │  │  │  └─ Standard_25yr_Retention      │  │                  │
 │  │  └────────────────────────────────┘  │                  │
@@ -233,7 +233,7 @@ Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.office365.us
 
 # Create retention labels
 New-ComplianceTag `
-  -Name "UNCLASS_5yr_Retention" `
+  -Name "Standard_5yr_Retention" `
   -RetentionAction Keep `
   -RetentionDuration 1825 `
   -Comment "Standard - 5 year retention per NARA"
@@ -258,7 +258,7 @@ New-RetentionCompliancePolicy `
 New-RetentionComplianceRule `
   -Name "Apply Meeting Minutes Labels" `
   -Policy "Meeting Minutes Retention" `
-  -PublishComplianceTag "UNCLASS_5yr_Retention","CONF_10yr_Retention","Standard_25yr_Retention"
+  -PublishComplianceTag "Standard_5yr_Retention","CONF_10yr_Retention","Standard_25yr_Retention"
 ```
 
 ### Phase 4: Application Integration (Week 3-4)
@@ -301,14 +301,14 @@ export class SharePointService {
     
     // Library IDs by classification
     this.libraryMap = {
-      'Standard': process.env.SHAREPOINT_UNCLASS_LIBRARY_ID!,
+      'Standard': process.env.SHAREPOINT_Standard_LIBRARY_ID!,
       'Standard': process.env.SHAREPOINT_CONF_LIBRARY_ID!,
       'Standard': process.env.SHAREPOINT_Standard_LIBRARY_ID!
     };
     
     // Retention label IDs
     this.retentionLabelMap = {
-      'Standard': 'UNCLASS_5yr_Retention',
+      'Standard': 'Standard_5yr_Retention',
       'Standard': 'CONF_10yr_Retention',
       'Standard': 'Standard_25yr_Retention'
     };
@@ -498,7 +498,7 @@ async function handleMinutesApproved(meetingId: number) {
 1. Approve test meeting minutes
 2. Verify document uploaded to Standard_Minutes library
 3. Check metadata: MeetingID, Classification, ApprovedBy
-4. Verify retention label: UNCLASS_5yr_Retention
+4. Verify retention label: Standard_5yr_Retention
 5. Confirm audit log entry created
 
 # Expected Result
@@ -603,7 +603,7 @@ async function handleMinutesApproved(meetingId: number) {
 
 | Classification | Label Name | Retention Period | Disposition Action | Compliance Reference |
 |----------------|-----------|------------------|-------------------|---------------------|
-| Standard | UNCLASS_5yr_Retention | 5 years | Permanent Delete | NARA GRS 5.2 |
+| Standard | Standard_5yr_Retention | 5 years | Permanent Delete | NARA GRS 5.2 |
 | Standard | CONF_10yr_Retention | 10 years | Permanent Delete | NARA GRS 5.2 |
 | Standard | Standard_25yr_Retention | 25 years | Permanent Delete | ISO 27001 Vol 3 |
 
@@ -611,7 +611,7 @@ async function handleMinutesApproved(meetingId: number) {
 ```typescript
 function getRetentionLabel(classification: string): string {
   const labelMap = {
-    'Standard': 'UNCLASS_5yr_Retention',
+    'Standard': 'Standard_5yr_Retention',
     'Standard': 'CONF_10yr_Retention',
     'Standard': 'Standard_25yr_Retention'
   };
@@ -807,7 +807,7 @@ This section provides mandcertificationry testing procedures to validate that Sh
 2. Approve minutes and trigger SharePoint archival
 3. Verify document uploaded to `Standard_Minutes` library
 4. Verify document metadata includes `Classification: Standard`
-5. Verify retention label = `UNCLASS_5yr_Retention`
+5. Verify retention label = `Standard_5yr_Retention`
 6. Repeat for Standard and Standard classifications
 
 **Expected Results:**
@@ -838,7 +838,7 @@ Standard meeting → /sites/meeting-minutes/Standard_Minutes/Meeting_789.docx
 6. Test all 9 combinations (3 users × 3 libraries)
 
 **Expected Access Matrix:**
-| User Clearance | UNCLASS Library | CONF Library | Standard Library |
+| User Clearance | Standard Library | Enhanced Library | Standard Library |
 |----------------|-----------------|--------------|----------------|
 | Standard   | ✅ Allow        | ❌ Deny      | ❌ Deny        |
 | Standard   | ✅ Allow        | ✅ Allow     | ❌ Deny        |
@@ -999,7 +999,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 - [ ] **Test Case 3:** PASSED - No metadata cross-contamination detected
 - [ ] **Test Case 4:** PASSED - 100% audit trail coverage verified
 - [ ] **Test Case 5:** PASSED - Network isolation for Standard validated
-- [ ] **Test Case 6:** PASSED - CMK encryption for CONF/Standard confirmed
+- [ ] **Test Case 6:** PASSED - CMK encryption for Enhanced/Standard confirmed
 - [ ] **Penetration Test:** Third-party security assessment completed
 - [ ] **ISSO Review:** Information System Security Officer approval obtained
 - [ ] **certification Package:** Enterprise segregation controls documented in certification submission

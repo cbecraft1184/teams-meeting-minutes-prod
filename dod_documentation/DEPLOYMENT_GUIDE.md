@@ -42,7 +42,7 @@
 - Azure OpenAI processing
 - Email distribution via Graph API
 
-✅ **Frontend:** React application with comprehensive UI (Microsoft Fluent + IBM Carbon design, WCAG 2.1 AA accessibility, dual-theme system)
+✅ **Frontend:** React application with comprehensive UI (Microsoft Fluent + DOD Fluent design, WCAG 2.1 AA accessibility, dual-theme system)
 
 ---
 
@@ -1146,7 +1146,7 @@ EMAIL_FROM=               # Default: noreply@yourdomain.com
 
 ---
 
-**Document Classification:** IBM Internal - Deployment Guide  
+**Document Classification:** DOD Internal - Deployment Guide  
 **Version:** 1.0  
 **Last Updated:** November 2025  
 **Review Cycle:** Quarterly or after major platform updates

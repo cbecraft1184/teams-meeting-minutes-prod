@@ -12,7 +12,7 @@
 ### Resource Group
 ```yaml
 Name: rg-teams-minutes-prod
-Location: usgovvirginia
+Location: eastus
 Tags:
   Environment: Production
   Classification: Standard
@@ -60,7 +60,7 @@ Name: plan-teams-minutes
 SKU: P3v3
 OS: Linux
 Workers: 2 (min) - 20 (max, auto-scaling)
-Region: usgovvirginia
+Region: eastus
 ```
 
 ### Web App
@@ -77,7 +77,7 @@ VNET Integration: subnet-app
 ```yaml
 Name: acrteamsminutes
 SKU: Premium
-Location: usgovvirginia
+Location: eastus
 Admin Enabled: false
 ```
 
@@ -128,7 +128,7 @@ Collation: en_US.utf8
 ```yaml
 Name: openai-teams-minutes-prod
 SKU: S0
-Location: usgovvirginia
+Location: eastus
 Public Network Access: Disabled
 Private Endpoint: subnet-app
 ```
@@ -196,7 +196,7 @@ Cookie-based Affinity: Enabled
 Name: law-teams-minutes
 Retention: 90 days
 Daily Cap: 10 GB
-Location: usgovvirginia
+Location: eastus
 ```
 
 ### Application Insights
@@ -308,7 +308,7 @@ Metadata Columns:
 │
 └── docs/                 # Documentation
     ├── MICROSOFT_DEMO_SETUP_GUIDE.md
-    ├── AZURE_GOV_IMPLEMENTATION_PLAN.md
+    ├── 
     └── COMPLETE_SYSTEM_MANIFEST.md
 ```
 
@@ -393,7 +393,7 @@ AZURE_AD_CLIENT_ID=<from Key Vault>
 AZURE_AD_CLIENT_Standard=<from Key Vault>
 AZURE_AD_TENANT_ID=<from Key Vault>
 AZURE_AD_AUTHORITY=https://login.microsoftonline.us/<TENANT_ID>
-GRAPH_API_ENDPOINT=https://graph.microsoft.us
+GRAPH_API_ENDPOINT=https://graph.microsoft.com
 
 # Azure OpenAI
 AZURE_OPENAI_ENDPOINT=<from Key Vault>
@@ -574,7 +574,7 @@ Application Backups:
 
 Disaster Recovery:
   - Geo-replication: Enabled
-  - Failover Region: usgovtexas
+  - Failover Region: ustexas
   - DR Testing: Quarterly
 ```
 

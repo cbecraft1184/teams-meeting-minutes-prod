@@ -128,7 +128,7 @@ ENVIRONMENT_NAME=production
 # Scale pilot resources to production in one command
 
 RESOURCE_GROUP="rg-teams-minutes-pilot"  # Will rename to prod
-LOCATION="usgovvirginia"
+LOCATION="eastus"
 
 echo "🚀 Scaling to Production..."
 echo "================================"
@@ -244,7 +244,7 @@ echo "4. Run production smoke tests"
 
 ```bicep
 // Bicep template to upgrade pilot to production
-param location string = 'usgovvirginia'
+param location string = 'eastus'
 param pilotResourceGroup string = 'rg-teams-minutes-pilot'
 
 // App Service Plan - Upgrade to P3v3
@@ -359,16 +359,16 @@ az postgres flexible-server db show \
 
 ```bash
 # Export pilot data (if needed for analysis)
-pg_dump -h psql-teams-pilot.postgres.database.usgovcloudapi.net \
+pg_dump -h psql-teams-pilot.postgres.database.uscloudapi.net \
         -U pgadmin \
         -d teams_minutes \
         -f pilot-data-backup.sql
 
 # Deploy fresh production resources
-# Use AZURE_GOV_IMPLEMENTATION_PLAN.md
+# Use 
 
 # Optionally import historical data
-psql -h psql-teams-prod.postgres.database.usgovcloudapi.net \
+psql -h psql-teams-prod.postgres.database.uscloudapi.net \
      -U pgadmin \
      -d teams_minutes \
      -f pilot-data-backup.sql

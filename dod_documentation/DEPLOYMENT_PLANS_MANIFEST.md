@@ -71,7 +71,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 | Scenario | Recommended Path | Primary Document | Timeline |
 |----------|-----------------|------------------|----------|
-| **Quick commercial demo for IBM** | Demo Setup | `MICROSOFT_DEMO_SETUP_GUIDE.md` | Immediate |
+| **Quick commercial demo for DOD** | Demo Setup | `MICROSOFT_DEMO_SETUP_GUIDE.md` | Immediate |
 | **Validate technology with 100 users** | Pilot Deployment | `AZURE_GOV_PILOT_PLAN.md` | 2-4 weeks |
 | **Full DOD production deployment** | Production | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | 16 weeks (+16mo ATO) |
 | **Scale pilot to production** | Scaling Guide | `PILOT_TO_PRODUCTION_SCALING.md` | 1 day |

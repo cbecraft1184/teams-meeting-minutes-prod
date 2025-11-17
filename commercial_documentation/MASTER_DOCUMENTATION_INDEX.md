@@ -39,7 +39,7 @@ This index provides a comprehensive catalog of all documentation for the Enterpr
 14. [MICROSOFT_DEMO_SETUP_GUIDE.md](#14-microsoft_demo_setup_guidemd)
 
 ### 📋 For Product & Planning
-15. [PRODUCT_ROADMAP.md](#15-product_roadmapmd)
+15. [](#15-product_roadmapmd)
 16. [design_guidelines.md](#16-design_guidelinesmd)
 17. [TECHNOLOGY_STACK_VALIDATION_REPORT.md](#17-technology_stack_validation_reportmd)
 18. [replit.md](#18-replitmd)
@@ -319,7 +319,7 @@ This index provides a comprehensive catalog of all documentation for the Enterpr
 
 ### Product & Planning Documents
 
-#### 15. PRODUCT_ROADMAP.md
+#### 15. 
 **Audience:** Product managers, strategic planners  
 **Purpose:** Feature roadmap and long-term vision  
 **Length:** ~50 pages  

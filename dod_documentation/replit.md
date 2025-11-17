@@ -19,7 +19,7 @@ I prefer to focus on high-level features and architectural decisions rather than
 ## System Architecture
 
 ### UI/UX Decisions
-The frontend uses React with TypeScript, Wouter for routing, Shadcn UI with Radix primitives for components, and Tailwind CSS following Microsoft Fluent design principles. It incorporates a dual UI theme system (Microsoft Teams + IBM Carbon look-and-feel) and a DOD-grade professional appearance with classification badges. The design emphasizes information clarity, accessibility (WCAG 2.1 AA compliant), responsiveness, and dark mode support.
+The frontend uses React with TypeScript, Wouter for routing, Shadcn UI with Radix primitives for components, and Tailwind CSS following Microsoft Fluent design principles. It incorporates a dual UI theme system (Microsoft Teams + DOD Fluent look-and-feel) and a DOD-grade professional appearance with classification badges. The design emphasizes information clarity, accessibility (WCAG 2.1 AA compliant), responsiveness, and dark mode support.
 
 ### Technical Implementations
 The backend is built with Node.js and Express. Data storage is PostgreSQL (Azure Database for PostgreSQL or Replit-hosted) with Drizzle ORM. Microsoft Graph API is used for Teams meeting capture, SharePoint integration for document archival, and Teams webhooks for real-time events. AI processing is handled by Azure OpenAI (Gov Cloud deployment). Document generation supports DOCX and PDF export.

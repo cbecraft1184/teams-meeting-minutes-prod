@@ -1,6 +1,6 @@
 # Executive Documents Guide
 
-This folder contains three versions of the IBM investment proposal for the DOD Teams Meeting Minutes Management System, tailored for different executive audiences and time constraints.
+This folder contains three versions of the DOD investment proposal for the DOD Teams Meeting Minutes Management System, tailored for different executive audiences and time constraints.
 
 ---
 
@@ -40,7 +40,7 @@ This folder contains three versions of the IBM investment proposal for the DOD T
 - Solution overview and technology
 - Revenue model and projections
 - Competitive landscape
-- Strategic fit for IBM
+- Strategic fit for DOD
 - Risk assessment
 - Implementation roadmap
 - Clear recommendation
@@ -60,7 +60,7 @@ This folder contains three versions of the IBM investment proposal for the DOD T
 
 **Contains:**
 - In-depth market analysis
-- Government market opportunity breakdown
+- Government mission capability breakdown
 - Detailed customer economics (multiple examples)
 - Complete competitive analysis with barriers to entry
 - Full strategic fit analysis
@@ -68,7 +68,7 @@ This folder contains three versions of the IBM investment proposal for the DOD T
 - Detailed investment breakdown
 - Phase-by-phase implementation roadmap
 - Success metrics and KPIs
-- Comparable IBM success stories
+- Comparable DOD success stories
 - Alternative scenarios analysis
 
 ---
@@ -110,9 +110,9 @@ This folder contains three versions of the IBM investment proposal for the DOD T
 **Market Opportunity:** $280M  
 **Risk Level:** Low-Medium  
 
-**Recommendation:** Approve investment to secure first-mover advantage in $280M market
+**Recommendation:** Approve investment to secure operational capability in $280M market
 
 ---
 
-**Document Classification:** IBM Confidential - Strategic Planning  
+**Document Classification:** DOD Confidential - Strategic Planning  
 **Last Updated:** November 2025

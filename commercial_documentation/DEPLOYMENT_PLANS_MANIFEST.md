@@ -72,15 +72,15 @@ This manifest provides an overview of all deployment planning documents for the 
 | Scenario | Recommended Path | Primary Document | Timeline |
 |----------|-----------------|------------------|----------|
 | **Quick commercial demo for IBM** | Demo Setup | `MICROSOFT_DEMO_SETUP_GUIDE.md` | Immediate |
-| **Validate technology with 100 users** | Pilot Deployment | `AZURE_GOV_PILOT_PLAN.md` | 2-4 weeks |
-| **Full Enterprise production deployment** | Production | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | 16 weeks (+16mo certification) |
+| **Validate technology with 100 users** | Pilot Deployment | `` | 2-4 weeks |
+| **Full Enterprise production deployment** | Production | `` | 16 weeks (+16mo certification) |
 | **Scale pilot to production** | Scaling Guide | `PILOT_TO_PRODUCTION_SCALING.md` | 1 day |
 
 ---
 
 ## 📚 Document Catalog
 
-### 1. AZURE_GOV_PILOT_PLAN.md
+### 1. 
 **Purpose:** 60-day pilot deployment for 50-100 users  
 **Classification:** Standard  
 **Audience:** Project managers, technical leads, ISSO  
@@ -132,7 +132,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ---
 
-### 2. AZURE_GOV_IMPLEMENTATION_PLAN.md
+### 2. 
 **Purpose:** Full-scale production deployment for 300,000 users  
 **Classification:** Standard  
 **Audience:** Enterprise architects, security officers, Azure engineers  
@@ -436,7 +436,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### For Pilot Deployment
 
-- [ ] Read `AZURE_GOV_PILOT_PLAN.md` (sections 1-7)
+- [ ] Read `` (sections 1-7)
 - [ ] Identify 50-100 pilot users
 - [ ] Create pilot user group in Azure AD
 - [ ] Review success criteria (section 13)
@@ -445,7 +445,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### For Production Deployment
 
-- [ ] Read `AZURE_GOV_IMPLEMENTATION_PLAN.md` (all sections)
+- [ ] Read `` (all sections)
 - [ ] Complete all prerequisite approvals
 - [ ] Budget approved ($5,000-7,000/month)
 - [ ] Timeline approved (16 weeks to launch)
@@ -468,10 +468,10 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ### Deploy Pilot
 ```bash
-# Follow AZURE_GOV_PILOT_PLAN.md Phase 1-4
+# Follow  Phase 1-4
 az cloud set --name AzureUSGovernment
 az login
-az group create --name rg-teams-minutes-pilot --location usgovvirginia
+az group create --name rg-teams-minutes-pilot --location eastus
 # ... (continue with pilot plan)
 ```
 
@@ -484,10 +484,10 @@ az group create --name rg-teams-minutes-pilot --location usgovvirginia
 
 ### Deploy Production Directly
 ```bash
-# Follow AZURE_GOV_IMPLEMENTATION_PLAN.md Phase 1-5
+# Follow  Phase 1-5
 az cloud set --name AzureUSGovernment
 az login
-az group create --name rg-teams-minutes-prod --location usgovvirginia
+az group create --name rg-teams-minutes-prod --location eastus
 # ... (continue with implementation plan)
 ```
 
@@ -535,8 +535,8 @@ az group create --name rg-teams-minutes-prod --location usgovvirginia
 
 | Document | Owner | Last Review | Next Review |
 |----------|-------|-------------|-------------|
-| AZURE_GOV_PILOT_PLAN.md | Technical Lead | Jan 2025 | Quarterly |
-| AZURE_GOV_IMPLEMENTATION_PLAN.md | Enterprise Architect | Jan 2025 | Quarterly |
+|  | Technical Lead | Jan 2025 | Quarterly |
+|  | Enterprise Architect | Jan 2025 | Quarterly |
 | PILOT_TO_PRODUCTION_SCALING.md | DevOps Lead | Jan 2025 | After each pilot |
 | This Manifest | Program Manager | Jan 2025 | Monthly |
 

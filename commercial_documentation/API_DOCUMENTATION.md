@@ -659,12 +659,12 @@ const results = await client.get('/search', {
 ```bash
 # Get meetings
 curl -X GET "https://your-domain.com/api/meetings?status=completed" \
-  -H "Cookie: dod.teams.sid=xxx" \
+  -H "Cookie: company.teams.sid=xxx" \
   -H "Content-Type: application/json"
 
 # Create meeting
 curl -X POST "https://your-domain.com/api/meetings" \
-  -H "Cookie: dod.teams.sid=xxx" \
+  -H "Cookie: company.teams.sid=xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "title": "Security Briefing",
@@ -676,7 +676,7 @@ curl -X POST "https://your-domain.com/api/meetings" \
 
 # Download minutes
 curl -X GET "https://your-domain.com/api/minutes/min456/download?format=pdf" \
-  -H "Cookie: dod.teams.sid=xxx" \
+  -H "Cookie: company.teams.sid=xxx" \
   -o minutes.pdf
 ```
 

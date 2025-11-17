@@ -7,7 +7,7 @@ Integrate the Enterprise Meeting Minutes Platform as a **multi-surface Teams app
 - **Notification Bot** (optional) - Proactive alerts for pending approvals
 - **Message Extension** (optional) - Quick sharing of minutes in chats
 
-This plan addresses Enterprise security requirements including CAC/PIV MFA, conditional access, SOC 2 Type II logging, and on-behalf-of (OBO) token flow for backend authentication.
+This plan addresses Enterprise security requirements including SSO/MFA MFA, conditional access, SOC 2 Type II logging, and on-behalf-of (OBO) token flow for backend authentication.
 
 ## Architecture Design
 
@@ -30,7 +30,7 @@ This plan addresses Enterprise security requirements including CAC/PIV MFA, cond
 │                ↓                         │
 │  ┌───────────────────────────────────┐  │
 │  │   Personal Tab (iframe)           │  │
-│  │   https://app.dod.mil             │  │
+│  │   https://app.company.com             │  │
 │  │   ┌─────────────────────────────┐ │  │
 │  │   │  Our React App with         │ │  │
 │  │   │  Teams JS SDK Integration   │ │  │
@@ -134,7 +134,7 @@ useEffect(() => {
   "manifestVersion": "1.16",
   "version": "1.0.0",
   "id": "<GUID-GENERATED-BY-TEAMS-ADMIN>",
-  "packageName": "gov.dod.teams.meetingminutes",
+  "packageName": "com.company.teams.meetingminutes",
   "developer": {
     "name": "Enterprise",
     "websiteUrl": "https://defense.gov",
@@ -158,8 +158,8 @@ useEffect(() => {
     {
       "entityId": "meeting-minutes-dashboard",
       "name": "Minutes",
-      "contentUrl": "https://teams-minutes.dod.mil/",
-      "websiteUrl": "https://teams-minutes.dod.mil/",
+      "contentUrl": "https://teams-minutes.company.com/",
+      "websiteUrl": "https://teams-minutes.company.com/",
       "scopes": ["personal"]
     }
   ],
@@ -168,12 +168,12 @@ useEffect(() => {
     "messageTeamMembers"
   ],
   "validDomains": [
-    "teams-minutes.dod.mil",
-    "*.dod.mil"
+    "teams-minutes.company.com",
+    "*.company.com"
   ],
   "webApplicationInfo": {
     "id": "<AZURE-AD-APP-CLIENT-ID>",
-    "resource": "api://teams-minutes.dod.mil/<AZURE-AD-APP-CLIENT-ID>"
+    "resource": "api://teams-minutes.company.com/<AZURE-AD-APP-CLIENT-ID>"
   }
 }
 ```
@@ -188,8 +188,8 @@ useEffect(() => {
 1. Navigate to: https://portal.azure.com → Azure Active Directory → App registrations
 2. Create new registration: "Enterprise Teams Meeting Minutes"
 3. **Redirect URIs**: 
-   - Web: `https://teams-minutes.dod.mil/auth-end`
-   - SPA: `https://teams-minutes.dod.mil`
+   - Web: `https://teams-minutes.company.com/auth-end`
+   - SPA: `https://teams-minutes.company.com`
 4. **API Permissions (Microsoft Graph - Delegated)**:
    - `User.Read` - Read user profile
    - `Calendars.Read` - Read user's calendar (for meeting context)
@@ -197,7 +197,7 @@ useEffect(() => {
    - `Mail.Send` - Send emails (for distribution)
    - `Sites.ReadWrite.All` - SharePoint archival
 5. **Expose an API**:
-   - Application ID URI: `api://teams-minutes.dod.mil/<client-id>`
+   - Application ID URI: `api://teams-minutes.company.com/<client-id>`
    - Add scope: `access_as_user` (Who can consent: Admins and users)
 6. **Admin Consent**: Grant admin consent for the tenant
 
@@ -249,7 +249,7 @@ useEffect(() => {
 
 #### Production (Azure Commercial + Enterprise Teams)
 1. **Host application**: Azure Commercial (Azure App Service)
-2. **Domain**: `teams-minutes.dod.mil` (Enterprise-approved domain)
+2. **Domain**: `teams-minutes.company.com` (Enterprise-approved domain)
 3. **SSL Certificate**: Enterprise-issued TLS certificate
 4. **Manifest deployment** via **Teams Admin Center**:
    - https://admin.teams.microsoft.com
@@ -342,7 +342,7 @@ if (context.page?.subPageId) {
 5. **Installation**: Requires Teams admin approval for org-wide deployment
 
 ### Enterprise-Specific Requirements
-1. **CAC/PIV Authentication**: May need additional middleware for CAC cards
+1. **SSO/MFA Authentication**: May need additional middleware for CAC cards
 2. **NIPR/SIPR Networks**: Separate deployments for classified networks
 3. **Offline Access**: Not available (Teams requires internet)
 4. **Mobile Support**: Teams mobile app supported but limited screen size
@@ -429,7 +429,7 @@ if (context.page?.subPageId) {
 ┌──────────────────────────────────────────────────────────────┐
 │  Step 1: Teams Client Authenticates User                     │
 │  ┌─────────────────┐                                         │
-│  │  Teams Client   │ ──SSO──> Azure AD (CAC/PIV MFA)        │
+│  │  Teams Client   │ ──SSO──> Azure AD (SSO/MFA MFA)        │
 │  └─────────────────┘                                         │
 └──────────────────────────────────────────────────────────────┘
                       │
@@ -540,12 +540,12 @@ export async function validateTeamsToken(req: Request, res: Response, next: Next
 }
 ```
 
-### CAC/PIV Multi-Factor Authentication
+### SSO/MFA Multi-Factor Authentication
 
 **Azure AD Conditional Access Policy:**
 ```json
 {
-  "displayName": "Require CAC/PIV for Enterprise Meeting Minutes App",
+  "displayName": "Require SSO/MFA for Enterprise Meeting Minutes App",
   "state": "enabled",
   "conditions": {
     "users": {
@@ -579,7 +579,7 @@ export async function validateTeamsToken(req: Request, res: Response, next: Next
 ```
 
 **Requirements:**
-- **Phishing-resistant MFA**: CAC/PIV certificate authentication
+- **Phishing-resistant MFA**: SSO/MFA certificate authentication
 - **Compliant device**: Intune-managed, encrypted Enterprise devices
 - **Session timeout**: Re-authenticate every 8 hours
 - **No persistent sessions**: Users must re-auth after browser close
@@ -710,7 +710,7 @@ Allow approvers to review and approve minutes **during the meeting** or immediat
 {
   "configurableTabs": [
     {
-      "configurationUrl": "https://teams-minutes.dod.mil/meeting-config",
+      "configurationUrl": "https://teams-minutes.company.com/meeting-config",
       "canUpdateConfiguration": true,
       "scopes": ["groupchat"],
       "context": [
@@ -753,7 +753,7 @@ Send proactive notifications to approvers when minutes are ready for review.
 **Bot Registration:**
 - Register bot in Azure Portal
 - Add bot ID to Teams manifest
-- Configure message endpoint: `https://teams-minutes.dod.mil/api/bot`
+- Configure message endpoint: `https://teams-minutes.company.com/api/bot`
 
 **Notification Types:**
 1. **Minutes Ready**: "Meeting minutes for 'Q4 Planning' are ready for your review"
@@ -920,7 +920,7 @@ AutoScaling:
 **Synthetic Load Testing:**
 ```bash
 # Simulate 5,000 concurrent users
-artillery run --target https://teams-minutes.dod.mil \
+artillery run --target https://teams-minutes.company.com \
   --count 5000 \
   --ramp 60 \
   load-test-scenario.yml
@@ -1230,7 +1230,7 @@ window.addEventListener('online', () => {
 - Notification bot
 
 ### Month 3-4: Security Hardening
-- CAC/PIV integration
+- SSO/MFA integration
 - Conditional access policies
 - SOC 2 Type II audit logging
 - Penetration testing
@@ -1321,9 +1321,9 @@ This section provides mandcertificationry testing procedures to validate that Te
 
 **Test Steps:**
 1. Create three test Teams meetings with classifications:
-   - Meeting A: Standard (organizer: testuser_unclass@dod.mil)
-   - Meeting B: Standard (organizer: testuser_conf@dod.mil)
-   - Meeting C: Standard (organizer: testuser_secret@dod.mil)
+   - Meeting A: Standard (organizer: testuser_standard@company.com)
+   - Meeting B: Standard (organizer: testuser_enhanced@company.com)
+   - Meeting C: Standard (organizer: testuser_premium@company.com)
 2. Complete each meeting (trigger "callEnded" webhook)
 3. Verify webhook routing:
    - Standard webhook → UNCLASS ASE cluster (VNet 10.0.0.0/16)

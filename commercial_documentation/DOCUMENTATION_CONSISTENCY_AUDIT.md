@@ -229,7 +229,7 @@ Two Distinct Timeline Scenarios:
     Sources: TEAMS_INTEGRATION_PLAN.md, MASTER_DOCUMENTATION_INDEX.md (line 278)
     Breakdown:
       - Months 1-2: Development (Teams SDK, OBO auth)
-      - Months 3-4: Security Hardening (CAC/PIV, SOC 2 Type II)
+      - Months 3-4: Security Hardening (SSO/MFA, SOC 2 Type II)
       - Months 5-6: Testing & Validation (load tests, Section 508)
       - Months 7-12: certification Certification (security docs, authorization)
       - Months 13-16: Phased Rollout (50 → 5,000 → 50,000 → 300,000)

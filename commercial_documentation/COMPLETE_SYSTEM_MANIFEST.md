@@ -69,7 +69,7 @@ Name: app-teams-minutes-prod
 Runtime: Node.js 20
 HTTPS Only: true
 TLS Version: 1.2
-Custom Domain: teams-minutes.dod.mil
+Custom Domain: teams-minutes.company.com
 VNET Integration: subnet-app
 ```
 
@@ -222,11 +222,11 @@ Data Connectors:
 ### Alert Rules
 | Alert | Metric | Condition | Action |
 |-------|--------|-----------|--------|
-| High Error Rate | HTTP 5xx | > 5% for 5 min | Email admin@dod.mil |
-| High CPU | CPU % | > 80% for 5 min | Email admin@dod.mil |
-| High Memory | Memory % | > 85% for 5 min | Email admin@dod.mil |
-| DB Connection Failures | Failed Connections | > 10 for 5 min | Email dba@dod.mil |
-| OpenAI Rate Limit | API Errors | > 50 for 1 min | Email admin@dod.mil |
+| High Error Rate | HTTP 5xx | > 5% for 5 min | Email admin@company.com |
+| High CPU | CPU % | > 80% for 5 min | Email admin@company.com |
+| High Memory | Memory % | > 85% for 5 min | Email admin@company.com |
+| DB Connection Failures | Failed Connections | > 10 for 5 min | Email dba@company.com |
+| OpenAI Rate Limit | API Errors | > 50 for 1 min | Email admin@company.com |
 
 ---
 
@@ -237,7 +237,7 @@ Data Connectors:
 Name: Enterprise-Teams-Minutes-System
 Application ID: <Generated>
 Tenant: <Your Enterprise Tenant>
-Redirect URI: https://teams-minutes.dod.mil/auth/callback
+Redirect URI: https://teams-minutes.company.com/auth/callback
 ```
 
 ### API Permissions (Application)
@@ -254,10 +254,10 @@ Redirect URI: https://teams-minutes.dod.mil/auth/callback
 
 ### SharePoint Site
 ```yaml
-URL: https://dod.sharepoint.us/sites/TeamsMeetingMinutes
+URL: https://company.sharepoint.com/sites/TeamsMeetingMinutes
 Title: Meeting Minutes Archive
 Template: Team Site
-Owner: admin@dod.mil
+Owner: admin@company.com
 
 Document Library:
   Name: Minutes Archive
@@ -496,7 +496,7 @@ Release Pipeline:
 ### Certificates
 | Type | Issuer | Purpose | Expiration |
 |------|--------|---------|------------|
-| TLS Certificate | Enterprise PKI | HTTPS (*.dod.mil) | Annual renewal |
+| TLS Certificate | Enterprise PKI | HTTPS (*.company.com) | Annual renewal |
 | Code Signing | Enterprise PKI | Application signing | Annual renewal |
 | Service Principal | Azure AD | API authentication | 24 months |
 
@@ -505,7 +505,7 @@ Release Pipeline:
 - SOC 2 Type II Authorization
 - NIST 800-53 Rev 5
 - DISA STIG (Windows/Linux/Database)
-- DFARS 252.204-7012
+- enterprise compliance 252.204-7012
 - ITAR Compliance
 - CIS Benchmarks
 ```

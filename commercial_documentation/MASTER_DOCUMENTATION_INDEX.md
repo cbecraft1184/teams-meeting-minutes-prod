@@ -18,7 +18,7 @@ This index provides a comprehensive catalog of all documentation for the Enterpr
 ### 🎯 For Executives & Decision Makers
 1. [EXECUTIVE_SUMMARY_CONCISE.md](#1-executive_summary_concisemd) - IBM Commercial SaaS
 2. [EXECUTIVE_SUMMARY_COMPREHENSIVE.md](#2-executive_summary_comprehensivemd) - IBM Commercial SaaS
-3a. [INVESTMENT_SNAPSHOT_Enterprise.md](#3a-investment_snapshot_dodmd) - Enterprise Deployment
+3a. [INVESTMENT_SNAPSHOT_COMMERCIAL.md](#3a-investment_snapshot_commercial) - Enterprise Deployment
 3b. [INVESTMENT_SNAPSHOT_COMMERCIAL.md](#3b-investment_snapshot_commercialmd) - IBM Commercial SaaS
 4. [EXECUTIVE_DOCUMENTS_GUIDE.md](#4-executive_documents_guidemd)
 
@@ -83,7 +83,7 @@ This index provides a comprehensive catalog of all documentation for the Enterpr
 
 ---
 
-#### 3a. INVESTMENT_SNAPSHOT_Enterprise.md
+#### 3a. INVESTMENT_SNAPSHOT_COMMERCIAL.md
 **Audience:** IBM Executive Leadership, IBM Government Solutions Team  
 **Purpose:** Investment analysis for IBM Commercial SaaS contract  
 **Length:** ~15 pages  

@@ -88,11 +88,11 @@ export function generateSyntheticMeeting() {
     startTime: faker.date.recent(),
     endTime: faker.date.recent(),
     attendees: Array.from({ length: 5 }, () => ({
-      email: `test.user.${faker.string.uuid()}@test.dod.mil`,
+      email: `test.user.${faker.string.uuid()}@test.company.com`,
       name: faker.person.fullName()
     })),
     classification: faker.helpers.arrayElement(['Standard', 'Standard', 'Standard']),
-    organizer: 'test.organizer@test.dod.mil'
+    organizer: 'test.organizer@test.company.com'
   };
 }
 
@@ -102,7 +102,7 @@ export function generateSyntheticMinutes() {
     keyPoints: Array.from({ length: 5 }, () => faker.lorem.sentence()),
     actionItems: Array.from({ length: 3 }, () => ({
       description: faker.lorem.sentence(),
-      assignee: `test.user.${faker.string.uuid()}@test.dod.mil`,
+      assignee: `test.user.${faker.string.uuid()}@test.company.com`,
       dueDate: faker.date.future()
     })),
     decisions: Array.from({ length: 2 }, () => faker.lorem.sentence())
@@ -116,13 +116,13 @@ export function generateSyntheticMinutes() {
 NEVER use in non-production:
   - Real names of Enterprise personnel
   - Actual meeting subjects/content
-  - Real email addresses (.mil domains)
+  - Real email addresses (.com domains)
   - Classified information of any kind
   - Production API keys/secrets
 
 ALWAYS use in non-production:
   - Faker-generated synthetic data
-  - test.dod.mil email domain
+  - test.company.com email domain
   - Clearly marked test data
   - Separate Azure AD test tenant
 ```
@@ -475,7 +475,7 @@ export const options = {
 };
 
 export default function () {
-  const response = http.get('https://meeting-minutes.app.mil/api/meetings', {
+  const response = http.get('https://meeting-minutes.app.com/api/meetings', {
     headers: { 'Authorization': `Bearer ${__ENV.TEST_TOKEN}` }
   });
   
@@ -534,7 +534,7 @@ trufflehog filesystem . --only-verified
 ```bash
 # OWASP ZAP baseline scan
 docker run -t owasp/zap2docker-stable zap-baseline.py \
-  -t https://staging.meeting-minutes.app.mil \
+  -t https://staging.meeting-minutes.app.com \
   -r zap-report.html
 
 # Check for common vulnerabilities
@@ -735,7 +735,7 @@ On Release Tag:
 - ✅ Classification access control: 100% test pass rate
 - ✅ Audit logging: All events captured
 - ✅ Data encryption: Verified at rest and in transit
-- ✅ Authentication: CAC/PIV enforcement verified
+- ✅ Authentication: SSO/MFA enforcement verified
 
 ---
 
@@ -762,7 +762,7 @@ afterEach(async () => {
   await db.delete(meetings).where(sql`subject LIKE 'Test Meeting%'`);
   
   // Delete test users (if created)
-  await db.delete(users).where(sql`email LIKE '%@test.dod.mil'`);
+  await db.delete(users).where(sql`email LIKE '%@test.company.com'`);
   
   // Clear test cache
   await redis.flushdb();
@@ -848,14 +848,14 @@ async function cleanupAbandonedTestData() {
 
 **Required Before Production:**
 - ✅ Classification access control: 100% test pass rate
-- ✅ CAC/PIV authentication: enforced and tested
+- ✅ SSO/MFA authentication: enforced and tested
 - ✅ Audit logging: 100% event capture validated
 - ✅ Data encryption: verified at rest and in transit
 - ✅ WCAG 2.1 AA accessibility: manual audit passed
 
 **Validation:**
 - Run classification test suite: 100% pass
-- Test CAC/PIV enforcement: non-PIV blocked
+- Test SSO/MFA enforcement: non-PIV blocked
 - Query audit logs: verify 100% capture rate
 - SSL Labs test: A+ rating
 - Accessibility audit: WCAG 2.1 AA checklist complete

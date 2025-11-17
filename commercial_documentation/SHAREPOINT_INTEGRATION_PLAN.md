@@ -605,7 +605,7 @@ async function handleMinutesApproved(meetingId: number) {
 |----------------|-----------|------------------|-------------------|---------------------|
 | Standard | UNCLASS_5yr_Retention | 5 years | Permanent Delete | NARA GRS 5.2 |
 | Standard | CONF_10yr_Retention | 10 years | Permanent Delete | NARA GRS 5.2 |
-| Standard | Standard_25yr_Retention | 25 years | Permanent Delete | DoDM 5200.01 Vol 3 |
+| Standard | Standard_25yr_Retention | 25 years | Permanent Delete | ISO 27001 Vol 3 |
 
 **Label Application Logic:**
 ```typescript
@@ -828,9 +828,9 @@ Standard meeting → /sites/meeting-minutes/Standard_Minutes/Meeting_789.docx
 
 **Test Steps:**
 1. Create test user accounts with each clearance level:
-   - `testuser_unclass@dod.mil` (Standard clearance only)
-   - `testuser_conf@dod.mil` (Standard clearance)
-   - `testuser_secret@dod.mil` (Standard clearance)
+   - `testuser_standard@company.com` (Standard clearance only)
+   - `testuser_enhanced@company.com` (Standard clearance)
+   - `testuser_premium@company.com` (Standard clearance)
 2. Upload test documents to each classification library
 3. Attempt to access Standard document using Standard user account
 4. Verify access DENIED with HTTP 403 Forbidden
@@ -907,7 +907,7 @@ Search-UnifiedAuditLog -StartDate (Get-Date).AddHours(-1) `
 ```json
 {
   "CreationDate": "2025-11-15T10:30:00Z",
-  "UserId": "admin@dod.mil",
+  "UserId": "admin@company.com",
   "Operation": "FileUploaded",
   "ObjectId": "https://tenant.sharepoint.com/sites/meeting-minutes/Standard_Minutes/Meeting_789.docx",
   "AuditData": {

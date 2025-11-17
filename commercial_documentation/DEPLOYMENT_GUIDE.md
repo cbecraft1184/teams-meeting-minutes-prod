@@ -620,7 +620,7 @@ The Enterprise Meeting Minutes Platform deploys exclusively to **Azure Commercia
 │  ├─ Teams (Meeting Capture via Graph API .us endpoints)            │
 │  ├─ SharePoint (Enterprise-compliant Document Archival)                   │
 │  ├─ Exchange (Email Distribution)                                   │
-│  └─ Azure AD (CAC/PIV Authentication + Clearance-based RBAC)       │
+│  └─ Azure AD (SSO/MFA Authentication + Clearance-based RBAC)       │
 │                                                                      │
 │  Azure Front Door Premium                                           │
 │  ├─ Global Load Balancing & Classification-based Routing            │

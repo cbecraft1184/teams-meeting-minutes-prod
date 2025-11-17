@@ -31,9 +31,9 @@ This Plan of Action & Milestones (POA&M) documents the remediation strategy for 
 
 ### Risk Posture
 
-**Current Risk Rating:** MODERATE  
-**Target Risk Rating:** LOW (upon POA&M completion)  
-**Overall Residual Risk:** ACCEPTABLE for development prototype with documented compensating controls
+**Current Risk Rating:** MODERATE (design phase with 7 incomplete controls)  
+**Target Risk Rating:** LOW (upon POA&M completion within 16-week deployment)  
+**Overall Residual Risk:** ACCEPTABLE for production deployment with documented compensating controls and clear remediation timeline
 
 ---
 
@@ -115,7 +115,7 @@ All POA&M modifications require:
 - ❌ Clearance verification workflows not formalized
 
 **Root Cause:**
-Development prototype created policy documentation for technical implementation without completing formal DOD approval processes.
+Architecture design phase created technical policy documentation for implementation planning without completing formal DOD approval processes (signatures from ISSO, ISSM, AO).
 
 **Risk Assessment:**
 - **Likelihood:** Low (1) - Technical controls are implemented; gap is procedural

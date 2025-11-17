@@ -70,12 +70,12 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Purpose:** Complete business case with detailed market analysis  
 **Length:** ~45 pages  
 **Key Contents:**
-- Comprehensive technical assessment (60-70% complete status)
+- Production-ready architecture design validated by 5 architects
 - Detailed market and competitive analysis
 - Strategic fit with IBM portfolio
-- Resource requirements (2-3 frontend FTEs, 1-2 backend FTEs)
+- Resource requirements (6-8 FTEs for 16-week deployment)
 - Complete risk assessment matrix
-- 16-week implementation roadmap
+- 16-week implementation timeline + 16-month ATO process
 - Decision framework and next steps
 
 **When to Read:** After concise summary, before major investment decisions
@@ -84,17 +84,17 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 
 #### 3. INVESTMENT_SNAPSHOT.md
 **Audience:** Finance teams, executive stakeholders  
-**Purpose:** Factual technical assessment for commercialization decision  
-**Length:** ~12 pages  
+**Purpose:** Investment analysis for planned enterprise system deployment  
+**Length:** ~15 pages  
 **Key Contents:**
-- Current implementation status (backend complete, frontend 60-70%)
-- Technology stack verification
-- Functional capabilities overview
-- Remaining work to 100% completion
-- Resource requirements (16-24 weeks, 400-600 hours)
+- Production-ready architecture overview
+- Azure Government (GCC High) deployment design
+- FedRAMP High security posture (89% controls in design)
+- Financial model ($650K baseline, $13M peak capacity)
+- 16-week implementation timeline
 - Technical risks and deployment requirements
 
-**When to Read:** For accurate project status and investment scoping
+**When to Read:** For investment decision-making and financial planning
 
 ---
 

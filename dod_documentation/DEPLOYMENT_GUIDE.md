@@ -1,13 +1,12 @@
 # Deployment Guide
 ## DOD Teams Meeting Minutes Management System
 
-**Document Purpose:** Deployment instructions for the DOD Teams Meeting Minutes Management System on Azure Government (GCC High) infrastructure with FedRAMP High compliance
+**Document Purpose:** Deployment instructions for the DOD Teams Meeting Minutes Management System across development, pilot, and Azure Government (GCC High) production environments
 
-**Architecture Status:** Production-ready design for 16-week commercial deployment + 16-month ATO process. This guide covers the complete deployment process from Azure Government infrastructure provisioning through FedRAMP authorization.
+**Architecture Status:** Production-ready design for 16-week implementation timeline. This guide covers the complete deployment process from Azure infrastructure provisioning through production launch.
 
-**What You're Deploying:** An enterprise-grade autonomous meeting minutes system with backend services, database schema, API layer, workflow engine, Microsoft Graph integrations, and comprehensive frontend UI - all designed for DOD security classification requirements and IL5 compliance.
+**What You're Deploying:** An enterprise-grade autonomous meeting minutes system with backend services, database schema, API layer, workflow engine, Microsoft Graph integrations, and comprehensive frontend UI - all following DOD security and compliance requirements.
 
-**Classification:** UNCLASSIFIED  
 **Last Updated:** November 17, 2025
 
 ---
@@ -20,57 +19,45 @@
 - Durable PostgreSQL-backed job queue with automatic retry
 - Meeting orchestrator coordinating entire workflow
 - Microsoft Graph API client (webhooks, meetings, email, SharePoint)
-- Azure OpenAI integration for AI processing (GCC High)
-- Document generation (DOCX, PDF) with classification marking
+- Azure OpenAI integration for AI processing
+- Document generation (DOCX, PDF)
 - Email distribution system
-- Azure AD group-based access control with clearance-level enforcement
+- Azure AD group-based access control
 
 ✅ **Database:**
 - Full PostgreSQL schema with 7 tables
-- Horizontally sharded architecture (12 shards by classification)
 - Migration system (Drizzle ORM)
-- Session management with IL5 data segregation
+- Session management
 - Job queue persistence
 
 ✅ **API Layer:**
 - 15+ RESTful endpoints
-- Authentication middleware (CAC/PIV support)
+- Authentication middleware
 - Webhook receivers for Microsoft Teams
 - Health check endpoints
-- Classification-aware routing
 
 ✅ **Integration Layer:**
-- Microsoft Teams meeting capture (GCC High Graph API)
-- SharePoint document archival (IL5-compliant)
-- Azure OpenAI processing (GCC High endpoints)
+- Microsoft Teams meeting capture
+- SharePoint document archival
+- Azure OpenAI processing
 - Email distribution via Graph API
 
-✅ **Frontend:** React application with comprehensive UI (Microsoft Fluent + IBM Carbon design, WCAG 2.1 AA accessibility, dual-theme system, classification banners)
-
-✅ **Security & Compliance:**
-- FedRAMP High controls (89% implemented)
-- IL5 data segregation architecture
-- Classification handling (UNCLASSIFIED, CONFIDENTIAL, SECRET)
-- TLS 1.3 in transit, AES-256 at rest
-- HSM-backed key management for CONFIDENTIAL/SECRET
-- Immutable audit logging with 365-day retention
+✅ **Frontend:** React application with comprehensive UI (Microsoft Fluent + IBM Carbon design, WCAG 2.1 AA accessibility, dual-theme system)
 
 ---
 
 ## Table of Contents
 
 1. [Quick Reference](#1-quick-reference)
-2. [Azure Government Prerequisites](#2-azure-government-prerequisites)
-3. [Microsoft 365 GCC High Setup](#3-microsoft-365-gcc-high-setup)
-4. [Azure AD Application Registration](#4-azure-ad-application-registration)
-5. [Azure OpenAI GCC High Setup](#5-azure-openai-gcc-high-setup)
-6. [SharePoint IL5 Configuration](#6-sharepoint-il5-configuration)
+2. [Microsoft 365 Test Environment Setup](#2-microsoft-365-test-environment-setup)
+3. [Azure AD Application Registration](#3-azure-ad-application-registration)
+4. [Azure OpenAI Setup](#4-azure-openai-setup)
+5. [SharePoint Configuration](#5-sharepoint-configuration)
+6. [Replit Development Deployment](#6-replit-development-deployment)
 7. [Azure Government Production Deployment](#7-azure-government-production-deployment)
-8. [Classification and Access Control Setup](#8-classification-and-access-control-setup)
-9. [FedRAMP Compliance Configuration](#9-fedramp-compliance-configuration)
-10. [ATO Process and Timeline](#10-ato-process-and-timeline)
-11. [Post-Deployment Validation](#11-post-deployment-validation)
-12. [Troubleshooting](#12-troubleshooting)
+8. [Teams App Packaging and Installation](#8-teams-app-packaging-and-installation)
+9. [Post-Deployment Configuration](#9-post-deployment-configuration)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -78,340 +65,231 @@
 
 ### 1.1 Deployment Timeline
 
-| Phase | Duration | Key Steps | Deliverables |
-|-------|----------|-----------|--------------|
-| **Phase 1: Commercial Deployment** | 16 weeks | Infrastructure provisioning, application deployment, security hardening | Production-ready system on Azure Gov |
-| **Phase 2: ATO Process** | 16 months | 3PAO assessment, documentation, authorization | FedRAMP High ATO |
-| **Total Timeline** | 20 months | End-to-end deployment to full authorization | Authorized production system |
-
-**Phase 1 Breakdown (16 Weeks):**
-
-| Milestone | Weeks | Activities |
-|-----------|-------|------------|
-| Foundation | 1-4 | Azure Gov infrastructure, database shards, CI/CD pipeline |
-| Core Features | 5-8 | Graph integration, AI processing, approval workflow, archival |
-| Security & Compliance | 9-12 | Access control, classification handling, FedRAMP controls, penetration testing |
-| Validation & Launch | 13-16 | End-to-end testing, load testing (10K users), pilot launch |
-
-**Phase 2 Breakdown (16 Months):**
-
-| Milestone | Months | Activities |
-|-----------|--------|------------|
-| Security Assessment | 1-6 | 3PAO selection, SAP creation, security testing, SAR generation |
-| Documentation & Governance | 7-12 | SSP finalization, POA&M management, IR/CP testing, CCB establishment |
-| Authorization | 13-16 | ATO package submission, AO review, risk acceptance, production transition |
+| Environment | Duration | Key Steps |
+|------------|----------|-----------|
+| **Development/Testing** | 3-4 hours | M365 trial + Azure AD + Replit setup |
+| **Azure Government Production** | 6-8 hours | Infrastructure + DB + Application + Teams app |
+| **Full Commercial Testing** | 5 hours | Complete validation before production |
 
 ### 1.2 Cost Estimates
 
-**Note:** Production architecture uses multi-scale-unit App Service Environment (ASEv3) design with auto-scaling capability to support up to 300,000 concurrent users. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning.
+**Note:** Production architecture uses multi-scale-unit App Service Environment (ASEv3) design with auto-scaling capability to support up to 300,000 concurrent users if necessary. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning.
 
 | Environment | Monthly Cost | Components |
 |------------|-------------|------------|
-| **Azure Government Baseline (10K users)** | $54,150 | 3× ASEv3, 18× I3v2 instances, 12× PostgreSQL shards, Azure Front Door, Azure OpenAI GCC High |
-| **Azure Government Peak (300K users)** | $1,088,200 | 12× ASEv3, 880× I3v2 instances, 12× scaled PostgreSQL shards, Azure Front Door, Azure OpenAI GCC High |
+| **Development (Replit)** | $15-20 | Azure OpenAI only (M365 trial free, PostgreSQL included) |
+| **Azure Government Baseline (10K users)** | $54,150 | 3× ASEv3, 18× I3v2 instances, 12× PostgreSQL shards, Azure Front Door, Azure OpenAI |
+| **Azure Government Peak (300K users)** | $1,088,200 | 12× ASEv3, 880× I3v2 instances, 12× scaled PostgreSQL shards, Azure Front Door, Azure OpenAI |
 
-**One-Time Implementation Costs:**
-
-| Item | Cost | Notes |
-|------|------|-------|
-| **Phase 1: Commercial Deployment** | $620K-$820K | Engineering team (6-8 FTEs × 16 weeks) + Azure infrastructure (4 months) |
-| **Phase 2: ATO Process** | $1.2M-$1.4M | 3PAO assessment ($75K-$125K), penetration testing ($50K-$80K), operations (16 months), security personnel |
-| **Total Investment** | **$1.8M-$2.2M** | Complete deployment to FedRAMP High authorization |
+**Deployment Model:** This guide covers Replit development deployment. Production Azure Government deployment requires Infrastructure-as-Code (Terraform/Bicep) and is documented in SCALABILITY_ARCHITECTURE.md Section 7.
 
 ### 1.3 Prerequisites Checklist
 
-**Organizational Requirements:**
-- [ ] Azure Government (GCC High or DOD) subscription with billing enabled
-- [ ] Microsoft 365 GCC High tenant
-- [ ] Personnel with appropriate security clearances (SECRET minimum for administrators)
-- [ ] Designated Authorizing Official (AO) for ATO process
-- [ ] Information System Security Officer (ISSO) assigned
-- [ ] Information System Security Manager (ISSM) assigned
+**For All Deployments:**
+- [ ] Microsoft 365 admin access (Global Administrator role)
+- [ ] Azure Government (GCC High) subscription with billing enabled
+- [ ] Domain name (optional but recommended)
+- [ ] Credit card for Azure services
 
-**Technical Requirements:**
-- [ ] Azure Government Portal access (https://portal.azure.us)
-- [ ] Azure CLI configured for Azure Government (`az cloud set --name AzureUSGovernment`)
-- [ ] Terraform or Bicep for Infrastructure-as-Code
-- [ ] SSL/TLS certificates from DOD-approved Certificate Authority
-- [ ] CAC/PIV authentication infrastructure
+**For Azure Government Production:**
+- [ ] Azure Government subscription (GCC High or DOD)
+- [ ] Azure CLI installed and configured
+- [ ] Appropriate clearance levels for administrators
 
-**Compliance Requirements:**
-- [ ] System Security Plan (SSP) template
-- [ ] FedRAMP High control baseline understanding
-- [ ] DISA SRG IL5 requirements familiarity
-- [ ] 3PAO (Third Party Assessment Organization) selected
-- [ ] Continuous monitoring strategy defined
+**For Replit Deployment:**
+- [ ] Replit account (free or Teams plan)
+- [ ] Basic understanding of environment variables
 
 ---
 
-## 2. Azure Government Prerequisites
+## 2. Microsoft 365 Test Environment Setup
 
-### 2.1 Azure Government Subscription Setup
+### 2.1 Option A: Microsoft 365 E5 Trial (Recommended for Testing)
 
-#### Step 1: Obtain Azure Government Subscription
+**What you get:** 30 days free, 25 user licenses, full Teams/Azure AD access
 
-**Eligibility:** U.S. federal, state, local, tribal governments and their partners
+#### Step 1: Sign Up for Trial
 
-1. Visit: https://azure.microsoft.com/en-us/global-infrastructure/government/
-2. Click **"Get started with Azure Government"**
-3. Complete eligibility verification:
-   - Government entity documentation
-   - Proof of U.S. citizenship for administrators
-   - Business justification for access
-4. Wait 5-10 business days for approval
+1. Visit: https://www.microsoft.com/en-us/microsoft-365/enterprise/e5
+2. Click **"Free trial"**
+3. Enter your email address
+4. Fill in organization details:
+   - Company: `Meeting Minutes Testing` (or your organization name)
+   - Organization size: `25 users`
+   - Country: `United States`
+5. Create subdomain (cannot be changed later):
+   - Example: `meetingminutestest`
+   - Full domain: `meetingminutestest.onmicrosoft.com`
+6. Create admin account:
+   - Username: `admin`
+   - Full email: `admin@meetingminutestest.onmicrosoft.com`
+   - Password: **Create strong password and save it securely!**
+7. Verify phone number (SMS or call)
+8. Wait 2-5 minutes for provisioning
 
-**Success indicator:** Azure Government subscription appears in https://portal.azure.us
+**Success indicator:** You see "You're all set!" message
 
-#### Step 2: Configure Azure CLI for Government Cloud
+#### Step 2: Bookmark Admin Centers
 
-```bash
-# Set Azure CLI to use Azure Government
-az cloud set --name AzureUSGovernment
+Save these URLs for quick access:
+- **Microsoft 365 Admin:** https://admin.microsoft.com
+- **Teams Admin Center:** https://admin.teams.microsoft.com
+- **Azure AD Portal:** https://portal.azure.com
+- **Teams Web Client:** https://teams.microsoft.com
 
-# Verify configuration
-az cloud show --output table
+Sign in with: `admin@meetingminutestest.onmicrosoft.com`
 
-# Login to Azure Government
-az login
+#### Step 3: Create Test Users
 
-# Verify subscription
-az account list --output table
-```
+Create 5-10 test users for access control validation:
 
-**Expected output:**
-- Cloud: AzureUSGovernment
-- Portal URL: https://portal.azure.us
-- Resource Manager URL: https://management.usgovcloudapi.net
+1. Go to https://admin.microsoft.com
+2. Navigate to **Users** → **Active users** → **Add a user**
+3. Create these users:
 
-#### Step 3: Verify Clearance and Access
-
-**Required Clearances:**
-- System administrators: **SECRET clearance minimum**
-- Database administrators: **SECRET clearance** (for CONFIDENTIAL/SECRET data access)
-- Application developers: **CONFIDENTIAL clearance minimum**
-- End users: Varies by classification level (UNCLASSIFIED users do not require clearance)
-
-**Access Validation:**
-1. Verify all personnel have appropriate clearances documented
-2. Complete Non-Disclosure Agreements (NDAs) and SF-312 forms
-3. Establish need-to-know access lists by classification level
-4. Configure Azure AD group memberships to reflect clearance levels
-
-### 2.2 Network and Boundary Requirements
-
-#### Step 1: Establish Network Boundaries
-
-**IL5 Boundary Requirements:**
-- All CONFIDENTIAL and SECRET data must reside within IL5-compliant VNets
-- No direct internet egress for SECRET classification VNet
-- All traffic between classification levels requires explicit firewall rules
-
-**VNet Architecture:**
-
-```
-UNCLASSIFIED VNet (10.0.0.0/16)
-├─ App Service Subnet (10.0.1.0/24)
-├─ Database Subnet (10.0.2.0/24)
-├─ Private Endpoint Subnet (10.0.3.0/24)
-└─ Gateway Subnet (10.0.255.0/24) - For Azure Front Door
-
-CONFIDENTIAL VNet (10.10.0.0/16)
-├─ App Service Subnet (10.10.1.0/24)
-├─ Database Subnet (10.10.2.0/24)
-├─ Private Endpoint Subnet (10.10.3.0/24)
-└─ Gateway Subnet (10.10.255.0/24)
-
-SECRET VNet (10.20.0.0/16) - NO INTERNET EGRESS
-├─ App Service Subnet (10.20.1.0/24)
-├─ Database Subnet (10.20.2.0/24)
-└─ Private Endpoint Subnet (10.20.3.0/24)
-```
-
-#### Step 2: Configure Network Security Groups (NSGs)
-
-**Baseline NSG Rules:**
-
-```bash
-# Create NSG for App Service subnet
-az network nsg create \
-  --name nsg-app-unclass \
-  --resource-group rg-teams-minutes \
-  --location usgovvirginia
-
-# Allow HTTPS from Azure Front Door only
-az network nsg rule create \
-  --name AllowHTTPSFromFrontDoor \
-  --nsg-name nsg-app-unclass \
-  --priority 100 \
-  --source-address-prefixes AzureFrontDoor.Backend \
-  --destination-port-ranges 443 \
-  --protocol Tcp \
-  --access Allow
-
-# Deny all other inbound traffic
-az network nsg rule create \
-  --name DenyAllInbound \
-  --nsg-name nsg-app-unclass \
-  --priority 4096 \
-  --direction Inbound \
-  --access Deny
-```
-
-**Repeat for CONFIDENTIAL and SECRET NSGs with stricter rules**
-
----
-
-## 3. Microsoft 365 GCC High Setup
-
-### 3.1 Microsoft 365 GCC High Tenant
-
-**Note:** Microsoft 365 GCC High is a separate environment from commercial Microsoft 365. Your organization must procure GCC High licenses separately.
-
-#### Step 1: Obtain GCC High Tenant
-
-**Eligibility:** U.S. federal agencies, DOD entities, and contractors supporting government work
-
-1. Contact Microsoft Federal Sales or authorized reseller
-2. Complete GCC High eligibility verification:
-   - Government contract documentation
-   - Proof of U.S. data residency requirements
-   - Business justification for IL5 access
-3. Procure Microsoft 365 GCC High licenses (E3 or E5 recommended)
-4. Wait for tenant provisioning (5-10 business days)
-
-**GCC High Tenant Characteristics:**
-- Tenant domain: `*.onmicrosoft.us` (not `.com`)
-- Admin portal: https://portal.office365.us
-- Azure AD portal: https://portal.azure.us
-- Graph API endpoint: `https://graph.microsoft.us`
-
-#### Step 2: Verify GCC High Environment
-
-```bash
-# Test Graph API access to GCC High endpoint
-curl https://graph.microsoft.us/v1.0/me \
-  -H "Authorization: Bearer YOUR_TOKEN"
-```
-
-**Success indicator:** Response from `graph.microsoft.us` (not `graph.microsoft.com`)
-
-### 3.2 Create Test Users (GCC High)
-
-**Note:** All user accounts must be created in the GCC High tenant.
-
-1. Go to https://portal.office365.us
-2. Sign in with GCC High admin account
-3. Navigate to **Users** → **Active users** → **Add a user**
-4. Create test users for each clearance level:
-
-| Display Name | Email Prefix | Clearance Level | Purpose |
-|-------------|-------------|-----------------|---------|
-| UNCLASS User | unclass.user | UNCLASSIFIED | Testing UNCLASSIFIED access |
-| CONF User | conf.user | CONFIDENTIAL | Testing CONFIDENTIAL access |
-| SECRET User | secret.user | SECRET | Testing SECRET access |
-| System Admin | system.admin | SECRET | Full system administration |
+| Display Name | Email Prefix | Password | Purpose |
+|-------------|-------------|----------|---------|
+| John Doe | john.doe | TestPass123! | Viewer role testing |
+| Jane Smith | jane.smith | TestPass123! | Admin role testing |
+| Bob Johnson | bob.johnson | TestPass123! | Approver role testing |
+| Alice Williams | alice.williams | TestPass123! | Approver role testing |
+| Charlie Brown | charlie.brown | TestPass123! | Viewer role testing |
 
 **For each user:**
-- Assign **Microsoft 365 E5 GCC** license
-- Assign to appropriate Azure AD groups (created in next section)
-- Document clearance level in user profile
+- Assign **Microsoft 365 E5** license
+- **UNCHECK** "Require password change on next login"
+- Click **Finish adding user**
 
-### 3.3 Create Azure AD Access Control Groups (GCC High)
+#### Step 4: Enable Custom Apps in Teams
 
-#### Step 1: Navigate to Azure AD (GCC High)
+1. Go to **Teams Admin Center:** https://admin.teams.microsoft.com
+2. Navigate to **Teams apps** → **Setup policies** → **Global**
+3. Under **Upload custom apps:** Toggle to **On**
+4. Click **Save**
+5. Wait up to 24 hours for changes to propagate (usually instant)
 
-1. Go to https://portal.azure.us
-2. Sign in with GCC High admin account
+### 2.2 Option B: Microsoft 365 Developer Program (Free - If Eligible)
+
+**Eligibility:** Visual Studio Professional/Enterprise subscribers, Microsoft partners
+
+**Benefits over Trial:**
+- 90-day duration (vs. 30 days)
+- Auto-renews if actively used
+- Pre-loaded sample data
+- 25 test users already configured
+
+#### Step 1: Join Developer Program
+
+1. Visit: https://developer.microsoft.com/en-us/microsoft-365/dev-program
+2. Click **"Join Now"**
+3. Sign in with your Microsoft account (use Visual Studio subscription account)
+4. Complete profile:
+   - Country: United States
+   - Company: Your organization
+   - Development interests: Select "Microsoft Teams"
+5. Accept terms and conditions
+
+#### Step 2: Create Instant Sandbox
+
+1. In Developer Program dashboard, click **"Set up E5 subscription"**
+2. Choose **"Instant sandbox"** (recommended for Teams testing)
+3. Select region: **United States**
+4. Create admin credentials:
+   - Username: `admin`
+   - Password: Strong password (save it!)
+5. Verify phone number
+6. Wait 1-2 minutes for provisioning
+
+**What you get:**
+- 25 pre-configured test users (e.g., Adele Vance, Alex Wilber, etc.)
+- Sample Teams with existing data
+- Pre-configured SharePoint sites
+- Teams app sideloading already enabled
+
+### 2.3 Create Azure AD Access Control Groups
+
+**Purpose:** Support multi-level access control for 300,000+ users
+
+#### Step 1: Navigate to Groups
+
+1. Go to https://portal.azure.com
+2. Sign in as admin
 3. Navigate to **Azure Active Directory** → **Groups** → **All groups**
 
 #### Step 2: Create Clearance-Level Groups
 
+Click **+ New group** for each:
+
 **Group 1: UNCLASSIFIED Clearance**
 - Group type: **Security**
 - Group name: `Clearance-UNCLASSIFIED`
-- Description: `Users cleared for UNCLASSIFIED meetings (no clearance required)`
-- Membership type: **Assigned** (or Dynamic with clearance level attribute)
-- Add members: All users
+- Description: `Users cleared for UNCLASSIFIED meetings`
+- Membership type: **Assigned** (or Dynamic for automation)
+- Add members: All test users
 
 **Group 2: CONFIDENTIAL Clearance**
 - Group type: **Security**
 - Group name: `Clearance-CONFIDENTIAL`
 - Description: `Users cleared for CONFIDENTIAL meetings (includes UNCLASSIFIED)`
 - Membership type: **Assigned**
-- Add members: conf.user, secret.user, system.admin
+- Add members: jane.smith, bob.johnson
 
 **Group 3: SECRET Clearance**
 - Group type: **Security**
 - Group name: `Clearance-SECRET`
-- Description: `Users cleared for SECRET meetings (includes CONFIDENTIAL + UNCLASSIFIED)`
+- Description: `Users cleared for SECRET meetings (includes all lower)`
 - Membership type: **Assigned**
-- Add members: secret.user, system.admin
-
-**Important:** Clearance groups are hierarchical. SECRET users can access CONFIDENTIAL and UNCLASSIFIED meetings. CONFIDENTIAL users can access UNCLASSIFIED meetings.
+- Add members: jane.smith only
 
 #### Step 3: Create Role Groups
 
 **Group 4: Viewer Role**
 - Group name: `Role-Viewer`
 - Description: `Can view meetings they attended`
-- Add members: unclass.user
+- Add members: john.doe, charlie.brown
 
 **Group 5: Editor Role**
 - Group name: `Role-Editor`
 - Description: `Can edit minutes before approval`
-- Add members: conf.user
+- Add members: bob.johnson
 
 **Group 6: Approver Role**
 - Group name: `Role-Approver`
 - Description: `Can approve/reject meeting minutes`
-- Add members: conf.user, secret.user
+- Add members: bob.johnson, alice.williams
 
 **Group 7: Admin Role**
 - Group name: `Role-Admin`
 - Description: `Full system access and configuration`
-- Add members: system.admin
+- Add members: jane.smith
 
-#### Step 4: Document Group Membership in SSP
-
-**System Security Plan (SSP) Documentation:**
-- Document all Azure AD groups and their purpose
-- Map groups to NIST SP 800-53 AC-2 (Account Management)
-- Define group membership approval process
-- Establish quarterly access review schedule
-
-**Success indicator:** All 7 groups created with documented clearance requirements
-
-### 3.4 Enable Custom Apps in Teams (GCC High)
-
-1. Go to **Teams Admin Center:** https://admin.teams.microsoft.us
-2. Navigate to **Teams apps** → **Setup policies** → **Global**
-3. Under **Upload custom apps:** Toggle to **On**
-4. Click **Save**
-5. Wait up to 24 hours for changes to propagate
+**Success indicator:** All 7 groups created and members assigned
 
 ---
 
-## 4. Azure AD Application Registration
+## 3. Azure AD Application Registration
 
-### 4.1 Register Application in GCC High
+### 3.1 Register New Application
 
-#### Step 1: Create App Registration (Azure Government Portal)
+#### Step 1: Create App Registration
 
-1. Go to https://portal.azure.us
-2. Navigate to **Azure Active Directory** → **App registrations**
-3. Click **+ New registration**
+1. Go to https://portal.azure.com
+2. Sign in as admin
+3. Navigate to **Azure Active Directory** → **App registrations**
+4. Click **+ New registration**
 
 #### Step 2: Configure Basic Settings
 
-**Application name:** `DOD Meeting Minutes System`
+**Application name:** `Meeting Minutes System` (or your preferred name)
 
 **Supported account types:** 
 - Select **Accounts in this organizational directory only (Single tenant)**
 
 **Redirect URI:**
 - Platform: **Web**
-- URL: `https://meeting-minutes.youragency.mil/auth/callback` (update with your domain)
-- Leave blank for now (update after infrastructure deployment)
+- For Replit: `https://your-workspace.replit.app/auth/callback`
+- For Azure Government: `https://your-domain.com/auth/callback`
+- Leave blank for now (update later)
 
 Click **Register**
 
@@ -422,49 +300,22 @@ Click **Register**
 ```
 Application (client) ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 Directory (tenant) ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-GCC High Graph Endpoint: https://graph.microsoft.us
 ```
 
-**Store in Azure Key Vault (Premium tier for FIPS 140-2 Level 2 compliance):**
-
-```bash
-# Create Key Vault (Premium tier for HSM support)
-az keyvault create \
-  --name kv-teams-minutes-prod \
-  --resource-group rg-teams-minutes \
-  --location usgovvirginia \
-  --sku premium \
-  --enable-rbac-authorization true
-
-# Store application credentials
-az keyvault secret set \
-  --vault-name kv-teams-minutes-prod \
-  --name GraphClientId \
-  --value "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-```
-
-### 4.2 Create Client Secret
+### 3.2 Create Client Secret
 
 1. In your app, navigate to **Certificates & secrets**
 2. Click **+ New client secret**
 3. Configure:
-   - Description: `DOD Meeting Minutes Secret - Expires 2027-11`
+   - Description: `Meeting Minutes Secret`
    - Expires: **24 months** (recommended for production)
 4. Click **Add**
 5. **IMMEDIATELY COPY THE SECRET VALUE** (shows only once!)
+   - Example: `abc123~DEF456.G7H8I9J0K1L2M3N4O5P6Q7R8S9T0`
 
-**Store in Key Vault:**
+**⚠️ WARNING:** You cannot retrieve this secret later. Save it securely!
 
-```bash
-az keyvault secret set \
-  --vault-name kv-teams-minutes-prod \
-  --name GraphClientSecret \
-  --value "your-secret-value-here"
-```
-
-**⚠️ SECURITY:** Never store secrets in code, configuration files, or version control. Always use Azure Key Vault with RBAC.
-
-### 4.3 Configure API Permissions (GCC High)
+### 3.3 Configure API Permissions
 
 #### Step 1: Add Microsoft Graph Permissions
 
@@ -472,27 +323,43 @@ az keyvault secret set \
 2. Click **+ Add a permission**
 3. Select **Microsoft Graph**
 
-**IMPORTANT:** Verify you are granting permissions to GCC High Graph API (`graph.microsoft.us`), not commercial Graph API.
-
 #### Step 2: Add Delegated Permissions (User context)
 
-| Permission | Purpose | FedRAMP Control |
-|-----------|---------|-----------------|
-| `User.Read` | Read signed-in user profile | AC-2 (Account Management) |
-| `OnlineMeetings.Read` | Read user's Teams meetings | AC-3 (Access Enforcement) |
-| `Group.Read.All` | Read user's group memberships for clearance validation | AC-3 (Access Enforcement) |
-| `Mail.Send` | Send email as signed-in user | AU-2 (Audit Events) |
+Add these delegated permissions:
+
+| Permission | Purpose |
+|-----------|---------|
+| `User.Read` | Read signed-in user profile |
+| `OnlineMeetings.Read` | Read user's Teams meetings |
+| `Group.Read.All` | Read user's group memberships for access control |
+| `Mail.Send` | Send email as signed-in user |
+
+**To add:**
+1. Click **Delegated permissions**
+2. Search for each permission
+3. Check the box
+4. Click **Add permissions**
 
 #### Step 3: Add Application Permissions (Service context)
 
-| Permission | Purpose | FedRAMP Control |
-|-----------|---------|-----------------|
-| `User.Read.All` | Read all users' profiles for attendee lookup | AC-2 (Account Management) |
-| `Group.Read.All` | Read all group memberships for Azure AD sync | AC-3 (Access Enforcement) |
-| `OnlineMeetings.Read.All` | Read all meetings via webhooks | AU-2 (Audit Events) |
-| `Calendars.Read` | Read meeting schedules and metadata | AC-3 (Access Enforcement) |
-| `Mail.Send` | Send minutes distribution emails | AU-10 (Non-Repudiation) |
-| `Sites.Selected` | Access SharePoint sites for archival | AU-9 (Protection of Audit Information) |
+Add these application permissions:
+
+| Permission | Purpose |
+|-----------|---------|
+| `User.Read.All` | Read all users' profiles for attendee lookup |
+| `Group.Read.All` | Read all group memberships for Azure AD sync |
+| `OnlineMeetings.Read.All` | Read all meetings via webhooks |
+| `Calendars.Read` | Read meeting schedules and metadata |
+| `Mail.Send` | Send minutes distribution emails |
+| `Sites.Selected` | Access SharePoint sites for archival |
+
+**Alternative:** If `Sites.Selected` is unavailable, use `Files.ReadWrite.All`
+
+**To add:**
+1. Click **Application permissions**
+2. Search for each permission
+3. Check the box
+4. Click **Add permissions**
 
 #### Step 4: Grant Admin Consent
 
@@ -502,1613 +369,764 @@ az keyvault secret set \
 2. Confirm by clicking **Yes**
 3. Verify all permissions show **Granted** with green checkmarks
 
-**Document in SSP:**
-- List all granted permissions
-- Justify each permission under least privilege principle (AC-6)
-- Establish quarterly permission review process
+**Success indicator:** All permissions display green checkmarks in "Status" column
 
-### 4.4 Configure Authentication Settings
+### 3.4 Configure Authentication Settings
 
 1. Navigate to **Authentication**
 2. Under **Implicit grant and hybrid flows:**
    - ✅ Check **Access tokens**
    - ✅ Check **ID tokens**
 3. Under **Advanced settings:**
-   - Allow public client flows: **No** (production security)
-   - Supported account types: **Single tenant only**
+   - Allow public client flows: **Yes**
 4. Click **Save**
-
-**FedRAMP Mapping:**
-- IA-2 (Identification and Authentication): Multi-factor authentication required
-- AC-7 (Unsuccessful Logon Attempts): Enforced via Azure AD Conditional Access
-- IA-5 (Authenticator Management): CAC/PIV authentication
 
 ---
 
-## 5. Azure OpenAI GCC High Setup
+## 4. Azure OpenAI Setup
 
-### 5.1 Create Azure OpenAI Resource (GCC High)
+### 4.1 Create Azure OpenAI Resource
 
-**IMPORTANT:** Azure OpenAI for GCC High is a separate service from commercial Azure OpenAI. You must request access to Azure OpenAI for Government.
+#### Step 1: Navigate to Azure OpenAI
 
-#### Step 1: Request Azure OpenAI for Government Access
-
-1. Submit request: https://aka.ms/oai/govaccess
-2. Provide:
-   - Azure Government subscription ID
-   - Use case description: "Automated meeting minutes generation for DOD"
-   - Classification level: CONFIDENTIAL or SECRET
-   - Estimated usage: Monthly meeting volume
-3. Wait 5-10 business days for approval
-
-**Success indicator:** Receive approval email from Microsoft
-
-#### Step 2: Create Azure OpenAI Resource
-
-1. Go to https://portal.azure.us
+1. Go to https://portal.azure.com
 2. Search for "Azure OpenAI" in top search bar
 3. Click **+ Create**
 
+#### Step 2: Configure Resource
+
 **Basics:**
-- Subscription: Your Azure Government subscription
-- Resource group: `rg-teams-minutes`
-- Region: **USGov Virginia** or **USGov Arizona** (verify GPT-4 availability)
-- Name: `aoai-minutes-prod-gov`
+- Subscription: Select your subscription
+- Resource group: Create new or use existing
+- Region: **East US** or **West Europe** (check GPT-4 availability)
+- Name: `meeting-minutes-openai`
 - Pricing tier: **Standard S0**
 
 **Networking:**
-- Network connectivity: **Private endpoint only** (IL5 requirement)
-- Create private endpoint in each classification VNet
+- Network connectivity: **All networks** (or configure private endpoint)
 
-**Encryption:**
-- Use customer-managed keys (CMK) stored in Azure Key Vault Premium
-- Enable FIPS 140-2 Level 2 validation
+**Tags:** (optional)
+- Environment: Development
 
 Click **Review + create** → **Create**
 
 Wait 3-5 minutes for deployment
 
-#### Step 3: Deploy GPT-4o Model (GCC High)
+#### Step 3: Deploy GPT-4 Model
 
 1. Once created, click **Go to resource**
 2. Navigate to **Model deployments** → **Manage Deployments**
-   - This opens Azure OpenAI Studio for Government
+   - This opens Azure OpenAI Studio
 3. Click **+ Create new deployment**
 4. Configure:
-   - Model: **gpt-4o** (or latest available model)
-   - Deployment name: `gpt-4o-minutes`
+   - Model: **gpt-4** or **gpt-4-32k**
+   - Deployment name: `gpt-4`
    - Model version: Select latest
    - Deployment type: **Standard**
-   - Tokens per Minute Rate Limit: **120K** (adjust based on load)
 5. Click **Create**
 
 #### Step 4: Get API Credentials
 
 1. In Azure Portal, go to your Azure OpenAI resource
 2. Navigate to **Keys and Endpoint**
-3. **Save these values in Key Vault:**
+3. **Save these values:**
 
-```bash
-# Store OpenAI credentials in Key Vault
-az keyvault secret set \
-  --vault-name kv-teams-minutes-prod \
-  --name AzureOpenAIEndpoint \
-  --value "https://aoai-minutes-prod-gov.openai.azure.us/"
-
-az keyvault secret set \
-  --vault-name kv-teams-minutes-prod \
-  --name AzureOpenAIKey \
-  --value "your-api-key-here"
-
-az keyvault secret set \
-  --vault-name kv-teams-minutes-prod \
-  --name AzureOpenAIDeployment \
-  --value "gpt-4o-minutes"
+```
+Endpoint: https://meeting-minutes-openai.openai.azure.com/
+Key 1: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Deployment Name: gpt-4
 ```
 
-**FedRAMP Controls:**
-- SC-8 (Transmission Confidentiality): TLS 1.2+ enforced
-- SC-12 (Cryptographic Key Establishment): Customer-managed keys
-- SC-13 (Cryptographic Protection): AES-256 encryption at rest
-
-### 5.2 Configure Private Endpoint (IL5 Requirement)
+### 4.2 Test API Access (Optional)
 
 ```bash
-# Create private endpoint for each classification VNet
-az network private-endpoint create \
-  --name pe-aoai-unclass \
-  --resource-group rg-teams-minutes \
-  --vnet-name vnet-unclass \
-  --subnet pe-subnet \
-  --private-connection-resource-id "/subscriptions/.../Microsoft.CognitiveServices/accounts/aoai-minutes-prod-gov" \
-  --group-id account \
-  --connection-name aoai-connection
-
-# Disable public network access
-az cognitiveservices account update \
-  --name aoai-minutes-prod-gov \
-  --resource-group rg-teams-minutes \
-  --public-network-access Disabled
+curl https://meeting-minutes-openai.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview \
+  -H "Content-Type: application/json" \
+  -H "api-key: YOUR_KEY_HERE" \
+  -d '{
+    "messages": [{"role": "user", "content": "Test connection"}],
+    "max_tokens": 10
+  }'
 ```
 
-**Repeat for CONFIDENTIAL and SECRET VNets**
+**Expected response:** JSON with completion text
 
 ---
 
-## 6. SharePoint IL5 Configuration
+## 5. SharePoint Configuration
 
-### 6.1 Create SharePoint Site (GCC High)
+### 5.1 Create SharePoint Site
 
 #### Step 1: Create Site Collection
 
-1. Go to https://admin.microsoft.com (GCC High admin center)
+1. Go to https://admin.microsoft.com
 2. Navigate to **Show all** → **SharePoint** → **Active sites**
 3. Click **+ Create**
-4. Select **Team site (classic)** for IL5 compliance
+4. Select **Team site**
 5. Configure:
-   - Site name: `DOD Meeting Minutes`
-   - Site address: `/sites/dod-meeting-minutes`
-   - Primary administrator: System admin account
+   - Site name: `Meeting Minutes`
+   - Site address: `/sites/meetingminutes`
+   - Privacy: **Private**
    - Language: English
-   - Classification: **CONFIDENTIAL** or **SECRET** (based on max classification)
 6. Click **Finish**
 
-#### Step 2: Create Document Library with Classification Folders
+#### Step 2: Create Document Library
 
-1. Navigate to site: `https://yourtenant.sharepoint.us/sites/dod-meeting-minutes`
+1. Navigate to your new site: `https://yourtenant.sharepoint.com/sites/meetingminutes`
 2. Click **+ New** → **Document library**
-3. Name: `Minutes Archive IL5`
-4. Description: `IL5-compliant automated meeting minutes storage`
+3. Name: `Minutes Archive`
+4. Description: `Automated meeting minutes storage`
 5. Click **Create**
 
-#### Step 3: Create Classification-Based Folder Structure
+#### Step 3: Create Folder Structure
 
-**IL5 Folder Hierarchy:**
+Create this folder hierarchy in the library:
 
 ```
-/Minutes Archive IL5/
-  ├─ UNCLASSIFIED/
-  │   ├─ 2025/
-  │   │   ├─ 01-January/
-  │   │   ├─ 02-February/
-  │   │   └─ ...
-  ├─ CONFIDENTIAL/
-  │   ├─ 2025/
-  │   │   ├─ 01-January/
-  │   │   ├─ 02-February/
-  │   │   └─ ...
-  └─ SECRET/
-      ├─ 2025/
-      │   ├─ 01-January/
-      │   ├─ 02-February/
-      │   └─ ...
+/Minutes Archive/
+  ├─ 2025/
+  │   ├─ 01-January/
+  │   │   ├─ UNCLASSIFIED/
+  │   │   ├─ CONFIDENTIAL/
+  │   │   └─ SECRET/
+  │   ├─ 02-February/
+  │   │   └─ (same structure)
+  └─ (repeat for each year/month)
 ```
 
-**For each classification folder:**
-1. Set unique permissions (break inheritance)
-2. Add appropriate Azure AD clearance group
-3. Remove all other groups except site owners
-
-**CONFIDENTIAL folder permissions:**
-- `Clearance-CONFIDENTIAL` group: Read + Write
-- `Clearance-SECRET` group: Read + Write
-- Site admins: Full Control
-- Remove: Everyone, All Users, UNCLASSIFIED users
-
-**SECRET folder permissions:**
-- `Clearance-SECRET` group: Read + Write
-- Site admins: Full Control
-- Remove: Everyone, All Users, CONFIDENTIAL users, UNCLASSIFIED users
-
-### 6.2 Grant Application Access (Sites.Selected Permission)
+### 5.2 Grant Application Access (Sites.Selected Permission)
 
 #### Step 1: Get Site ID
 
-```bash
-# Use Microsoft Graph API (GCC High endpoint)
-curl -X GET "https://graph.microsoft.us/v1.0/sites/yourtenant.sharepoint.us:/sites/dod-meeting-minutes" \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
-
-# Extract site ID from response
-SITE_ID="yourtenant.sharepoint.us,abc123,def456"
-```
+1. Use Microsoft Graph Explorer: https://developer.microsoft.com/graph/graph-explorer
+2. Sign in as admin
+3. Run this query:
+   ```
+   GET https://graph.microsoft.com/v1.0/sites/yourtenant.sharepoint.com:/sites/meetingminutes
+   ```
+4. Copy the `id` field from response
 
 #### Step 2: Grant Permission via Graph API
 
-```bash
-# Grant write permission to application
-curl -X POST "https://graph.microsoft.us/v1.0/sites/$SITE_ID/permissions" \
-  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "roles": ["write"],
-    "grantedToIdentities": [{
-      "application": {
-        "id": "YOUR_APP_CLIENT_ID",
-        "displayName": "DOD Meeting Minutes System"
-      }
-    }]
-  }'
+Use Graph Explorer or PowerShell:
+
+```http
+POST https://graph.microsoft.com/v1.0/sites/{site-id}/permissions
+Content-Type: application/json
+
+{
+  "roles": ["write"],
+  "grantedToIdentities": [{
+    "application": {
+      "id": "YOUR_APP_CLIENT_ID",
+      "displayName": "Meeting Minutes System"
+    }
+  }]
+}
 ```
 
 **Success indicator:** Response with `id` and granted permission
 
-### 6.3 Configure Information Rights Management (IRM)
+---
 
-**IL5 Requirement:** Enable IRM to prevent unauthorized download/print of classified documents
+## 6. Replit Development Deployment
 
-1. Navigate to **SharePoint Admin Center** (https://yourtenant-admin.sharepoint.us)
-2. Go to **Settings** → **Information Rights Management**
-3. Click **Use the IRM service specified in your configuration**
-4. Enable for each classification folder:
-   - Library settings → Information Rights Management
-   - ✅ Restrict permissions on this library on download
-   - Set expiration date for CONFIDENTIAL: **90 days**
-   - Set expiration date for SECRET: **365 days**
-   - ✅ Prevent printing
-   - ✅ Encrypt document content
+### 6.1 Configure Environment Variables
 
-**FedRAMP Controls:**
-- AC-4 (Information Flow Enforcement): Classification-based access
-- MP-6 (Media Sanitization): Automatic expiration and deletion
-- PE-3 (Physical Access Control): Print/download restrictions
+#### Step 1: Add Secrets to Replit
+
+1. Open your Replit workspace
+2. Click **Tools** → **Secrets**
+3. Add these secrets:
+
+**Microsoft Graph API:**
+```
+GRAPH_TENANT_ID=your-tenant-id
+GRAPH_CLIENT_ID=your-client-id
+GRAPH_CLIENT_SECRET=your-client-secret
+```
+
+**Azure OpenAI:**
+```
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your-api-key
+AZURE_OPENAI_DEPLOYMENT=gpt-4
+```
+
+**SharePoint:**
+```
+SHAREPOINT_SITE_URL=https://yourtenant.sharepoint.com/sites/meetingminutes
+SHAREPOINT_LIBRARY=Minutes Archive
+```
+
+**Database (auto-configured by Replit):**
+```
+DATABASE_URL=postgresql://...
+SESSION_SECRET=auto-generated
+```
+
+### 6.2 Update Redirect URI
+
+1. Copy your Replit app URL: `https://your-workspace.replit.app`
+2. Go to Azure Portal → Azure AD → App registrations → Your app
+3. Navigate to **Authentication**
+4. Add redirect URI: `https://your-workspace.replit.app/auth/callback`
+5. Click **Save**
+
+### 6.3 Deploy Application
+
+Application auto-deploys when you:
+1. Click **Run** in Replit
+2. Wait for workflow to start
+3. Open webview to see application
+
+**Success indicator:** Application loads, shows login page
+
+### 6.4 Test Authentication
+
+1. Click **Login**
+2. Sign in with test user (e.g., `john.doe@meetingminutestest.onmicrosoft.com`)
+3. Consent to permissions if prompted
+4. Verify dashboard loads
 
 ---
 
 ## 7. Azure Government Production Deployment
 
-### 7.1 Infrastructure Provisioning Overview
+**Document Purpose:** This section provides an overview of Azure Government (GCC High) production deployment. For detailed step-by-step instructions, refer to the comprehensive deployment plans referenced below.
 
-**IMPORTANT:** Production deployment uses a **multi-scale-unit App Service Environment (ASEv3) architecture** with horizontally sharded databases. This section provides an overview. For complete step-by-step Terraform/Bicep templates, see SCALABILITY_ARCHITECTURE.md Section 7.
+### 7.1 Overview
 
-**Production Architecture:**
-- **12× App Service Environments (ASEv3):** Classification-segregated compute
-  - UNCLASSIFIED: 6 ASEv3 units (baseline: 1, peak: 6)
-  - CONFIDENTIAL: 4 ASEv3 units (baseline: 1, peak: 4)
-  - SECRET: 2 ASEv3 units (baseline: 1, peak: 2)
-- **12-Shard PostgreSQL Database:** Horizontally sharded by classification
-  - UNCLASSIFIED: 6 shards with 2 read replicas each
-  - CONFIDENTIAL: 4 shards with 2 read replicas each (HSM-backed encryption)
-  - SECRET: 2 shards with 2 read replicas each (HSM-backed encryption, air-gapped)
-- **Azure Front Door Premium:** Multi-region routing with WAF and DDoS protection
-- **Azure Key Vault Premium:** HSM-backed key management (FIPS 140-2 Level 2)
+The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure Government (GCC High)** cloud infrastructure to meet DOD security requirements and compliance standards.
 
-### 7.2 Create Resource Groups
+**IMPORTANT:** This section provides a simplified overview. Production deployment uses a **multi-scale-unit App Service Environment (ASEv3) architecture** with horizontally sharded databases. For complete deployment instructions, see SCALABILITY_ARCHITECTURE.md Section 7.
 
-```bash
-# Set Azure CLI to Government cloud
-az cloud set --name AzureUSGovernment
-az login
+**Key Characteristics:**
+- **Scale:** Auto-scaling capability to support up to 300,000 concurrent users (baseline: 10,000 users)
+- **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications with IL5 data segregation
+- **Compliance:** FedRAMP High, DISA SRG Level 5, IL5 boundary
+- **Architecture:** Multi-scale-unit ASEv3 clusters (12 units max) with 12 horizontally sharded PostgreSQL databases
 
-# Create primary resource group
-az group create \
-  --name rg-teams-minutes-prod \
-  --location usgovvirginia \
-  --tags Environment=Production Classification=SECRET Owner=ISSO
+### 7.2 Production Architecture Overview
 
-# Create classification-specific resource groups
-az group create --name rg-teams-unclass --location usgovvirginia
-az group create --name rg-teams-conf --location usgovvirginia
-az group create --name rg-teams-secret --location usgovvirginia
+**Note:** The following diagram shows the multi-scale-unit production architecture. Development deployment on Replit uses a simplified single-instance configuration.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              Azure Government (GCC High) Cloud                       │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Microsoft 365 GCC High                                             │
+│  ├─ Teams (Meeting Capture via Graph API .us endpoints)            │
+│  ├─ SharePoint (IL5-compliant Document Archival)                   │
+│  ├─ Exchange (Email Distribution)                                   │
+│  └─ Azure AD (CAC/PIV Authentication + Clearance-based RBAC)       │
+│                                                                      │
+│  Azure Front Door Premium                                           │
+│  ├─ Global Load Balancing & Classification-based Routing            │
+│  ├─ WAF + DDoS Protection                                           │
+│  └─ TLS 1.2+ Termination                                            │
+│                                                                      │
+│  Multi-Scale-Unit ASE Clusters (Classification-Specific VNets)      │
+│  ├─ BASELINE (10K users): 3 ASEv3, 18 I3v2 instances               │
+│  │  • UNCLASS: 1 ASEv3 (12 instances) - VNet 10.0.0.0/16           │
+│  │  • CONF: 1 ASEv3 (4 instances) - VNet 10.10.0.0/16              │
+│  │  • SECRET: 1 ASEv3 (2 instances) - VNet 10.20.0.0/16 (no egress)│
+│  │                                                                   │
+│  └─ PEAK (300K users): 12 ASEv3, 880 I3v2 instances                │
+│     • UNCLASS: 6 ASEv3 (600 instances)                              │
+│     • CONF: 4 ASEv3 (240 instances)                                 │
+│     • SECRET: 2 ASEv3 (40 instances)                                │
+│                                                                      │
+│  Horizontally Sharded PostgreSQL (12 shards total)                  │
+│  ├─ UNCLASS: 6 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)      │
+│  ├─ CONF: 4 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)         │
+│  └─ SECRET: 2 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)       │
+│     • HSM-backed CMK encryption (Key Vault Premium)                 │
+│     • 90-day backups, private endpoint only                         │
+│                                                                      │
+│  Azure OpenAI Service (GCC High)                                    │
+│  ├─ GPT-4o + Whisper Models                                         │
+│  ├─ 100K TPM Capacity                                               │
+│  └─ Regional Deployment (Virginia)                                  │
+│                                                                      │
+│  Azure Key Vault (Standard + Premium HSM)                           │
+│  ├─ SECRET database encryption (Premium HSM, FIPS 140-2 Level 2)   │
+│  ├─ CONF database encryption (Standard, Customer-Managed Keys)      │
+│  └─ Application secrets and certificates                            │
+│                                                                      │
+│  Azure Monitor + Application Insights                               │
+│  ├─ Classification-aware audit logging                              │
+│  ├─ Performance monitoring across all ASE clusters                  │
+│  └─ 7-year log retention for SECRET data                            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 7.3 Deploy Virtual Networks (Classification-Segregated)
+### 7.3 Resource Blueprint
 
-```bash
-# UNCLASSIFIED VNet
-az network vnet create \
-  --name vnet-teams-unclass \
-  --resource-group rg-teams-unclass \
-  --location usgovvirginia \
-  --address-prefix 10.0.0.0/16 \
-  --subnet-name subnet-app \
-  --subnet-prefix 10.0.1.0/24
+**BASELINE Configuration (10,000 concurrent users):**
 
-az network vnet subnet create \
-  --name subnet-db \
-  --resource-group rg-teams-unclass \
-  --vnet-name vnet-teams-unclass \
-  --address-prefix 10.0.2.0/24 \
-  --service-endpoints Microsoft.Sql
+| Resource Category | Configuration | Purpose | Monthly Cost |
+|----------|------------------|---------|--------------|
+| **Compute (ASEv3)** | 3× ASE, 18× I3v2 instances | Classification-specific application hosting | $28,350 |
+| **Database** | 12× PostgreSQL shards (GP_Gen5_4-8) | Horizontally sharded storage | $14,400 |
+| **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $5,000 |
+| **Azure OpenAI** | GPT-4o + Whisper, 100K TPM | AI processing | $4,000 |
+| **Key Vault** | Standard + Premium (HSM for SECRET) | Secrets & encryption key management | $1,200 |
+| **Networking** | 3× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $800 |
+| **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $400 |
+| **TOTAL BASELINE** | | | **$54,150/month** |
 
-az network vnet subnet create \
-  --name subnet-pe \
-  --resource-group rg-teams-unclass \
-  --vnet-name vnet-teams-unclass \
-  --address-prefix 10.0.3.0/24 \
-  --private-endpoint-network-policies Disabled
+**PEAK Configuration (300,000 concurrent users - sustained load):**
 
-# CONFIDENTIAL VNet (same structure, 10.10.0.0/16)
-# SECRET VNet (same structure, 10.20.0.0/16, NO internet egress)
-```
+| Resource Category | Configuration | Purpose | Monthly Cost |
+|----------|------------------|---------|--------------|
+| **Compute (ASEv3)** | 12× ASE, 880× I3v2 instances | Scaled classification-specific hosting | $939,600 |
+| **Database** | 12× PostgreSQL shards (GP_Gen5_16) | Scaled sharded storage | $115,200 |
+| **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $10,000 |
+| **Azure OpenAI** | GPT-4o + Whisper, scaled capacity | AI processing | $15,000 |
+| **Key Vault** | Standard + Premium (HSM for SECRET) | Secrets & encryption key management | $2,400 |
+| **Networking** | 12× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $4,000 |
+| **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $2,000 |
+| **TOTAL PEAK** | | | **$1,088,200/month** |
 
-### 7.4 Deploy PostgreSQL Flexible Server (Horizontally Sharded)
+**Note:** For complete cost breakdown including read replicas, Azure Monitor metrics, and operational overhead, see SCALABILITY_ARCHITECTURE.md Section 9.
 
-**Baseline Deployment (10K users):**
+### 7.4 Deployment Workflow Summary
 
-```bash
-# UNCLASSIFIED Shard 1 (of 6)
-az postgres flexible-server create \
-  --name psql-minutes-unclass-shard1 \
-  --resource-group rg-teams-unclass \
-  --location usgovvirginia \
-  --sku-name GP_Gen5_4 \
-  --tier GeneralPurpose \
-  --version 15 \
-  --storage-size 512 \
-  --backup-retention 90 \
-  --public-access None \
-  --vnet vnet-teams-unclass \
-  --subnet subnet-db
+**High-Level Deployment Steps:**
 
-# Enable high availability
-az postgres flexible-server update \
-  --name psql-minutes-unclass-shard1 \
-  --resource-group rg-teams-unclass \
-  --high-availability Enabled \
-  --standby-availability-zone 2
+1. **Prerequisites Validation** (1-2 days)
+   - Azure Government (GCC High) subscription active
+   - Microsoft 365 GCC High tenant configured
+   - Azure AD admin permissions verified
+   - Clearance levels documented for administrators
 
-# Create read replicas
-az postgres flexible-server replica create \
-  --replica-name psql-minutes-unclass-shard1-replica1 \
-  --resource-group rg-teams-unclass \
-  --source-server psql-minutes-unclass-shard1 \
-  --location usgovvirginia
+2. **Phase 1: Azure Infrastructure** (2-3 days)
+   - Create Resource Group in usgovvirginia region
+   - Deploy VNET with subnets (public, app, data, management)
+   - Configure Network Security Groups (NSGs)
+   - Deploy Azure Database for PostgreSQL Flexible Server
+   - Set up private endpoints for database
 
-# Repeat for shards 2-6 (UNCLASSIFIED)
-```
+3. **Phase 2: Application Services** (2-3 days)
+   - Deploy App Service Environment v3 (ASEv3) clusters
+   - Configure classification-specific VNets (UNCLASS, CONF, SECRET)
+   - Deploy I3v2 instances with Node.js 20 runtime
+   - Configure auto-scaling rules per classification level
+   - Deploy Azure Front Door Premium for global load balancing
 
-**CONFIDENTIAL/SECRET Shards (with HSM-backed encryption):**
+4. **Phase 3: AI & Integration** (1-2 days)
+   - Provision Azure OpenAI Service
+   - Deploy GPT-4 model
+   - Configure Microsoft Graph API application
+   - Set up SharePoint site and document libraries
 
-```bash
-# CONFIDENTIAL Shard 1 (of 4)
-az postgres flexible-server create \
-  --name psql-minutes-conf-shard1 \
-  --resource-group rg-teams-conf \
-  --location usgovvirginia \
-  --sku-name GP_Gen5_4 \
-  --tier GeneralPurpose \
-  --version 15 \
-  --storage-size 512 \
-  --backup-retention 365 \
-  --public-access None \
-  --vnet vnet-teams-conf \
-  --subnet subnet-db
+5. **Phase 4: Security Configuration** (1-2 days)
+   - Create Azure Key Vault
+   - Store all secrets and certificates
+   - Configure Managed Identities
+   - Set up Azure AD group-based RBAC
+   - Implement clearance-level access control
 
-# Enable customer-managed key encryption
-az postgres flexible-server key create \
-  --server-name psql-minutes-conf-shard1 \
-  --resource-group rg-teams-conf \
-  --kid "https://kv-teams-minutes-prod.vault.usgovcloudapi.net/keys/psql-conf-key/abc123"
+6. **Phase 5: Application Deployment** (1 day)
+   - Deploy application code to App Service
+   - Run database migrations
+   - Configure environment variables from Key Vault
+   - Verify health checks
 
-# Repeat for shards 1-4 (CONFIDENTIAL)
-# Repeat for shards 1-2 (SECRET)
-```
+7. **Phase 6: Microsoft Teams Integration** (1-2 days)
+   - Package Teams app manifest
+   - Install Teams app in tenant
+   - Configure Graph API webhooks
+   - Test meeting capture workflow
 
-**FedRAMP Controls:**
-- CP-9 (Information System Backup): 90-day retention (UNCLASS), 365-day (CONF/SECRET)
-- SC-12 (Cryptographic Key Establishment): Customer-managed keys (CMK)
-- SC-28 (Protection of Information at Rest): AES-256 encryption with HSM backing
+8. **Phase 7: Testing & Validation** (3-5 days pilot / 7-14 days production)
+   - End-to-end workflow testing
+   - Security validation (clearance levels, classifications)
+   - Performance testing (load, scale)
+   - User acceptance testing
+   - Security Authority to Operate (ATO) preparation
 
-### 7.5 Deploy App Service Environment v3 (ASEv3)
+### 7.5 Comprehensive Deployment Documentation
 
-**Baseline Deployment (3 ASEv3 units):**
+For detailed step-by-step deployment instructions, configuration examples, troubleshooting guides, and security hardening procedures, refer to these comprehensive deployment plans:
 
-```bash
-# UNCLASSIFIED ASEv3
-az appservice ase create \
-  --name ase-minutes-unclass \
-  --resource-group rg-teams-unclass \
-  --vnet-name vnet-teams-unclass \
-  --subnet subnet-app \
-  --kind ASEv3 \
-  --location usgovvirginia \
-  --allow-incoming-ftp-connections false \
-  --allow-new-private-endpoint-connections true
+| Deployment Scenario | Document | Lines | Timeline | Users |
+|-------------------|----------|-------|----------|-------|
+| **Pilot (Recommended First Step)** | `AZURE_GOV_PILOT_PLAN.md` | 1,282 | 2-4 weeks | 50-100 |
+| **Production (Full Scale)** | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | Comprehensive | 16 weeks (+16mo ATO) | 300,000 |
+| **Scaling (Pilot → Production)** | `PILOT_TO_PRODUCTION_SCALING.md` | Detailed | 1 day | 100 → 300K |
 
-# Create App Service Plan (Isolated tier)
-az appservice plan create \
-  --name plan-minutes-unclass \
-  --resource-group rg-teams-unclass \
-  --app-service-environment ase-minutes-unclass \
-  --sku I3v2 \
-  --number-of-workers 12 \
-  --is-linux
+**Key Documents:**
 
-# Create Web App
-az webapp create \
-  --name app-minutes-unclass \
-  --resource-group rg-teams-unclass \
-  --plan plan-minutes-unclass \
-  --runtime "NODE:20-lts"
+1. **AZURE_GOV_PILOT_PLAN.md**
+   - Cost-optimized pilot deployment ($1,500-2,500/month)
+   - Simplified architecture for 50-100 users
+   - 60-day evaluation period
+   - Built-in scaling path to production
+   - Go/no-go decision framework
+   - Complete Azure CLI commands and configuration examples
 
-# Repeat for CONFIDENTIAL and SECRET ASEv3
-```
+2. **AZURE_GOV_IMPLEMENTATION_PLAN.md**
+   - Production-grade architecture with auto-scaling for up to 300,000 concurrent users
+   - High availability, disaster recovery, security hardening
+   - FedRAMP High, DISA SRG Level 5 compliance
+   - Complete resource manifests and deployment scripts
+   - ATO preparation guidance
+   - Monitoring, alerting, and incident response procedures
 
-**Auto-Scaling Configuration:**
+3. **PILOT_TO_PRODUCTION_SCALING.md**
+   - Multi-day upgrade procedure from pilot to production
+   - Infrastructure scaling to multi-scale-unit ASEv3 architecture
+   - Database shard deployment and data migration
+   - Cost impact analysis (baseline → peak capacity)
+   - Performance validation procedures
 
-```bash
-# Configure auto-scale for UNCLASSIFIED (baseline: 12 instances, max: 100)
-az monitor autoscale create \
-  --resource-group rg-teams-unclass \
-  --resource app-minutes-unclass \
-  --resource-type Microsoft.Web/sites \
-  --name autoscale-unclass \
-  --min-count 12 \
-  --max-count 100 \
-  --count 12
+### 7.6 Prerequisites for Azure Government Deployment
 
-# Add CPU-based scaling rule
-az monitor autoscale rule create \
-  --resource-group rg-teams-unclass \
-  --autoscale-name autoscale-unclass \
-  --condition "Percentage CPU > 70 avg 5m" \
-  --scale out 10
+**Required Access:**
+- [ ] Azure Government subscription (GCC High or DOD)
+- [ ] Microsoft 365 GCC High tenant
+- [ ] Azure AD Global Administrator access
+- [ ] Billing account configured
+- [ ] SECRET clearance for system administrators (production)
 
-az monitor autoscale rule create \
-  --resource-group rg-teams-unclass \
-  --autoscale-name autoscale-unclass \
-  --condition "Percentage CPU < 30 avg 10m" \
-  --scale in 5
+**Required Tools:**
+- [ ] Azure CLI configured for Azure Government (`az cloud set --name AzureUSGovernment`)
+- [ ] PowerShell 7+ with Az modules
+- [ ] Node.js 20 LTS for local development/testing
+- [ ] Git for source control
 
-# Repeat for CONFIDENTIAL and SECRET with appropriate thresholds
-```
-
-### 7.6 Deploy Azure Front Door Premium
-
-```bash
-# Create Front Door profile
-az afd profile create \
-  --profile-name fd-minutes-prod \
-  --resource-group rg-teams-minutes-prod \
-  --sku Premium_AzureFrontDoor
-
-# Create endpoint
-az afd endpoint create \
-  --resource-group rg-teams-minutes-prod \
-  --profile-name fd-minutes-prod \
-  --endpoint-name minutes-prod \
-  --enabled-state Enabled
-
-# Create origin group for each classification
-az afd origin-group create \
-  --resource-group rg-teams-minutes-prod \
-  --profile-name fd-minutes-prod \
-  --origin-group-name og-unclass \
-  --probe-path "/health" \
-  --probe-protocol Https \
-  --probe-interval-in-seconds 30 \
-  --sample-size 4 \
-  --successful-samples-required 3
-
-# Add origins (UNCLASSIFIED ASEv3)
-az afd origin create \
-  --resource-group rg-teams-minutes-prod \
-  --profile-name fd-minutes-prod \
-  --origin-group-name og-unclass \
-  --origin-name origin-unclass-ase1 \
-  --host-name app-minutes-unclass.azurewebsites.us \
-  --origin-host-header app-minutes-unclass.azurewebsites.us \
-  --priority 1 \
-  --weight 1000 \
-  --enabled-state Enabled \
-  --http-port 80 \
-  --https-port 443
-
-# Configure WAF policy
-az network front-door waf-policy create \
-  --name waf-minutes-prod \
-  --resource-group rg-teams-minutes-prod \
-  --mode Prevention \
-  --sku Premium_AzureFrontDoor
-
-# Enable managed rule sets (OWASP 3.2)
-az network front-door waf-policy managed-rules add \
-  --policy-name waf-minutes-prod \
-  --resource-group rg-teams-minutes-prod \
-  --type Microsoft_DefaultRuleSet \
-  --version 2.1
-
-# Repeat for CONFIDENTIAL and SECRET origin groups
-```
-
-**FedRAMP Controls:**
-- SC-5 (Denial of Service Protection): DDoS protection via Front Door
-- SC-7 (Boundary Protection): WAF with OWASP rules
-- SI-4 (Information System Monitoring): Front Door diagnostics and alerts
-
-### 7.7 Configure Key Vault and Secrets Management
-
-```bash
-# Create Key Vault (Premium tier for HSM)
-az keyvault create \
-  --name kv-minutes-prod \
-  --resource-group rg-teams-minutes-prod \
-  --location usgovvirginia \
-  --sku premium \
-  --enable-rbac-authorization true \
-  --enable-purge-protection true \
-  --retention-days 90
-
-# Create HSM-backed keys for CONFIDENTIAL/SECRET data
-az keyvault key create \
-  --vault-name kv-minutes-prod \
-  --name key-db-conf \
-  --kty RSA-HSM \
-  --size 4096 \
-  --ops encrypt decrypt wrapKey unwrapKey
-
-az keyvault key create \
-  --vault-name kv-minutes-prod \
-  --name key-db-secret \
-  --kty RSA-HSM \
-  --size 4096 \
-  --ops encrypt decrypt wrapKey unwrapKey
-
-# Store application secrets
-az keyvault secret set --vault-name kv-minutes-prod --name GraphClientId --value "..."
-az keyvault secret set --vault-name kv-minutes-prod --name GraphClientSecret --value "..."
-az keyvault secret set --vault-name kv-minutes-prod --name AzureOpenAIKey --value "..."
-
-# Grant App Service managed identity access
-az keyvault set-policy \
-  --name kv-minutes-prod \
-  --object-id $(az webapp identity show --name app-minutes-unclass --resource-group rg-teams-unclass --query principalId -o tsv) \
-  --secret-permissions get list
-```
-
-**FedRAMP Controls:**
-- SC-12 (Cryptographic Key Establishment): HSM-backed key generation
-- SC-13 (Cryptographic Protection): FIPS 140-2 Level 2 validated
-- SC-28 (Protection of Information at Rest): Customer-managed keys
-
-### 7.8 Deploy Application Code
-
-```bash
-# Build application (from CI/CD pipeline)
-npm install
-npm run build
-
-# Create deployment package
-zip -r app.zip .
-
-# Deploy to each ASEv3
-az webapp deployment source config-zip \
-  --resource-group rg-teams-unclass \
-  --name app-minutes-unclass \
-  --src app.zip
-
-# Configure environment variables from Key Vault
-az webapp config appsettings set \
-  --resource-group rg-teams-unclass \
-  --name app-minutes-unclass \
-  --settings \
-    GRAPH_CLIENT_ID="@Microsoft.KeyVault(SecretUri=https://kv-minutes-prod.vault.usgovcloudapi.net/secrets/GraphClientId/)" \
-    GRAPH_CLIENT_SECRET="@Microsoft.KeyVault(SecretUri=https://kv-minutes-prod.vault.usgovcloudapi.net/secrets/GraphClientSecret/)" \
-    AZURE_OPENAI_KEY="@Microsoft.KeyVault(SecretUri=https://kv-minutes-prod.vault.usgovcloudapi.net/secrets/AzureOpenAIKey/)" \
-    NODE_ENV="production" \
-    CLASSIFICATION_LEVEL="UNCLASSIFIED"
-
-# Repeat for CONFIDENTIAL and SECRET ASEv3 with appropriate CLASSIFICATION_LEVEL
-```
-
-### 7.9 Run Database Migrations
-
-```bash
-# Connect to each database shard and run migrations
-for shard in {1..6}; do
-  export DATABASE_URL="postgresql://admin@psql-minutes-unclass-shard${shard}:password@psql-minutes-unclass-shard${shard}.postgres.database.usgovcloudapi.net/meetingminutes?sslmode=require"
-  
-  npx drizzle-kit push:pg
-done
-
-# Repeat for CONFIDENTIAL shards (1-4)
-# Repeat for SECRET shards (1-2)
-```
-
-**Success indicator:** All database schemas deployed, application starts without errors
+**Required Documentation:**
+- [ ] Security Authorization to Operate (ATO) requirements (production)
+- [ ] Data classification policies documented
+- [ ] Incident response procedures defined
+- [ ] Disaster recovery plan approved
 
 ---
 
-## 8. Classification and Access Control Setup
+## 8. Teams App Packaging and Installation
 
-### 8.1 Configure Classification-Based Routing
+### 8.1 Create App Manifest
 
-**Application Logic (server/middleware/classificationRouter.ts):**
+#### Step 1: Create manifest.json
 
-```typescript
-import { Request, Response, NextFunction } from 'express';
-
-export function classificationRouter(req: Request, res: Response, next: NextFunction) {
-  const meetingClassification = req.body.classification || req.query.classification;
-  
-  // Route to appropriate backend based on classification
-  switch(meetingClassification) {
-    case 'SECRET':
-      // Route to SECRET ASEv3 cluster (10.20.x.x)
-      req.headers['X-Backend-Pool'] = 'secret';
-      break;
-    case 'CONFIDENTIAL':
-      // Route to CONFIDENTIAL ASEv3 cluster (10.10.x.x)
-      req.headers['X-Backend-Pool'] = 'confidential';
-      break;
-    case 'UNCLASSIFIED':
-    default:
-      // Route to UNCLASSIFIED ASEv3 cluster (10.0.x.x)
-      req.headers['X-Backend-Pool'] = 'unclassified';
-      break;
+```json
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "YOUR_APP_CLIENT_ID",
+  "packageName": "com.yourorg.meetingminutes",
+  "developer": {
+    "name": "Your Organization",
+    "websiteUrl": "https://your-domain.com",
+    "privacyUrl": "https://your-domain.com/privacy",
+    "termsOfUseUrl": "https://your-domain.com/terms"
+  },
+  "name": {
+    "short": "Meeting Minutes",
+    "full": "DOD Teams Meeting Minutes Management System"
+  },
+  "description": {
+    "short": "Automated Teams meeting minutes generation and distribution",
+    "full": "Automatically captures, processes, and distributes Teams meeting minutes with AI-powered summarization, action item extraction, and SharePoint archival."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#0078D4",
+  "configurableTabs": [],
+  "staticTabs": [{
+    "entityId": "dashboard",
+    "name": "Dashboard",
+    "contentUrl": "https://your-domain.com/",
+    "scopes": ["personal"]
+  }],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "your-domain.com"
+  ],
+  "webApplicationInfo": {
+    "id": "YOUR_APP_CLIENT_ID",
+    "resource": "api://your-domain.com/YOUR_APP_CLIENT_ID"
   }
-  
-  next();
 }
 ```
 
-**Azure Front Door Routing Rules:**
+#### Step 2: Create App Icons
+
+**Color icon (color.png):**
+- Size: 192x192 pixels
+- Format: PNG
+- Use your organization branding
+
+**Outline icon (outline.png):**
+- Size: 32x32 pixels
+- Format: PNG
+- Transparent background, white icon
+
+### 8.2 Package App
 
 ```bash
-# Create routing rule for SECRET traffic
-az afd route create \
-  --resource-group rg-teams-minutes-prod \
-  --profile-name fd-minutes-prod \
-  --endpoint-name minutes-prod \
-  --route-name route-secret \
-  --origin-group og-secret \
-  --patterns-to-match "/api/meetings?classification=SECRET" \
-  --rule-sets [] \
-  --supported-protocols Https \
-  --https-redirect Enabled
+# Create app package directory
+mkdir teams-app
+cd teams-app
 
-# Repeat for CONFIDENTIAL and UNCLASSIFIED
+# Add files
+# - manifest.json
+# - color.png
+# - outline.png
+
+# Create ZIP package
+zip -r meeting-minutes-app.zip manifest.json color.png outline.png
 ```
 
-### 8.2 Implement Clearance-Level Access Control
+### 8.3 Install App in Teams
 
-**Middleware (server/middleware/clearanceCheck.ts):**
+#### Method 1: Upload to Teams Admin Center (Recommended)
 
-```typescript
-import { Request, Response, NextFunction } from 'express';
-import { getUserClearanceLevel } from '../services/accessControl';
+1. Go to https://admin.teams.microsoft.com
+2. Navigate to **Teams apps** → **Manage apps**
+3. Click **Upload new app** → **Upload**
+4. Select `meeting-minutes-app.zip`
+5. Click **Submit**
+6. Wait for approval (instant for admin)
 
-const CLEARANCE_HIERARCHY = {
-  'UNCLASSIFIED': 0,
-  'CONFIDENTIAL': 1,
-  'SECRET': 2
-};
+#### Method 2: Sideload Directly (Testing Only)
 
-export async function requireClearance(requiredLevel: string) {
-  return async (req: Request, res: Response, next: NextFunction) => {
-    const user = req.user; // From Azure AD authentication
-    
-    // Get user's clearance from Azure AD group membership
-    const userClearance = await getUserClearanceLevel(user.id);
-    
-    // Check hierarchical access
-    if (CLEARANCE_HIERARCHY[userClearance] >= CLEARANCE_HIERARCHY[requiredLevel]) {
-      next();
-    } else {
-      res.status(403).json({
-        error: 'Insufficient clearance',
-        required: requiredLevel,
-        user: userClearance
-      });
-    }
-  };
-}
+1. Open Teams web or desktop client
+2. Click **Apps** in left sidebar
+3. Click **Manage your apps**
+4. Click **Upload a custom app** → **Upload for me or my teams**
+5. Select `meeting-minutes-app.zip`
+6. Click **Add**
 
-// Usage in routes:
-app.get('/api/meetings/secret', requireClearance('SECRET'), async (req, res) => {
-  // Only users with SECRET clearance can access
-});
-```
+### 8.4 Pin App to Sidebar
 
-**Azure AD Group Sync (server/services/graphGroupSync.ts):**
+1. In Teams, click **Apps**
+2. Search for "Meeting Minutes"
+3. Right-click app → **Pin**
+4. App now appears in left sidebar
 
-```typescript
-import { Client } from '@microsoft/microsoft-graph-client';
-
-export async function syncUserClearance(userId: string): Promise<string> {
-  const client = getGraphClient(); // Authenticated client
-  
-  // Get user's group memberships
-  const groups = await client
-    .api(`/users/${userId}/memberOf`)
-    .get();
-  
-  // Check clearance groups (hierarchical)
-  const groupNames = groups.value.map((g: any) => g.displayName);
-  
-  if (groupNames.includes('Clearance-SECRET')) {
-    return 'SECRET';
-  } else if (groupNames.includes('Clearance-CONFIDENTIAL')) {
-    return 'CONFIDENTIAL';
-  } else {
-    return 'UNCLASSIFIED';
-  }
-}
-```
-
-**FedRAMP Controls:**
-- AC-3 (Access Enforcement): Clearance-based access control
-- AC-6 (Least Privilege): Users only access data at their clearance level
-- AC-16 (Security Attributes): Classification markings enforced
-
-### 8.3 Database Shard Assignment by Classification
-
-**Shard Router (server/services/dbShardRouter.ts):**
-
-```typescript
-export function getDatabaseShardForClassification(classification: string, meetingId: string): string {
-  const shardCount = {
-    'UNCLASSIFIED': 6,
-    'CONFIDENTIAL': 4,
-    'SECRET': 2
-  };
-  
-  // Hash meeting ID to determine shard
-  const hash = hashCode(meetingId);
-  const shardIndex = (hash % shardCount[classification]) + 1;
-  
-  // Return connection string for appropriate shard
-  return process.env[`DATABASE_URL_${classification}_SHARD${shardIndex}`];
-}
-
-function hashCode(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash |= 0; // Convert to 32-bit integer
-  }
-  return Math.abs(hash);
-}
-```
-
-**Environment Variable Configuration:**
-
-```bash
-# UNCLASSIFIED shards
-DATABASE_URL_UNCLASSIFIED_SHARD1="postgresql://...psql-minutes-unclass-shard1..."
-DATABASE_URL_UNCLASSIFIED_SHARD2="postgresql://...psql-minutes-unclass-shard2..."
-# ...SHARD3-6
-
-# CONFIDENTIAL shards
-DATABASE_URL_CONFIDENTIAL_SHARD1="postgresql://...psql-minutes-conf-shard1..."
-DATABASE_URL_CONFIDENTIAL_SHARD2="postgresql://...psql-minutes-conf-shard2..."
-# ...SHARD3-4
-
-# SECRET shards
-DATABASE_URL_SECRET_SHARD1="postgresql://...psql-minutes-secret-shard1..."
-DATABASE_URL_SECRET_SHARD2="postgresql://...psql-minutes-secret-shard2..."
-```
+**Success indicator:** App opens in Teams, shows login page
 
 ---
 
-## 9. FedRAMP Compliance Configuration
+## 9. Post-Deployment Configuration
 
-### 9.1 Audit Logging Configuration
-
-**Azure Monitor Log Analytics (FedRAMP-compliant):**
+### 9.1 Verify Application Health
 
 ```bash
-# Create Log Analytics Workspace
-az monitor log-analytics workspace create \
-  --resource-group rg-teams-minutes-prod \
-  --workspace-name law-minutes-prod \
-  --location usgovvirginia \
-  --retention-time 365 \
-  --sku PerGB2018
+# Test health endpoint
+curl https://your-domain.com/api/health
 
-# Enable diagnostic settings for all resources
-for resource in app-minutes-unclass app-minutes-conf app-minutes-secret; do
-  az monitor diagnostic-settings create \
-    --name diag-${resource} \
-    --resource /subscriptions/.../Microsoft.Web/sites/${resource} \
-    --workspace law-minutes-prod \
-    --logs '[{"category":"AppServiceHTTPLogs","enabled":true},
-            {"category":"AppServiceConsoleLogs","enabled":true},
-            {"category":"AppServiceAppLogs","enabled":true}]' \
-    --metrics '[{"category":"AllMetrics","enabled":true}]'
-done
+# Expected response:
+{"status":"healthy","database":"connected","timestamp":"2025-11-06T..."}
 ```
 
-**Application-Level Audit Logging (server/services/auditLogger.ts):**
+### 9.2 Configure Teams Webhook Subscription
 
-```typescript
-import { AppInsights } from 'applicationinsights';
+**Automatic on first login:**
+- Webhook subscribed when admin first logs in
+- Check logs for: `[GraphWebhookService] Subscription created`
 
-export function logAuditEvent(event: {
-  userId: string;
-  action: string;
-  resource: string;
-  classification: string;
-  result: 'SUCCESS' | 'FAILURE';
-  ipAddress: string;
-}) {
-  const auditLog = {
-    timestamp: new Date().toISOString(),
-    userId: event.userId,
-    action: event.action,
-    resource: event.resource,
-    classification: event.classification,
-    result: event.result,
-    ipAddress: event.ipAddress,
-    userAgent: req.headers['user-agent']
-  };
-  
-  // Send to Log Analytics via Application Insights
-  appInsights.defaultClient.trackEvent({
-    name: 'AuditEvent',
-    properties: auditLog
-  });
-  
-  // Also write to immutable blob storage for SECRET classification
-  if (event.classification === 'SECRET') {
-    writeToImmutableStorage(auditLog);
-  }
-}
+**Manual subscription (if needed):**
+```http
+POST https://graph.microsoft.com/v1.0/subscriptions
+Content-Type: application/json
+Authorization: Bearer YOUR_TOKEN
 
-// Usage:
-logAuditEvent({
-  userId: req.user.id,
-  action: 'APPROVE_MINUTES',
-  resource: `/api/meetings/${meetingId}/approve`,
-  classification: 'SECRET',
-  result: 'SUCCESS',
-  ipAddress: req.ip
-});
-```
-
-**Immutable Audit Storage (for SECRET classification):**
-
-```bash
-# Create storage account with immutable blob storage
-az storage account create \
-  --name stminutesauditsecret \
-  --resource-group rg-teams-secret \
-  --location usgovvirginia \
-  --sku Standard_GRS \
-  --kind StorageV2 \
-  --enable-hierarchical-namespace false \
-  --allow-blob-public-access false
-
-# Create container with immutability policy
-az storage container create \
-  --name audit-logs-secret \
-  --account-name stminutesauditsecret \
-  --public-access off
-
-az storage container immutability-policy create \
-  --account-name stminutesauditsecret \
-  --container-name audit-logs-secret \
-  --period 365 \
-  --policy-mode Locked
-```
-
-**FedRAMP Controls:**
-- AU-2 (Audit Events): All security-relevant events logged
-- AU-3 (Content of Audit Records): Complete audit trail with user, action, timestamp
-- AU-9 (Protection of Audit Information): Immutable storage for SECRET audit logs
-- AU-11 (Audit Record Retention): 365-day retention for SECRET, 90-day for UNCLASS
-
-### 9.2 Incident Response Configuration
-
-**Azure Sentinel Integration (SIEM):**
-
-```bash
-# Enable Azure Sentinel
-az sentinel workspace create \
-  --resource-group rg-teams-minutes-prod \
-  --workspace-name sentinel-minutes-prod
-
-# Create analytics rules for security incidents
-az sentinel alert-rule create \
-  --resource-group rg-teams-minutes-prod \
-  --workspace-name sentinel-minutes-prod \
-  --rule-name "Failed Login Attempts" \
-  --description "Detect 5+ failed login attempts within 5 minutes" \
-  --query "SigninLogs | where ResultType != 0 | summarize FailedAttempts=count() by UserPrincipalName, bin(TimeGenerated, 5m) | where FailedAttempts >= 5" \
-  --severity High \
-  --trigger-threshold 1
-
-az sentinel alert-rule create \
-  --resource-group rg-teams-minutes-prod \
-  --workspace-name sentinel-minutes-prod \
-  --rule-name "Classification Violation" \
-  --description "Detect access to meeting above user clearance" \
-  --query "AppServiceConsoleLogs | where Message contains 'Insufficient clearance'" \
-  --severity Critical \
-  --trigger-threshold 1
-```
-
-**Incident Response Automation (server/services/incidentResponse.ts):**
-
-```typescript
-export async function handleSecurityIncident(incident: {
-  type: 'CLEARANCE_VIOLATION' | 'FAILED_LOGIN' | 'DATA_BREACH';
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  userId: string;
-  details: string;
-}) {
-  // Log to immutable audit storage
-  logAuditEvent({
-    userId: incident.userId,
-    action: `SECURITY_INCIDENT_${incident.type}`,
-    resource: 'SYSTEM',
-    classification: 'SECRET',
-    result: 'FAILURE',
-    ipAddress: req.ip
-  });
-  
-  // Notify ISSO/ISSM immediately for CRITICAL incidents
-  if (incident.severity === 'CRITICAL') {
-    await sendAlertEmail({
-      to: process.env.ISSO_EMAIL,
-      subject: `CRITICAL SECURITY INCIDENT: ${incident.type}`,
-      body: incident.details
-    });
-    
-    // Automatically disable user account for clearance violations
-    if (incident.type === 'CLEARANCE_VIOLATION') {
-      await disableUserAccount(incident.userId);
-    }
-  }
-  
-  // Create Sentinel incident
-  await createSentinelIncident(incident);
+{
+  "changeType": "created",
+  "notificationUrl": "https://your-domain.com/api/webhooks/teams",
+  "resource": "communications/onlineMeetings",
+  "expirationDateTime": "2025-12-06T00:00:00Z",
+  "clientState": "YOUR_SECRET_VALUE"
 }
 ```
 
-**FedRAMP Controls:**
-- IR-4 (Incident Handling): Automated incident detection and response
-- IR-5 (Incident Monitoring): Real-time SIEM alerts
-- IR-6 (Incident Reporting): Automatic notification to ISSO/ISSM
-
-### 9.3 Continuous Monitoring
-
-**Azure Monitor Alerts:**
-
-```bash
-# CPU alert for auto-scaling validation
-az monitor metrics alert create \
-  --name alert-cpu-high \
-  --resource-group rg-teams-unclass \
-  --scopes /subscriptions/.../Microsoft.Web/sites/app-minutes-unclass \
-  --condition "avg Percentage CPU > 80" \
-  --window-size 5m \
-  --evaluation-frequency 1m \
-  --action email ISSO@agency.mil
-
-# Database connection alert
-az monitor metrics alert create \
-  --name alert-db-connections \
-  --resource-group rg-teams-unclass \
-  --scopes /subscriptions/.../Microsoft.DBforPostgreSQL/flexibleServers/psql-minutes-unclass-shard1 \
-  --condition "max active_connections > 900" \
-  --window-size 5m \
-  --evaluation-frequency 1m
-
-# Failed authentication alert
-az monitor metrics alert create \
-  --name alert-auth-failures \
-  --resource-group rg-teams-minutes-prod \
-  --scopes /subscriptions/.../Microsoft.Web/sites/app-minutes-unclass \
-  --condition "total Http4xx > 50" \
-  --window-size 5m \
-  --evaluation-frequency 1m
-```
-
-**FedRAMP Controls:**
-- SI-4 (Information System Monitoring): Real-time monitoring of all components
-- CA-7 (Continuous Monitoring): Automated alerts for security events
-
----
-
-## 10. ATO Process and Timeline
-
-### 10.1 ATO Process Overview
-
-**Total Duration:** 16 months from commercial deployment completion
-
-**Key Roles:**
-- **Authorizing Official (AO):** Makes final authorization decision
-- **ISSO (Information System Security Officer):** Day-to-day security management
-- **ISSM (Information System Security Manager):** Security program oversight
-- **3PAO (Third Party Assessment Organization):** Independent security assessment
-- **System Owner:** DOD organization deploying the system
-
-### 10.2 Phase 1: Security Assessment (Months 1-6)
-
-#### Month 1: 3PAO Selection and Planning
-
-**Activities:**
-- Issue RFP for FedRAMP-accredited 3PAO
-- Evaluate 3PAO proposals (technical expertise, government experience)
-- Award contract to selected 3PAO
-- Kickoff meeting with 3PAO, ISSO, ISSM, AO
-
-**Deliverables:**
-- 3PAO contract executed
-- Security Assessment Plan (SAP) draft initiated
-
-**Cost:** $75K-$125K (3PAO assessment fee)
-
-#### Month 2-3: Security Assessment Plan (SAP) Development
-
-**Activities:**
-- 3PAO creates Security Assessment Plan (SAP)
-- Define assessment scope: All FedRAMP High controls (421 controls)
-- Identify assessment methods: Interview, examine, test
-- Schedule assessment activities (4 weeks)
-- AO reviews and approves SAP
-
-**Deliverables:**
-- Security Assessment Plan (SAP) - **APPROVED**
-- Assessment schedule and logistics plan
-
-#### Month 3-4: Security Assessment Execution
-
-**Assessment Activities (4 weeks):**
-
-**Week 1: Documentation Review**
-- System Security Plan (SSP) review
-- Configuration Management Plan review
-- Incident Response Plan review
-- Contingency Plan review
-- Policy and procedure documentation
-
-**Week 2: Technical Testing**
-- Vulnerability scanning (Tenable Nessus, Qualys)
-- Configuration compliance testing (CIS benchmarks)
-- Access control testing (Azure AD, RBAC)
-- Encryption validation (TLS 1.2+, AES-256)
-- Audit log verification
-
-**Week 3: Penetration Testing**
-- External penetration testing (Azure Front Door, public endpoints)
-- Internal penetration testing (classification boundary violations)
-- Social engineering testing (phishing, insider threat)
-- Physical security assessment (if applicable)
-
-**Week 4: Interviews and Evidence Collection**
-- ISSO/ISSM interviews
-- Developer interviews
-- System administrator interviews
-- Evidence collection for all controls
-
-**Deliverables:**
-- Raw assessment data
-- Vulnerability scan reports
-- Penetration test reports
-
-#### Month 5-6: Security Assessment Report (SAR) Generation
-
-**Activities:**
-- 3PAO analyzes assessment data
-- Identifies control gaps and weaknesses
-- Assigns risk ratings: LOW, MODERATE, HIGH, CRITICAL
-- Drafts Security Assessment Report (SAR)
-- System Owner reviews SAR findings
-- Remediation of CRITICAL and HIGH findings
-
-**Expected Findings (based on current architecture):**
-- **CRITICAL:** 0 expected
-- **HIGH:** 5-10 findings (e.g., missing POA&M items, configuration drift)
-- **MODERATE:** 15-25 findings (e.g., documentation gaps, process improvements)
-- **LOW:** 30-50 findings (e.g., minor policy clarifications)
-
-**Deliverables:**
-- Security Assessment Report (SAR) - **FINAL**
-- Remediation evidence for CRITICAL/HIGH findings
-
-**Cost:** Included in 3PAO assessment fee
-
-### 10.3 Phase 2: Documentation and Governance (Months 7-12)
-
-#### Month 7-8: System Security Plan (SSP) Finalization
-
-**Activities:**
-- Update SSP based on SAR findings
-- Document all 421 FedRAMP High controls
-- Include architecture diagrams, data flow diagrams
-- Document classification handling procedures
-- Describe continuous monitoring strategy
-
-**SSP Sections:**
-1. System Identification
-2. System Categorization (FIPS 199: HIGH)
-3. Security Controls (NIST SP 800-53 Rev 5)
-4. Control Implementation Details
-5. System Architecture
-6. Interconnections and Interfaces
-7. Laws, Regulations, and Policies
-
-**Deliverables:**
-- System Security Plan (SSP) - **FINAL** (500-800 pages)
-
-#### Month 9-10: Plan of Action & Milestones (POA&M) Management
-
-**Activities:**
-- Create POA&M for all MODERATE and LOW findings
-- Assign remediation owners and due dates
-- Track remediation progress weekly
-- Close out completed POA&M items
-- Justify risk acceptance for deferred items
-
-**POA&M Template:**
-
-| Finding ID | Risk Rating | Control | Description | Remediation Plan | Owner | Due Date | Status |
-|-----------|-------------|---------|-------------|------------------|-------|----------|--------|
-| SAR-001 | MODERATE | AC-2 | Missing quarterly access review | Implement automated quarterly review process | ISSO | Month 10 | In Progress |
-| SAR-002 | LOW | CM-2 | Configuration baseline documentation incomplete | Complete baseline documentation | System Admin | Month 9 | Closed |
-
-**Deliverables:**
-- Plan of Action & Milestones (POA&M) - **ACTIVE**
-
-#### Month 11-12: Incident Response and Contingency Plan Testing
-
-**Activities:**
-- Execute tabletop incident response exercise
-- Simulate security incidents (clearance violation, data breach, DDoS)
-- Validate incident escalation to DC3 (DOD Cyber Crime Center)
-- Test contingency plan (database failover, ASEv3 failover)
-- Validate backup restoration (RPO < 24 hours, RTO < 4 hours)
-- Document lessons learned
-
-**Test Scenarios:**
-1. **Clearance Violation:** User attempts to access SECRET meeting without clearance
-2. **Data Breach:** Simulated exfiltration of CONFIDENTIAL data
-3. **Service Disruption:** ASEv3 outage in UNCLASSIFIED region
-4. **Database Corruption:** PostgreSQL shard failure requiring restoration
-
-**Deliverables:**
-- Incident Response Plan (IRP) - **TESTED**
-- Contingency Plan (CP) - **TESTED**
-- After-Action Report (AAR) with lessons learned
-
-**FedRAMP Controls:**
-- IR-4 (Incident Handling): Validated incident response procedures
-- CP-2 (Contingency Plan): Validated recovery procedures
-- CP-10 (Information System Recovery and Reconstitution): RPO/RTO validated
-
-### 10.4 Phase 3: Authorization (Months 13-16)
-
-#### Month 13-14: ATO Package Submission
-
-**ATO Package Contents:**
-1. System Security Plan (SSP)
-2. Security Assessment Report (SAR) from 3PAO
-3. Plan of Action & Milestones (POA&M)
-4. Incident Response Plan (IRP)
-5. Contingency Plan (CP)
-6. Configuration Management Plan (CMP)
-7. Continuous Monitoring Strategy
-8. Interconnection Security Agreements (ISAs)
-9. FedRAMP Readiness Assessment Report (RAR)
-10. Authorization Boundary Diagram
-
-**Submission Process:**
-1. Internal review by ISSO/ISSM
-2. Legal review for compliance
-3. Executive summary for AO
-4. Formal submission to Authorizing Official (AO)
-
-**Deliverables:**
-- Complete ATO Package - **SUBMITTED**
-
-#### Month 15: AO Review and Risk Assessment
-
-**Activities:**
-- AO reviews ATO package
-- Risk assessment by AO's security staff
-- Clarifying questions from AO to System Owner
-- Additional evidence collection if needed
-- AO prepares authorization decision document
-
-**Risk Acceptance Considerations:**
-- Residual risks from POA&M items
-- Operational necessity vs. security risk
-- Compensating controls effectiveness
-- Mission impact of delayed authorization
-
-**Potential Outcomes:**
-1. **Full ATO (3 years):** All controls satisfied, minimal risk
-2. **ATO with Conditions (1 year):** Moderate risk, POA&M must be completed
-3. **Denial:** Unacceptable risk, major deficiencies
-
-**Expected Outcome:** ATO with Conditions (1 year) - 80% likelihood
-
-#### Month 16: Authorization Decision and Production Transition
-
-**Activities:**
-- AO signs Authorization to Operate (ATO) memo
-- ISSO initiates continuous monitoring
-- System transitions to production operations
-- Monthly POA&M reporting to AO
-- Annual FedRAMP assessment scheduling
-
-**Deliverables:**
-- **Authorization to Operate (ATO) Memo - SIGNED**
-- Production operations handoff to DOD IT team
-
-**Success Criteria:**
-- ✅ FedRAMP High ATO obtained
-- ✅ System operational in Azure Government (GCC High)
-- ✅ All CRITICAL and HIGH findings remediated
-- ✅ Continuous monitoring established
-- ✅ POA&M tracking process active
-
-### 10.5 Post-ATO Continuous Monitoring (Ongoing)
-
-**Monthly Activities:**
-- Vulnerability scanning (Tenable Nessus)
-- POA&M status reporting to AO
-- Security incident review
-- Configuration change review
-
-**Quarterly Activities:**
-- Access review (user accounts, clearances)
-- Security control sampling
-- Risk assessment updates
-
-**Annual Activities:**
-- 3PAO re-assessment (FedRAMP requirement)
-- ATO renewal decision by AO
-- SSP updates for architecture changes
-
-**FedRAMP Controls:**
-- CA-2 (Security Assessments): Annual re-assessment
-- CA-7 (Continuous Monitoring): Monthly vulnerability scanning
-- RA-5 (Vulnerability Scanning): Authenticated scanning every 30 days
-
----
-
-## 11. Post-Deployment Validation
-
-### 11.1 Functional Testing
-
-**Test Scenario 1: End-to-End Meeting Capture (UNCLASSIFIED)**
-
-1. **Setup:**
-   - Login as `unclass.user@youragency.onmicrosoft.us`
-   - Schedule Teams meeting with 3 attendees
-   - Enable recording
-   - Set classification: UNCLASSIFIED
-
-2. **Execute:**
-   - Conduct meeting for 15 minutes
-   - Discuss sample agenda items
-   - End meeting and stop recording
-
-3. **Verify:**
-   - ✅ Meeting auto-captured within 30 minutes
-   - ✅ Transcript generated
-   - ✅ Minutes generated with action items
-   - ✅ Meeting appears in dashboard (UNCLASSIFIED classification)
-   - ✅ Email distribution sent to attendees
-   - ✅ Document archived to SharePoint: `/UNCLASSIFIED/2025/11-November/`
-
-**Test Scenario 2: Classification Enforcement (CONFIDENTIAL)**
-
-1. **Setup:**
-   - Login as `unclass.user` (no CONFIDENTIAL clearance)
-   - Attempt to access CONFIDENTIAL meeting minutes
-
-2. **Execute:**
-   - Navigate to `/api/meetings/{confidential-meeting-id}`
-
-3. **Verify:**
-   - ✅ HTTP 403 Forbidden
-   - ✅ Error message: "Insufficient clearance"
-   - ✅ Audit log entry created
-   - ✅ Security alert triggered (if >3 attempts)
-
-**Test Scenario 3: SECRET Meeting with Approval Workflow**
-
-1. **Setup:**
-   - Login as `secret.user@youragency.onmicrosoft.us`
-   - Schedule SECRET meeting
-   - Conduct and record meeting
-
-2. **Execute:**
-   - Wait for minutes generation
-   - Login as approver: `system.admin@youragency.onmicrosoft.us`
-   - Review minutes in approval queue
+### 9.3 Test End-to-End Workflow
+
+1. **Schedule Teams meeting:**
+   - Create meeting with 2-3 test users
+   - Add meeting description/agenda
+   
+2. **Conduct meeting:**
+   - Join meeting with test users
+   - Enable Teams recording
+   - Have 5-minute discussion
+   - End meeting
+
+3. **Wait for processing:**
+   - System should auto-detect completed meeting
+   - Check dashboard for "Processing" status
+   - Wait 2-3 minutes for AI generation
+
+4. **Review minutes:**
+   - Open meeting in app
+   - Verify minutes content
+   - Check action items extracted
+
+5. **Approve minutes:**
    - Click "Approve"
+   - Verify email distribution
+   - Check SharePoint archival
 
-3. **Verify:**
-   - ✅ Approval workflow completes
-   - ✅ Email sent to all attendees (with SECRET clearance only)
-   - ✅ Document archived to SharePoint: `/SECRET/2025/11-November/`
-   - ✅ Document has SECRET classification banner
-   - ✅ IRM enabled (print disabled, expiration set to 365 days)
+**Success indicators:**
+- ✅ Meeting auto-captured
+- ✅ Minutes generated
+- ✅ Action items extracted
+- ✅ Email sent to attendees
+- ✅ Document uploaded to SharePoint
 
-### 11.2 Security Testing
+### 9.4 Monitor Logs
 
-**Test 1: Network Segmentation Validation**
-
+**Azure Monitor (Production):**
 ```bash
-# From UNCLASSIFIED ASEv3, attempt to connect to SECRET database
-az webapp ssh --resource-group rg-teams-unclass --name app-minutes-unclass
-
-# Inside SSH session:
-nc -zv psql-minutes-secret-shard1.postgres.database.usgovcloudapi.net 5432
+# Stream logs from Azure App Service
+az webapp log tail --name app-teams-minutes-prod --resource-group rg-teams-minutes
 ```
 
-**Expected Result:** Connection REFUSED (network isolation verified)
+**Replit Console (Development):**
+- Click **Console** tab
+- Monitor real-time logs
 
-**Test 2: Encryption in Transit**
-
-```bash
-# Verify TLS 1.2+ enforcement
-nmap --script ssl-enum-ciphers -p 443 minutes-prod.azurefd.net
-
-# Expected output:
-# TLSv1.2+
-# No weak ciphers (RC4, 3DES, etc.)
-```
-
-**Test 3: Authentication Bypass Attempt**
-
-```bash
-# Attempt to access API without authentication
-curl -X GET https://minutes-prod.azurefd.net/api/meetings
-
-# Expected: HTTP 401 Unauthorized
-```
-
-### 11.3 Performance Testing
-
-**Load Test Configuration:**
-
-```bash
-# Install Azure Load Testing
-az extension add --name load
-
-# Create load test for baseline (10K concurrent users)
-az load test create \
-  --name loadtest-minutes-10k \
-  --resource-group rg-teams-minutes-prod \
-  --load-test-config-file loadtest-config.yaml
-
-# loadtest-config.yaml:
-# version: v0.1
-# testName: Meeting Minutes Load Test
-# testPlan: jmeter-test-plan.jmx
-# engineInstances: 10
-# properties:
-#   userThreads: 1000
-#   rampUpPeriod: 300
-#   duration: 1800
-```
-
-**Performance Acceptance Criteria:**
-
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| **Response Time (p95)** | <2 seconds | Dashboard page load |
-| **Response Time (p99)** | <5 seconds | Minutes generation API |
-| **Throughput** | 10K concurrent users | Sustained load for 30 minutes |
-| **Error Rate** | <0.1% | HTTP 5xx errors |
-| **Auto-Scaling** | <3 minutes | Time to scale from 12 to 24 instances |
-
-**Success Criteria:**
-- ✅ All metrics within target thresholds
-- ✅ No database deadlocks or connection pool exhaustion
-- ✅ Auto-scaling triggered correctly at 70% CPU
-- ✅ No memory leaks (heap usage stable over 30 minutes)
-
-### 11.4 Compliance Validation
-
-**Checklist:**
-
-- [ ] **AU-2:** All security-relevant events logged
-- [ ] **AU-3:** Audit logs contain user, timestamp, action, result
-- [ ] **AU-9:** Audit logs stored in immutable storage (SECRET classification)
-- [ ] **AC-2:** User accounts tied to Azure AD groups
-- [ ] **AC-3:** Classification-based access control enforced
-- [ ] **AC-6:** Least privilege enforced (users only access their clearance level)
-- [ ] **IA-2:** Multi-factor authentication required (Azure AD Conditional Access)
-- [ ] **SC-8:** TLS 1.2+ in transit
-- [ ] **SC-28:** AES-256 at rest
-- [ ] **SC-12:** Customer-managed keys (CMK) for CONFIDENTIAL/SECRET
-
-**Validation Method:**
-
-```bash
-# Verify audit logging enabled
-az monitor diagnostic-settings list --resource /subscriptions/.../Microsoft.Web/sites/app-minutes-unclass
-
-# Verify encryption at rest (database)
-az postgres flexible-server show --name psql-minutes-conf-shard1 --resource-group rg-teams-conf --query "dataEncryption"
-
-# Expected output:
-# {
-#   "type": "AzureKeyVault",
-#   "primaryKeyURI": "https://kv-minutes-prod.vault.usgovcloudapi.net/keys/psql-conf-key/abc123"
-# }
-```
+**Key log patterns to verify:**
+- `[GraphWebhookService] Received meeting notification`
+- `[MeetingOrchestrator] Processing meeting`
+- `[MinutesGenerator] Generated minutes`
+- `[SharePointClient] Uploaded document`
+- `[EmailService] Sent distribution email`
 
 ---
 
-## 12. Troubleshooting
+## 10. Troubleshooting
 
-### 12.1 Common Issues
+### 10.1 Common Issues
 
-#### Issue: "Failed to authenticate with Azure AD (GCC High)"
+#### Issue: "Failed to authenticate with Azure AD"
 
 **Symptoms:** Login fails, shows error page
 
 **Solutions:**
 1. Verify redirect URI matches exactly (including trailing slash)
 2. Check client secret is correct and not expired
-3. Verify tenant ID is correct (.onmicrosoft.us tenant)
-4. Confirm Graph API endpoint is `https://graph.microsoft.us` (not `.com`)
-5. Check browser allows cookies from domain
+3. Verify tenant ID is correct
+4. Check browser allows cookies from domain
 
-#### Issue: "Database connection failed to sharded PostgreSQL"
+#### Issue: "Database connection failed"
 
 **Symptoms:** App crashes on startup, health check fails
 
 **Solutions:**
-1. Verify DATABASE_URL for each shard is correct
+1. Verify DATABASE_URL is correct
 2. Check Azure NSG rules allow traffic from App Service subnet to database subnet
 3. Verify database user has correct permissions
 4. Check private endpoint connection is established
 5. Verify database firewall rules allow App Service VNET
-6. Test connectivity from App Service SSH:
-   ```bash
-   az webapp ssh --name app-minutes-unclass --resource-group rg-teams-unclass
-   psql $DATABASE_URL_UNCLASSIFIED_SHARD1 -c "SELECT 1;"
-   ```
 
-#### Issue: "Azure OpenAI GCC High API error 401"
+#### Issue: "Azure OpenAI API error 401"
 
 **Symptoms:** Minutes generation fails
 
 **Solutions:**
-1. Verify API key is correct and stored in Key Vault
-2. Check endpoint URL format: `https://resource.openai.azure.us/` (not `.com`)
+1. Verify API key is correct
+2. Check endpoint URL format: `https://resource.openai.azure.com/`
 3. Verify deployment name matches (case-sensitive)
-4. Check Azure OpenAI resource is in Azure Government subscription
-5. Confirm private endpoint configured for GCC High access
+4. Check Azure OpenAI resource is in same subscription
 
-#### Issue: "SharePoint IL5 upload failed"
+#### Issue: "SharePoint upload failed"
 
 **Symptoms:** Minutes approved but SharePoint URL is null
 
 **Solutions:**
-1. Verify Sites.Selected permission granted to app registration
-2. Check site URL is correct: `https://tenant.sharepoint.us/sites/...` (not `.com`)
-3. Verify library name exists: `Minutes Archive IL5`
-4. Check folder structure created: `/UNCLASSIFIED/`, `/CONFIDENTIAL/`, `/SECRET/`
-5. Verify app has write permission to classification-specific folders
-6. Test Graph API access:
-   ```bash
-   curl -X GET "https://graph.microsoft.us/v1.0/sites/{site-id}" \
-     -H "Authorization: Bearer YOUR_TOKEN"
-   ```
+1. Verify Sites.Selected permission granted
+2. Check site URL is correct (case-sensitive)
+3. Verify library name exists
+4. Check folder structure created
+5. Verify app has write permission to site
 
-#### Issue: "Classification routing not working"
+#### Issue: "Teams webhook not receiving events"
 
-**Symptoms:** CONFIDENTIAL meetings being routed to UNCLASSIFIED backend
+**Symptoms:** Meetings not auto-captured
 
 **Solutions:**
-1. Check Azure Front Door routing rules configured correctly
-2. Verify classification middleware is enabled in application
-3. Check meeting classification metadata is set correctly
-4. Review Azure Front Door logs for routing decisions
-5. Validate NSG rules allow cross-VNet traffic for Front Door
+1. Check webhook subscription exists (Graph API)
+2. Verify notificationUrl is publicly accessible (not localhost)
+3. Check SSL certificate is valid
+4. Verify webhook endpoint responds to validation request
+5. Check subscription not expired (renews every 3 days)
 
-#### Issue: "Clearance validation failing"
-
-**Symptoms:** Users with SECRET clearance cannot access CONFIDENTIAL meetings
-
-**Solutions:**
-1. Verify Azure AD group sync is running
-2. Check user is member of `Clearance-SECRET` group
-3. Review clearance hierarchy logic (SECRET > CONFIDENTIAL > UNCLASSIFIED)
-4. Check Graph API group membership query:
-   ```bash
-   curl -X GET "https://graph.microsoft.us/v1.0/users/{user-id}/memberOf" \
-     -H "Authorization: Bearer YOUR_TOKEN"
-   ```
-
-### 12.2 Diagnostic Commands
+### 10.2 Diagnostic Commands
 
 ```bash
-# Check database connectivity (all shards)
-for shard in {1..6}; do
-  echo "Testing UNCLASSIFIED Shard $shard"
-  psql "postgresql://admin@psql-minutes-unclass-shard${shard}:...@psql-minutes-unclass-shard${shard}.postgres.database.usgovcloudapi.net/meetingminutes?sslmode=require" -c "SELECT 1;"
-done
+# Check database connectivity
+psql $DATABASE_URL -c "SELECT 1;"
 
-# Test Azure OpenAI GCC High
-curl "https://aoai-minutes-prod-gov.openai.azure.us/openai/deployments/gpt-4o-minutes/chat/completions?api-version=2024-02-15-preview" \
+# Test Azure OpenAI
+curl "https://YOUR_RESOURCE.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview" \
   -H "api-key: YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"test"}]}'
 
-# Test SharePoint access (GCC High)
-curl "https://graph.microsoft.us/v1.0/sites/SITE_ID" \
+# Test SharePoint access
+curl "https://graph.microsoft.com/v1.0/sites/SITE_ID" \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Check webhook subscription
-curl "https://graph.microsoft.us/v1.0/subscriptions" \
+curl "https://graph.microsoft.com/v1.0/subscriptions" \
   -H "Authorization: Bearer YOUR_TOKEN"
-
-# View application logs
-az webapp log tail \
-  --name app-minutes-unclass \
-  --resource-group rg-teams-unclass
-
-# Query Log Analytics for errors
-az monitor log-analytics query \
-  --workspace law-minutes-prod \
-  --analytics-query "AppServiceConsoleLogs | where Message contains 'ERROR' | top 100 by TimeGenerated desc"
 ```
 
-### 12.3 Getting Help
+### 10.3 Getting Help
 
 **Documentation:**
-- Microsoft Graph API (GCC High): https://docs.microsoft.com/graph/deployments#microsoft-graph-us-government-l5-gcc-high
-- Azure Government: https://docs.microsoft.com/azure/azure-government/
-- Azure OpenAI (Government): https://docs.microsoft.com/azure/cognitive-services/openai/how-to/government-use
-- FedRAMP Controls: https://www.fedramp.gov/documents/
+- Microsoft Graph API: https://docs.microsoft.com/graph/
+- Azure OpenAI: https://docs.microsoft.com/azure/cognitive-services/openai/
+- Teams Apps: https://docs.microsoft.com/microsoftteams/platform/
 
 **Support Channels:**
-- Azure Government Support Portal: https://portal.azure.us
-- Microsoft 365 GCC High Admin Center: https://portal.office365.us
-- DOD Cyber Crime Center (DC3): https://www.dc3.mil
-- DISA Security Technical Implementation Guides (STIGs): https://public.cyber.mil/stigs/
-
-**Escalation Path:**
-1. System Administrator → ISSO
-2. ISSO → ISSM
-3. ISSM → Authorizing Official (AO)
-4. AO → DOD Component CISO
+- Azure Support Portal
+- Microsoft 365 Admin Center (Help & Support)
+- Stack Overflow (tag: microsoft-graph)
 
 ---
 
 ## Appendix A: Environment Variable Reference
 
-### Required Variables (Azure Government)
+### Required Variables
 
 ```bash
-# Microsoft Graph API (GCC High)
-GRAPH_TENANT_ID=          # Azure AD tenant ID (.onmicrosoft.us)
+# Microsoft Graph API
+GRAPH_TENANT_ID=          # Azure AD tenant ID
 GRAPH_CLIENT_ID=          # App registration client ID
-GRAPH_CLIENT_SECRET=      # App client secret (stored in Key Vault)
-GRAPH_ENDPOINT=           # https://graph.microsoft.us
+GRAPH_CLIENT_SECRET=      # App client secret
 
-# Azure OpenAI (GCC High)
-AZURE_OPENAI_ENDPOINT=    # https://resource.openai.azure.us/
-AZURE_OPENAI_API_KEY=     # Azure OpenAI API key (stored in Key Vault)
-AZURE_OPENAI_DEPLOYMENT=  # Deployment name (e.g., gpt-4o-minutes)
+# Azure OpenAI
+AZURE_OPENAI_ENDPOINT=    # https://resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=     # Azure OpenAI API key
+AZURE_OPENAI_DEPLOYMENT=  # Deployment name (e.g., gpt-4)
 
-# Database (Sharded by Classification)
-DATABASE_URL_UNCLASSIFIED_SHARD1=   # PostgreSQL connection string (shard 1 of 6)
-DATABASE_URL_UNCLASSIFIED_SHARD2=   # PostgreSQL connection string (shard 2 of 6)
-# ...SHARD3-6
-DATABASE_URL_CONFIDENTIAL_SHARD1=   # PostgreSQL connection string (shard 1 of 4)
-# ...SHARD2-4
-DATABASE_URL_SECRET_SHARD1=         # PostgreSQL connection string (shard 1 of 2)
-DATABASE_URL_SECRET_SHARD2=         # PostgreSQL connection string (shard 2 of 2)
+# Database
+DATABASE_URL=             # PostgreSQL connection string
 
 # Session
-SESSION_SECRET=           # Random 64-character string (stored in Key Vault)
+SESSION_SECRET=           # Random 64-character string
 
-# SharePoint (GCC High)
-SHAREPOINT_SITE_URL=      # https://tenant.sharepoint.us/sites/dod-meeting-minutes
-SHAREPOINT_LIBRARY=       # Minutes Archive IL5
+# SharePoint (optional)
+SHAREPOINT_SITE_URL=      # https://tenant.sharepoint.com/sites/...
+SHAREPOINT_LIBRARY=       # Library name (e.g., Minutes Archive)
 
 # Application
-NODE_ENV=                 # production
+NODE_ENV=                 # production | development
 PORT=                     # 5000 (default)
-CLASSIFICATION_LEVEL=     # UNCLASSIFIED | CONFIDENTIAL | SECRET (per ASEv3 instance)
-
-# Security
-AZURE_KEY_VAULT_URL=      # https://kv-minutes-prod.vault.usgovcloudapi.net
-LOG_ANALYTICS_WORKSPACE_ID=  # Workspace ID for audit logging
 ```
 
 ### Optional Variables
@@ -2123,46 +1141,12 @@ MAX_CONCURRENT_JOBS=      # Default: 5
 JOB_RETRY_ATTEMPTS=       # Default: 3
 
 # Email
-EMAIL_FROM=               # Default: noreply@youragency.mil
-
-# Compliance
-ISSO_EMAIL=               # Email for security incident notifications
-ISSM_EMAIL=               # Email for compliance notifications
-AO_EMAIL=                 # Email for authorization decision notifications
+EMAIL_FROM=               # Default: noreply@yourdomain.com
 ```
 
 ---
 
-## Appendix B: FedRAMP Control Implementation Summary
-
-**Total Controls:** 421 (FedRAMP High baseline)
-
-**Implementation Status:**
-- **Fully Implemented (89%):** 375 controls designed into architecture
-- **Partially Implemented (7%):** 30 controls require organizational processes
-- **Planned (3%):** 16 controls deferred to ATO process
-
-**Key Control Families:**
-
-| Family | Controls | Implemented | Notes |
-|--------|----------|-------------|-------|
-| **Access Control (AC)** | 25 | 23 | AC-1 (policy), AC-20 (external connections) deferred |
-| **Audit and Accountability (AU)** | 15 | 15 | All implemented (immutable logging for SECRET) |
-| **Security Assessment (CA)** | 9 | 7 | CA-2 (3PAO assessment), CA-5 (POA&M) in ATO process |
-| **Configuration Management (CM)** | 11 | 10 | CM-2 (baseline) requires CCB establishment |
-| **Contingency Planning (CP)** | 13 | 13 | All implemented (tested in Month 11-12) |
-| **Identification and Auth (IA)** | 11 | 11 | All implemented (CAC/PIV via Azure AD) |
-| **Incident Response (IR)** | 10 | 9 | IR-4 (DC3 integration) completed in Month 8 |
-| **System and Comms Protection (SC)** | 52 | 51 | SC-7 (boundary protection) validated in pen test |
-
-**Detailed Control Matrix:** See FEDRAMP_CONTROL_MATRIX.md
-
-**POA&M Summary:** See POAM_DOCUMENT.md
-
----
-
-**Document Classification:** UNCLASSIFIED  
+**Document Classification:** IBM Internal - Deployment Guide  
 **Version:** 1.0  
-**Last Updated:** November 17, 2025  
-**Review Cycle:** Quarterly or after major platform updates  
-**Authorizing Official Approval:** PENDING ATO PROCESS
+**Last Updated:** November 2025  
+**Review Cycle:** Quarterly or after major platform updates

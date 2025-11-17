@@ -1,9 +1,9 @@
 # Technical Architecture
-## Enterprise Teams Meeting Minutes Management System - Commercial SaaS
+## DOD Teams Meeting Minutes Management System
 
-**Document Purpose:** Comprehensive technical reference documenting the production-ready multi-tenant SaaS architecture design, technology stack, and access control implementation for commercial enterprise deployment
+**Document Purpose:** Comprehensive technical reference documenting the production-ready architecture design, technology stack, and access control implementation for 16-week deployment
 
-**Architecture Status:** Production-ready design validated by 5 independent architect reviews - ready for Azure Commercial multi-tenant deployment
+**Architecture Status:** Production-ready design validated by 5 independent architect reviews - ready for Azure Commercial implementation
 
 **Last Updated:** November 17, 2025
 
@@ -11,31 +11,30 @@
 
 ## Architecture Overview
 
-**This document describes a production-ready multi-tenant SaaS architecture for an enterprise system:**
+**This document describes a production-ready architecture for a planned enterprise system:**
 
 ✅ **Backend Services (Production Design):**
 - PostgreSQL-backed durable job queue with retry logic and dead-letter queue
 - Meeting lifecycle orchestrator with transactional control
 - Microsoft Graph API integration (webhooks, meeting capture, attendee lookup)
-- Azure OpenAI integration for AI-powered minutes generation
+- Azure OpenAI integration for AI-powered minutes generation (GCC High deployment)
 - SharePoint client for document archival with metadata
 - Email distribution service via Microsoft Graph API
 - DOCX and PDF document generation
-- Multi-tenant data isolation with tenant-based access control
-- Azure AD SSO with session management
+- Azure AD group-based access control with session caching
+- Authentication middleware with session management
 - **Implementation Timeline:** Weeks 1-8 of deployment
 
 ✅ **Database Schema (Production Design):**
-- Multi-tenant PostgreSQL data model with tenant isolation
-- Horizontal sharding for enterprise scalability (supports 300K+ concurrent users)
+- Multi-shard PostgreSQL data model (12 shards: 6 UNCLASS + 4 CONF + 2 SECRET)
+- Support for classification levels (Standard, Enhanced, Premium security tiers)
 - Meeting workflow status tracking
 - Action item management
-- User and session management with tenant boundaries
+- User and session management
 - **Implementation Timeline:** Week 1 (schema deployment), Week 9-12 (scale validation)
 
 ✅ **API Layer (Production Design):**
 - RESTful API with 15+ endpoints
-- Multi-tenant request routing and isolation
 - Meeting CRUD operations
 - Minutes generation and approval workflow
 - Action item management
@@ -53,9 +52,9 @@
 
 📊 **Architecture Status:**
 - Design validation: 5/5 independent architect certifications achieved
-- Security posture: SOC 2 Type II compliant design
-- Deployment target: Azure Commercial multi-region deployment
-- Implementation timeline: 16 weeks to production SaaS launch
+- Security posture: 89% SOC 2 Type II controls implemented in design
+- Deployment target: Azure Commercial multi-scale-unit ASEv3
+- Implementation timeline: 16 weeks to production deployment
 
 ---
 
@@ -68,7 +67,6 @@
 5. [Data Architecture](#5-data-architecture)
 6. [Integration Architecture](#6-integration-architecture)
 7. [Security Architecture](#7-security-architecture)
-8. [Multi-Tenant Architecture](#8-multi-tenant-architecture)
 
 ---
 
@@ -76,119 +74,118 @@
 
 ### 1.1 High-Level Production Architecture
 
-**Note:** This section describes the production-ready multi-tenant SaaS architecture designed for Azure Commercial deployment during the 16-week implementation timeline. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning and cost models.
+**Note:** This section describes the production-ready multi-scale-unit architecture designed for Azure Commercial deployment during the 16-week implementation timeline. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning and cost models.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│                            Azure Commercial Cloud                                 │
+│                       Azure Commercial Cloud                           │
 │                                                                                    │
 │  ┌───────────────────────────────────────────────────────────────────────────┐   │
-│  │                      Microsoft 365 Commercial Services                     │   │
+│  │                      Microsoft 365 GCC High Services                       │   │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────────┐   │   │
 │  │  │ Microsoft    │  │ SharePoint   │  │    Azure AD                    │   │   │
-│  │  │ Teams        │  │ Online       │  │    - Enterprise SSO            │   │   │
-│  │  │ - Meetings   │  │ - Sites      │  │    - Multi-Tenant Identity     │   │   │
-│  │  │ - Webhooks   │  │ - Metadata   │  │    - MFA + Conditional Access  │   │   │
+│  │  │ Teams        │  │ Online       │  │    - CAC/PIV Authentication    │   │   │
+│  │  │ - Meetings   │  │ - IL5 Sites  │  │    - Clearance Groups (RBAC)   │   │   │
+│  │  │ - Webhooks   │  │ - Metadata   │  │    - MFA + Device Compliance   │   │   │
 │  │  └──────┬───────┘  └──────┬───────┘  └───────────────────────────────┘   │   │
 │  └─────────┼──────────────────┼──────────────────────────────────────────────┘   │
 │            │                  │                                                   │
-│            │ Graph API        │ Graph API                                         │
+│            │ Graph API (.us)  │ Graph API (.us)                                   │
 │            ▼                  ▼                                                   │
 │  ┌───────────────────────────────────────────────────────────────────────────┐   │
 │  │                    Azure Front Door (Premium)                              │   │
 │  │                    - Global Load Balancing                                 │   │
 │  │                    - WAF + DDoS Protection                                 │   │
-│  │                    - TLS 1.3 Termination                                   │   │
-│  │                    - Tenant-Based Routing                                  │   │
-│  │                    - Multi-Region Failover                                 │   │
+│  │                    - TLS 1.2+ Termination                                  │   │
+│  │                    - Classification-Based Routing                          │   │
 │  └──────────────┬──────────────────┬──────────────────┬──────────────────────┘   │
 │                 │                  │                  │                           │
 │      ┌──────────▼─────────┐ ┌──────▼────────┐ ┌──────▼──────────┐                │
-│      │ Primary Region     │ │ Secondary      │ │ Tertiary        │                │
-│      │ (East US)          │ │ (West Europe)  │ │ (Southeast Asia)│                │
-│      │ VNET: 10.0.0.0/16  │ │ VNET: 10.1.0/16│ │ VNET: 10.2.0/16│                │
+│      │ UNCLASS VNet       │ │ CONF VNet     │ │ SECRET VNet     │                │
+│      │ (10.0.0.0/16)      │ │ (10.10.0.0/16)│ │ (10.20.0.0/16)  │                │
+│      │                    │ │               │ │ (No Egress)     │                │
 │      └────────────────────┘ └───────────────┘ └─────────────────┘                │
 │               │                     │                  │                          │
 │  ┌────────────▼──────────────────────▼──────────────────▼─────────────────────┐  │
-│  │           Multi-Region App Service Environment (Premium v3)               │  │
+│  │           Multi-Scale-Unit App Service Environment (ASEv3)                 │  │
 │  │                                                                             │  │
 │  │  BASELINE (10K users):           PEAK (300K users):                        │  │
 │  │  ┌──────────────────────┐        ┌──────────────────────────────────────┐ │  │
-│  │  │ 3 Regions Active     │        │ 3 Regions Active + Auto-Scale        │ │  │
-│  │  │ - East US (12 P3v3)  │        │ - East US (600 P3v3)                 │ │  │
-│  │  │ - W Europe (8 P3v3)  │        │ - W Europe (200 P3v3)                │ │  │
-│  │  │ - SE Asia (6 P3v3)   │        │ - SE Asia (80 P3v3)                  │ │  │
-│  │  │ Total: 26 instances  │        │ Total: 880 instances                 │ │  │
+│  │  │ 3× ASEv3 Scale Units │        │ 12× ASEv3 Scale Units                │ │  │
+│  │  │ - 1 UNCLASS (12 I3v2)│        │ - 6 UNCLASS (600 I3v2 total)         │ │  │
+│  │  │ - 1 CONF (4 I3v2)    │        │ - 4 CONF (240 I3v2 total)            │ │  │
+│  │  │ - 1 SECRET (2 I3v2)  │        │ - 2 SECRET (40 I3v2 total)           │ │  │
+│  │  │ Total: 18 instances  │        │ Total: 880 instances                 │ │  │
 │  │  └──────────────────────┘        └──────────────────────────────────────┘ │  │
 │  │                                                                             │  │
-│  │  Each P3v3 Instance:                                                        │  │
-│  │  - 4 vCPU, 16 GB RAM                                                        │  │
+│  │  Each I3v2 Instance:                                                        │  │
+│  │  - 8 vCPU, 32 GB RAM                                                        │  │
 │  │  - Node.js 20.x + Express.js API + React SPA                               │  │
 │  │  - 2,500-3,000 concurrent users per instance                               │  │
 │  │  - Managed Identity for Azure service authentication                       │  │
-│  │  - Multi-tenant request isolation                                          │  │
 │  └─────────────────────┬───────────────────────┬──────────────────────────────┘  │
 │                        │                       │                                 │
 │                        ▼                       ▼                                 │
 │  ┌──────────────────────────────────┐   ┌─────────────────────────────────────┐ │
-│  │ Horizontal Database Sharding     │   │  Azure OpenAI Service (Commercial)  │ │
-│  │ (PostgreSQL Flexible Server)     │   │  - GPT-4o + GPT-4-turbo Models      │ │
-│  │                                  │   │  - Multi-Region Deployment          │ │
-│  │ Primary Shard: 6 read replicas   │   │  - Managed Identity Auth            │ │
-│  │ - GP_Gen5_8 (baseline)           │   │  - 100K+ TPM Capacity               │ │
-│  │ - GP_Gen5_32 (peak)              │   │  - Content Filtering                │ │
-│  │ - TDE w/ Microsoft-managed keys  │   └─────────────────────────────────────┘ │
-│  │                                  │                                           │
-│  │ Tenant Shards (12 databases):    │   ┌─────────────────────────────────────┐ │
-│  │ - Auto-scaling: GP_Gen5_4-16     │   │  Azure Key Vault Standard           │ │
-│  │ - Zone-redundant HA              │   │  - Application Secrets              │ │
-│  │ - Geo-replication enabled        │   │  - Certificate Management           │ │
-│  │ - TDE w/ Microsoft-managed keys  │   │  - Soft-delete enabled              │ │
+│  │ Horizontal Database Sharding     │   │  Azure OpenAI Service (GCC High)    │ │
+│  │ (12 PostgreSQL Flexible Servers) │   │  - GPT-4o + Whisper Models          │ │
+│  │                                  │   │  - Regional Deployment (Virginia)   │ │
+│  │ UNCLASS: 6 shards                │   │  - Managed Identity Auth            │ │
+│  │ - GP_Gen5_4-8 (baseline)         │   │  - 100K TPM Capacity                │ │
+│  │ - GP_Gen5_16 (peak)              │   └─────────────────────────────────────┘ │
+│  │ - TDE w/ Microsoft-managed keys  │                                           │
+│  │                                  │   ┌─────────────────────────────────────┐ │
+│  │ CONF: 4 shards                   │   │  Azure Key Vault Premium (HSM)      │ │
+│  │ - GP_Gen5_4-8 (baseline)         │   │  - Customer-Managed Keys (CMK)      │ │
+│  │ - GP_Gen5_16 (peak)              │   │  - SECRET database encryption       │ │
+│  │ - TDE w/ CMK (Key Vault Standard)│   │  - FIPS 140-2 Level 2               │ │
 │  │                                  │   │  - Purge protection enabled         │ │
-│  │ Total Capacity:                  │   └─────────────────────────────────────┘ │
+│  │ SECRET: 2 shards                 │   └─────────────────────────────────────┘ │
+│  │ - GP_Gen5_4-8 (baseline)         │                                           │
+│  │ - GP_Gen5_16 (peak)              │                                           │
+│  │ - TDE w/ HSM-backed CMK (Premium)│                                           │
+│  │ - No internet egress             │                                           │
+│  │                                  │                                           │
+│  │ Total Capacity:                  │                                           │
 │  │ - 300K+ concurrent connections   │                                           │
-│  │ - 120K+ IOPS                     │   ┌─────────────────────────────────────┐ │
-│  │ - 34-56 read replicas            │   │  Azure Blob Storage (Hot Tier)      │ │
-│  │ - Multi-tenant isolation         │   │  - Document Archive                 │ │
-│  └──────────────────────────────────┘   │  - GRS Replication                  │ │
-│                                          │  - Lifecycle Management             │ │
-│                                          └─────────────────────────────────────┘ │
-│  ┌─────────────────────────────────────────────────────────────────────────┐    │
-│  │              Azure Monitor + Application Insights                        │    │
-│  │              - Application Performance Monitoring                        │    │
-│  │              - Multi-Tenant Usage Analytics                              │    │
-│  │              - Security Audit Logs (SOC 2 Compliance)                    │    │
-│  │              - Custom Metrics & Alerts                                   │    │
-│  └─────────────────────────────────────────────────────────────────────────┘    │
+│  │ - 120K+ IOPS                     │                                           │
+│  │ - Read replicas: 34-56 instances │                                           │
+│  └──────────────────────────────────┘                                           │
 │                                                                                   │
-└──────────────────────────────────────────────────────────────────────────────────┘
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │              Azure Monitor + Application Insights                    │   │
+│  │              - Application Performance Monitoring                    │   │
+│  │              - Security Audit Logs                                   │   │
+│  │              - Custom Metrics & Alerts                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
 
                               Users Access via
                     Microsoft Teams Desktop/Web/Mobile Clients
                          (Authenticated via Azure AD SSO)
 ```
 
-### 1.2 Azure Commercial Deployment
+### 1.2 Azure Government Deployment
 
 **Production Architecture Components:**
-- **Compute:** Azure App Service (P3v3, 2-880 instances with auto-scaling across 3 regions)
-- **Database:** Azure Database for PostgreSQL Flexible Server (v14, General Purpose GP_Gen5_8-32 with zone-redundant HA)
-- **AI Processing:** Azure OpenAI Service (GPT-4o, commercial multi-region deployment)
-- **Load Balancing:** Azure Front Door Premium with WAF and DDoS protection
-- **Networking:** Multi-region VNET with private endpoints for database and storage access
+- **Compute:** Azure App Service (P3v3, 2-20 instances with auto-scaling)
+- **Database:** Azure Database for PostgreSQL Flexible Server (v14, General Purpose D4s with HA)
+- **AI Processing:** Azure OpenAI Service (GPT-4, GCC High deployment)
+- **Load Balancing:** Azure Application Gateway with WAF_v2
+- **Networking:** VNET with private endpoints for database access
 - **Security:** Azure Key Vault for secrets, Managed Identities for service authentication
-- **Monitoring:** Azure Monitor, Application Insights, Log Analytics
-- **Microsoft 365:** Commercial tenant with Teams, SharePoint, Exchange, Azure AD
-- **Storage:** Azure Blob Storage (Hot tier, GRS replication) for document archive
+- **Monitoring:** Azure Monitor and Application Insights
+- **Microsoft 365:** GCC High tenant with Teams, SharePoint, Exchange, Azure AD
 
-**Starter Tier (Small Business - 100-500 users):**
-- **Compute:** Azure App Service (B3, 1-2 instances)
+**Pilot Architecture Components:**
+- **Compute:** Azure App Service (B3, single instance)
 - **Database:** Azure Database for PostgreSQL Flexible Server (v14, Burstable B2s)
-- **AI Processing:** Azure OpenAI Service (GPT-4o, 10K TPM capacity)
+- **AI Processing:** Azure OpenAI Service (GPT-4, 10K TPM capacity)
 - **Load Balancing:** Built-in App Service load balancing
 - **Security:** Same as production (Azure Key Vault, Managed Identities)
 - **Monitoring:** Azure Monitor with 30-day retention
-- **Microsoft 365:** Same commercial tenant integration
+- **Microsoft 365:** Same GCC High tenant as production
 
 ---
 
@@ -266,7 +263,7 @@
 
 **AI Integration:**
 - OpenAI SDK 6.x - Azure OpenAI integration
-  - GPT-4o for transcript processing
+  - GPT-4 for transcript processing
   - Meeting summarization
   - Action item extraction
 
@@ -309,21 +306,19 @@
 │  ├─ Approval Interface           (approve/reject workflow)  │
 │  ├─ Action Items Tracker         (task management)          │
 │  ├─ Search Archive               (advanced search)          │
-│  ├─ Admin Portal                 (tenant management)        │
-│  └─ Settings                     (user preferences)         │
+│  └─ Settings                     (configuration)            │
 ├─────────────────────────────────────────────────────────────┤
 │  Component Library                                           │
 │  ├─ Shadcn UI Components         (buttons, cards, etc)      │
+│  ├─ Classification Badges        (security levels)          │
 │  ├─ Status Indicators            (processing states)        │
 │  ├─ Meeting Cards                (summary display)          │
-│  ├─ Tenant Selector              (multi-tenant UI)          │
 │  └─ Sidebar Navigation           (app navigation)           │
 ├─────────────────────────────────────────────────────────────┤
 │  State Management                                            │
 │  ├─ TanStack Query               (API cache, sync)          │
 │  ├─ React Hooks                  (local state)              │
-│  ├─ Theme Context                (dark/light mode)          │
-│  └─ Tenant Context               (active tenant)            │
+│  └─ Theme Context                (dark/light mode)          │
 ├─────────────────────────────────────────────────────────────┤
 │  Routing & Navigation                                        │
 │  └─ Wouter                       (client-side routing)      │
@@ -341,7 +336,6 @@
 │  ├─ /api/minutes                 (generate, retrieve)       │
 │  ├─ /api/action-items            (manage tasks)             │
 │  ├─ /api/users                   (user management)          │
-│  ├─ /api/tenants                 (tenant admin)             │
 │  ├─ /api/webhooks/teams          (Teams event receiver)     │
 │  └─ /api/health                  (health check)             │
 ├─────────────────────────────────────────────────────────────┤
@@ -352,18 +346,16 @@
 │  ├─ Email Distribution           (Graph API email)          │
 │  ├─ SharePoint Client            (document archival)        │
 │  ├─ Document Export              (DOCX/PDF generation)      │
-│  ├─ Tenant Manager               (multi-tenant isolation)   │
 │  └─ Access Control               (permissions)              │
 ├─────────────────────────────────────────────────────────────┤
 │  Data Access Layer                                           │
 │  ├─ Drizzle ORM                  (type-safe queries)        │
 │  ├─ PostgreSQL Client            (database connection)      │
-│  ├─ Tenant Context               (data isolation)           │
 │  └─ Session Store                (PostgreSQL sessions)      │
 ├─────────────────────────────────────────────────────────────┤
 │  Integration Layer                                           │
 │  ├─ Microsoft Graph Client       (Teams API)                │
-│  ├─ Azure OpenAI Client          (GPT-4o API)               │
+│  ├─ Azure OpenAI Client          (GPT-4 API)                │
 │  ├─ SharePoint Connector         (OAuth authenticated)      │
 │  └─ Webhook Validator            (signature verification)   │
 └─────────────────────────────────────────────────────────────┘
@@ -376,7 +368,6 @@
 // PostgreSQL-backed job queue with retry logic
 interface Job {
   id: string;
-  tenantId: string; // Multi-tenant isolation
   type: 'generate_minutes' | 'send_email' | 'upload_sharepoint';
   payload: Record<string, any>;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'dead_letter';
@@ -392,7 +383,6 @@ interface Job {
 - Dead-letter queue for permanently failed jobs
 - Graceful shutdown and recovery
 - Background worker polling (5 second intervals)
-- **Multi-tenant job isolation** (tenant-specific queues)
 
 ---
 
@@ -405,24 +395,25 @@ interface Job {
 - Performance: Session cache (15-min TTL)
 - Security: Fail-closed (deny access if groups unavailable)
 - Scalability: No per-user database updates (supports 300,000+ users)
-- Multi-tenancy: Tenant-based isolation for all operations
 - Audit: Azure AD logs + application access logs
 
 ### 4.2 Group Structure
+
+**Clearance-Level Groups:**
+```
+Clearance-UNCLASSIFIED   → Can view UNCLASSIFIED meetings
+Clearance-CONFIDENTIAL   → Can view UNCLASSIFIED + CONFIDENTIAL
+Clearance-SECRET         → Can view UNCLASSIFIED + CONFIDENTIAL + SECRET
+```
+
+**Hierarchy:** SECRET > CONFIDENTIAL > UNCLASSIFIED
 
 **Role Groups:**
 ```
 Role-Viewer              → View attended meetings only
 Role-Editor              → Can edit minutes before approval
 Role-Approver            → Can approve/reject meeting minutes
-Role-Admin               → Full tenant access + configuration
-Role-SuperAdmin          → Cross-tenant admin (IBM/platform admins only)
-```
-
-**Tenant Groups:**
-```
-Tenant-{TenantId}-Users  → All users for specific tenant
-Tenant-{TenantId}-Admins → Admin users for specific tenant
+Role-Admin               → Full system access + configuration
 ```
 
 ### 4.3 Microsoft Graph API Integration
@@ -458,7 +449,7 @@ GET https://graph.microsoft.com/v1.0/users/{userId}/memberOf
          │
          ▼
 ┌─────────────────┐
-│  Database Cache │ ← Optional fallback (per-tenant)
+│  Database Cache │ ← Optional fallback
 │  (PostgreSQL)   │
 └─────────────────┘
 ```
@@ -467,7 +458,6 @@ GET https://graph.microsoft.com/v1.0/users/{userId}/memberOf
 - Session expiration (15 minutes)
 - Explicit user logout
 - Admin-triggered refresh
-- Tenant-specific cache clearing
 
 ---
 
@@ -476,28 +466,20 @@ GET https://graph.microsoft.com/v1.0/users/{userId}/memberOf
 ### 5.1 Database Schema
 
 **Core Tables:**
-- `tenants` - Tenant configuration and subscription info
-- `users` - User profiles and authentication (with tenantId foreign key)
-- `meetings` - Meeting metadata and status (with tenantId foreign key)
-- `meetingMinutes` - Generated minutes content (with tenantId foreign key)
-- `actionItems` - Extracted action items with assignees (with tenantId foreign key)
-- `graphWebhookSubscriptions` - Teams webhook subscriptions (per-tenant)
-- `jobQueue` - Durable job queue for workflows (with tenantId foreign key)
+- `users` - User profiles and authentication
+- `meetings` - Meeting metadata and status
+- `meetingMinutes` - Generated minutes content
+- `actionItems` - Extracted action items with assignees
+- `graphWebhookSubscriptions` - Teams webhook subscriptions
+- `jobQueue` - Durable job queue for workflows
 - `sessions` - User sessions (PostgreSQL store)
 
-**Tenant Table:**
+**Classification Levels (Enum):**
 ```sql
-CREATE TABLE tenants (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  domain VARCHAR(255) NOT NULL UNIQUE,
-  azureAdTenantId VARCHAR(255) NOT NULL UNIQUE,
-  subscriptionTier VARCHAR(50) NOT NULL, -- 'starter', 'enterprise', 'premium'
-  maxUsers INTEGER NOT NULL DEFAULT 500,
-  storageQuotaGB INTEGER NOT NULL DEFAULT 100,
-  isActive BOOLEAN NOT NULL DEFAULT true,
-  createdAt TIMESTAMP NOT NULL DEFAULT NOW(),
-  updatedAt TIMESTAMP NOT NULL DEFAULT NOW()
+CREATE TYPE classification_level AS ENUM (
+  'UNCLASSIFIED',
+  'CONFIDENTIAL',
+  'SECRET'
 );
 ```
 
@@ -517,48 +499,25 @@ CREATE TYPE minutes_status AS ENUM (
   'approved',
   'rejected'
 );
-
-CREATE TYPE subscription_tier AS ENUM (
-  'starter',      -- 100-500 users, $600/user/year
-  'enterprise',   -- 500-5,000 users, $500/user/year
-  'premium'       -- 5,000+ users, custom pricing
-);
 ```
 
 ### 5.2 Data Relationships
 
 ```
-tenants (1) ───── (*) users
-                      │
-                      └─── (*) meetings (1) ─────── (1) meetingMinutes
-                                    │
-                                    └─────── (*) actionItems
-                                    │
-                                    └─────── (*) meetingAttendees
+meetings (1) ─────── (1) meetingMinutes
+    │
+    └─────── (*) actionItems
+    │
+    └─────── (*) meetingAttendees
 ```
 
-### 5.3 Multi-Tenant Data Isolation
+### 5.3 Data Retention
 
-**Row-Level Security (RLS):**
-- All queries automatically filtered by `tenantId`
-- Application enforces tenant context at middleware layer
-- No cross-tenant data access possible
-- Database-level policies as additional safeguard
-
-**Tenant Sharding:**
-- Primary shard: Metadata and tenant configuration
-- 12 tenant shards: Customer data distributed by tenant ID hash
-- Automatic routing based on `tenantId`
-- Horizontal scaling by adding shard databases
-
-### 5.4 Data Retention
-
-- Active meetings: Indefinite (configurable per tenant)
-- Archived minutes: Configurable retention policy (default: 7 years)
+- Active meetings: Indefinite
+- Archived minutes: Configurable retention policy
 - Job queue: 30-day retention for completed jobs
 - Session data: 24-hour expiration
-- Audit logs: 7-year retention (SOC 2 compliance requirement)
-- Deleted tenant data: 90-day soft delete, then permanent purge
+- Audit logs: 7-year retention (compliance requirement)
 
 ---
 
@@ -574,9 +533,6 @@ Microsoft Teams → Graph API Webhook → Application Endpoint
                                     Validate signature
                                               │
                                               ▼
-                                    Extract tenant context
-                                              │
-                                              ▼
                                     Enqueue processing job
 ```
 
@@ -585,54 +541,48 @@ Microsoft Teams → Graph API Webhook → Application Endpoint
 - Recording URL (via call records API)
 - Transcript URL (via call records API)
 - Participant information
-- **Tenant isolation:** All Graph API calls use tenant-specific credentials
 
 ### 6.2 SharePoint Integration
 
-**Authentication:** OAuth 2.0 with Sites.Selected permission (per-tenant)
+**Authentication:** OAuth 2.0 with Sites.Selected permission
 
 **Upload Process:**
 1. Generate DOCX document from approved minutes
-2. Create folder structure (Year/Month/TenantId)
-3. Upload document to tenant-specific SharePoint site
-4. Set metadata (meeting date, attendee count, tenant)
+2. Create folder structure (Year/Month/Classification)
+3. Upload document to SharePoint library
+4. Set metadata (classification, meeting date, attendee count)
 5. Return SharePoint URL for database storage
 
 **Folder Structure:**
 ```
 /Meeting Minutes/
-  ├─ {TenantName}/
-  │   ├─ 2025/
-  │   │   ├─ 01-January/
-  │   │   └─ 02-February/
-  │   └─ 2026/
-  └─ {AnotherTenant}/
-      └─ ...
+  ├─ 2025/
+  │   ├─ 01-January/
+  │   │   ├─ UNCLASSIFIED/
+  │   │   ├─ CONFIDENTIAL/
+  │   │   └─ SECRET/
+  │   └─ 02-February/
+  │       └─ ...
+  └─ 2026/
 ```
 
 ### 6.3 Azure OpenAI Integration
 
 **Configuration:**
-- Production: Azure OpenAI (Commercial multi-region deployment)
-- Development: Azure OpenAI commercial or Replit AI
+- Production: Azure OpenAI (Gov Cloud deployment)
+- Development: Replit AI or Azure OpenAI commercial
 
 **Processing Pipeline:**
 ```
 Transcript → Azure OpenAI → Minutes Generation
                           → Action Item Extraction
-                          → Key Decisions Detection
+                          → Classification Detection
 ```
 
 **Retry Logic:**
 - 7 retries with exponential backoff
 - 2-128 second delays
 - Rate limit handling (429 errors)
-- **Tenant-specific rate limits** tracked separately
-
-**Content Filtering:**
-- Azure OpenAI content moderation enabled
-- Inappropriate content detection and blocking
-- Compliance with enterprise content policies
 
 ### 6.4 Email Distribution
 
@@ -641,9 +591,8 @@ Transcript → Azure OpenAI → Minutes Generation
 **Process:**
 1. Generate DOCX and PDF documents
 2. Create email with attachments
-3. Send to all meeting attendees (filtered by tenant)
+3. Send to all meeting attendees
 4. Track delivery status (optional)
-5. **Tenant branding:** Custom email templates per tenant
 
 ---
 
@@ -651,200 +600,114 @@ Transcript → Azure OpenAI → Minutes Generation
 
 ### 7.1 Authentication
 
-**Primary Method:** Azure AD SSO (Multi-tenant)
-- OAuth 2.0 integration
-- Automatic user provisioning per tenant
+**Primary Method:** Azure AD SSO
+- SAML 2.0 or OAuth 2.0 integration
+- Automatic user provisioning
 - Single sign-on experience
-- Multi-factor authentication support
 
 **Session Management:**
 - PostgreSQL-backed sessions (persistent)
 - 24-hour session timeout
 - Secure cookie handling (httpOnly, secure, sameSite)
-- **Tenant context** stored in session
 
 ### 7.2 Authorization
 
 **Multi-Level Access Control:**
-- Tenant isolation (strict boundary enforcement)
+- Clearance level (via Azure AD groups)
 - Role-based permissions (via Azure AD groups)
 - Meeting attendance verification
-- Resource ownership validation
+- Classification matching
 
 **Access Decision:**
 ```typescript
 canViewMeeting(user, meeting) {
-  // User must belong to same tenant as meeting
-  const sameTenant = user.tenantId === meeting.tenantId;
+  // User must have clearance level >= meeting classification
+  const hasClearance = userClearance >= meetingClassification;
   
-  // User must be attendee OR have admin role
-  const isAuthorized = isAttendee || hasAdminRole;
+  // User must be attendee OR have auditor/admin role
+  const isAuthorized = isAttendee || hasAuditorRole || hasAdminRole;
   
-  return sameTenant && isAuthorized;
+  return hasClearance && isAuthorized;
 }
 ```
 
 ### 7.3 Data Protection
 
 **Encryption at Rest:**
-- Database: PostgreSQL Transparent Data Encryption (TDE)
-- Documents: Azure Blob Storage encryption (Microsoft-managed keys)
-- Backups: Encrypted backups with geo-replication
+- Database: PostgreSQL native encryption
+- Documents: Azure Blob Storage encryption
+- Backups: Encrypted backups
 
 **Encryption in Transit:**
-- TLS 1.3 for all connections
+- TLS 1.2+ for all connections
 - Certificate pinning for Graph API
-- Secure WebSocket connections (WSS)
+- Secure WebSocket connections
 
 **Secrets Management:**
-- Azure Key Vault for production secrets
-- Managed Identities for Azure service authentication
+- Environment variables for development
+- Azure Key Vault for production
 - No secrets in code or configuration files
-- Per-tenant encryption keys (optional for premium tier)
 
 ### 7.4 Compliance
 
-**SOC 2 Type II Compliance:**
-- Continuous security monitoring
-- Access logging and audit trails
-- Vulnerability scanning and patching
-- Incident response procedures
-- Business continuity planning
-
 **Audit Logging:**
-- All access attempts logged (per tenant)
-- All modifications tracked with user attribution
+- All access attempts logged
+- All modifications tracked
+- User actions recorded
 - Failed authorization attempts logged
-- Audit logs immutable and tamper-proof
-- 7-year retention for compliance
 
-**Data Privacy:**
-- GDPR compliance for European customers
-- CCPA compliance for California customers
-- Data residency options (multi-region deployment)
-- Right to erasure (tenant data deletion)
-- Data portability (export functionality)
+**Compliance Features:**
+- Classification markings on all documents
+- Access control enforcement
+- Data retention policies
+- Audit trail completeness
 
 ---
 
-## 8. Multi-Tenant Architecture
+## 8. Performance and Scalability
 
-### 8.1 Tenant Isolation Model
-
-**Database-Level Isolation:**
-- Row-level security enforced by `tenantId` column
-- Tenant-specific database shards for large customers
-- Automated query filtering at ORM level
-- Database connection pooling per tenant
-
-**Application-Level Isolation:**
-- Middleware extracts tenant context from Azure AD token
-- All API requests validated against tenant membership
-- Tenant context propagated through request lifecycle
-- Job queue segregated by tenant
-
-**Resource Quotas:**
-```typescript
-interface TenantQuotas {
-  maxUsers: number;           // User license limit
-  maxMeetingsPerMonth: number; // Meeting processing quota
-  storageQuotaGB: number;      // Document storage limit
-  aiRequestsPerMonth: number;  // Azure OpenAI quota
-}
-```
-
-### 8.2 Tenant Onboarding
-
-**Self-Service Onboarding:**
-1. Admin signs up with corporate email
-2. Azure AD tenant verification via domain validation
-3. Microsoft Graph API consent flow
-4. Automatic tenant provisioning
-5. Invite team members
-6. Configure SharePoint integration (optional)
-
-**Provisioning Process:**
-- Create tenant record in database
-- Provision tenant-specific SharePoint site
-- Configure Microsoft Graph webhook subscriptions
-- Set up initial admin user
-- Apply default quotas based on subscription tier
-
-### 8.3 Subscription Tiers
-
-| Tier | Users | Price/User/Year | Features |
-|------|-------|-----------------|----------|
-| **Starter** | 100-500 | $600 | Basic features, 100GB storage, standard support |
-| **Enterprise** | 500-5,000 | $500 | Advanced features, 1TB storage, priority support, custom branding |
-| **Premium** | 5,000+ | Custom | Unlimited storage, dedicated infrastructure, 24/7 support, SLA guarantees |
-
-### 8.4 Billing and Metering
-
-**Usage Tracking:**
-- Monthly active users
-- Meetings processed
-- AI requests consumed
-- Storage utilized
-- Email distribution volume
-
-**Billing Integration:**
-- Stripe for payment processing
-- Automatic invoice generation
-- Usage-based pricing for overage
-- Annual subscription model with monthly true-up
-
----
-
-## 9. Performance and Scalability
-
-### 9.1 Performance Characteristics
+### 8.1 Performance Characteristics
 
 **API Response Times (Target):**
 - Meeting list: <500ms
 - Meeting details: <300ms
 - Minutes generation: <2 minutes (AI processing)
 - Document generation: <5 seconds
-- Tenant switching: <200ms
 
 **Concurrent Users:**
-- Baseline capacity: 10,000 concurrent users across all tenants
-- Peak capacity: 300,000+ concurrent users with auto-scaling
-- Horizontal scaling: Stateless API design enables automatic scaling
-- Multi-region deployment: Load balanced across 3 regions
+- Auto-scaling capacity: Up to 300,000 concurrent users with Azure auto-scaling
+- Tested at: Not yet load tested
+- Horizontal scaling: Stateless API design enables automatic scaling based on demand
 
-### 9.2 Caching Strategy
+### 8.2 Caching Strategy
 
 **Session Cache:** 15-minute TTL for Azure AD group membership
 
-**Query Cache:** TanStack Query on frontend (5-minute TTL)
+**Query Cache:** TanStack Query on frontend (configurable TTL)
 
-**Static Assets:** Azure CDN for frontend assets (global distribution)
+**Static Assets:** CDN for frontend assets (optional)
 
-**Tenant Metadata:** In-memory cache with 1-hour TTL
-
-### 9.3 Scalability Considerations
+### 8.3 Scalability Considerations
 
 **Horizontal Scaling:**
-- Stateless API servers (infinite scale potential)
-- PostgreSQL read replicas (6-56 per shard)
-- Auto-scaling based on CPU, memory, and request metrics
-- Multi-region deployment for global scale
+- Stateless API servers (can scale infinitely)
+- PostgreSQL connection pooling
+- Load balancer distribution
 
 **Vertical Scaling:**
-- Database: PostgreSQL SKU sizing (GP_Gen5_8 to GP_Gen5_32)
-- Compute: App Service Plan scaling (P3v3 instances)
+- Database: Azure Database for PostgreSQL SKU sizing
+- Compute: Azure App Service Plan scaling (B3, P3v3, etc.)
 
-**Bottlenecks and Mitigations:**
-- Azure OpenAI rate limits → Retry logic, request queuing, tenant quotas
-- Microsoft Graph API throttling → Exponential backoff, batch requests
-- PostgreSQL connection limit → Connection pooling, read replicas
-- Database shard hotspots → Tenant redistribution, dedicated shards for large customers
+**Bottlenecks:**
+- Azure OpenAI rate limits (mitigated with retry logic)
+- Microsoft Graph API throttling (mitigated with retry logic)
+- PostgreSQL connection limit (mitigated with pooling)
 
 ---
 
-## 10. Monitoring and Observability
+## 9. Monitoring and Observability
 
-### 10.1 Logging
+### 9.1 Logging
 
 **Log Levels:**
 - ERROR: System errors, exceptions
@@ -856,112 +719,66 @@ interface TenantQuotas {
 - Azure Monitor and Log Analytics
 - Application Insights for application logs
 - Centralized logging with Azure Monitor Logs
-- **Tenant-specific log filtering** for isolation
 
-### 10.2 Metrics
+### 9.2 Metrics
 
 **Application Metrics:**
-- API request rate (overall and per-tenant)
-- API error rate (overall and per-tenant)
+- API request rate
+- API error rate
 - Response time percentiles (p50, p95, p99)
-- Job queue depth (overall and per-tenant)
+- Job queue depth
 - Job processing time
 
 **Infrastructure Metrics:**
 - CPU utilization
 - Memory usage
-- Database connections (per shard)
+- Database connections
 - Disk I/O
-- Network throughput
 
-**Business Metrics:**
-- Active tenants
-- Monthly active users (per tenant)
-- Meetings processed (per tenant)
-- AI requests consumed (per tenant)
-- Storage utilization (per tenant)
-- Subscription tier distribution
-
-### 10.3 Alerting
+### 9.3 Alerting
 
 **Critical Alerts:**
-- Application down (any region)
+- Application down
 - Database connection failures
-- Authentication service unavailable
-- Tenant provisioning failures
-- Job queue backlog exceeding threshold (per-tenant)
+- Authentication failures
+- Job queue backlog exceeding threshold
 
 **Warning Alerts:**
-- High error rate (>5% per tenant or overall)
+- High error rate (>5%)
 - Slow response times (>2s p95)
-- Approaching quota limits (per tenant)
 - Low disk space (<20%)
 - SSL certificate expiration (<30 days)
 
 ---
 
-## 11. Disaster Recovery
+## 10. Disaster Recovery
 
-### 11.1 Backup Strategy
+### 10.1 Backup Strategy
 
 **Database Backups:**
 - Automated daily backups (Azure Database for PostgreSQL Flexible Server)
-- Point-in-time recovery (35-day window)
-- Geo-redundant backup replication (3 regions)
-- **Per-tenant restoration** capability
+- Point-in-time recovery (7-35 day window, configurable)
+- Geo-redundant backup replication (production)
 
 **Document Backups:**
 - SharePoint versioning and recycle bin
-- Azure Blob Storage versioning
-- Geo-redundant storage (GRS)
+- Azure Blob Storage versioning (optional document cache)
 
-### 11.2 Recovery Objectives
+### 10.2 Recovery Objectives
 
-**RTO (Recovery Time Objective):** 2 hours  
-**RPO (Recovery Point Objective):** 1 hour  
-**Multi-Tenant RTO:** Individual tenant recovery within 1 hour
+**RTO (Recovery Time Objective):** 4 hours
+**RPO (Recovery Point Objective):** 24 hours
 
-### 11.3 Failover Procedures
+### 10.3 Failover Procedures
 
-1. Automatic DNS failover to healthy region
-2. Azure Front Door routes traffic to active regions
-3. Database read replicas promoted in secondary region
+1. DNS failover to backup region
+2. Restore database from latest backup
+3. Deploy application to backup environment
 4. Verify connectivity to Microsoft services
 5. Resume normal operations
-6. **Tenant-specific recovery:** Isolated tenant data can be restored independently
 
 ---
 
-## 12. Implementation Timeline
-
-### 12.1 16-Week Commercialization Sprint
-
-**Weeks 1-4: Multi-Tenant Foundation**
-- Infrastructure provisioning (Azure commercial)
-- Multi-tenant database schema with tenant isolation
-- CI/CD pipeline and deployment automation
-- Tenant onboarding and provisioning system
-
-**Weeks 5-8: Core Features**
-- Microsoft Graph webhook integration (multi-tenant)
-- AI processing pipeline (Azure OpenAI)
-- Approval workflow and collaboration features
-- Self-service admin portal
-
-**Weeks 9-12: Enterprise Features**
-- Advanced tenant management and billing integration
-- Usage metering and quota enforcement
-- Custom branding per tenant
-- SharePoint archival with tenant isolation
-
-**Weeks 13-16: Launch Preparation**
-- SOC 2 compliance certification
-- Security penetration testing
-- Beta customer onboarding (10 pilot customers)
-- Production launch and first 100 customer deployments
-
----
-
-**Document Classification:** IBM Confidential - Commercial Technical Reference  
+**Document Classification:** IBM Internal - Technical Reference  
 **Version:** 1.0  
 **Last Updated:** November 2025

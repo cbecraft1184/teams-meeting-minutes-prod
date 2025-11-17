@@ -270,10 +270,10 @@ _See POAM_DOCUMENT.md for detailed remediation plan and FEDRAMP_CONTROL_MATRIX.m
 - Complements IBM's DOD modernization portfolio
 - Demonstrates AI/automation capabilities in secure environments
 
-**Revenue Potential:**
-- **SaaS Recurring Revenue:** $650K-$13M/year (depending on scale)
-- **Implementation Services:** $1.8M-$2.2M per deployment
-- **Expansion Potential:** Other federal agencies, NATO allies, commercial enterprise
+**Contract Value (DOD Deployment Model):**
+- **Annual Operations & Support:** $650K-$13M/year (depending on DOD scale requirements)
+- **Initial Implementation:** $1.8M-$2.2M one-time deployment cost
+- **Expansion Potential:** Other DOD branches, federal agencies, allied defense forces
 
 ### Go-to-Market Strategy
 
@@ -284,7 +284,7 @@ _See POAM_DOCUMENT.md for detailed remediation plan and FEDRAMP_CONTROL_MATRIX.m
 
 **Phase 2: DOD Enterprise (Months 13-24)**
 - Target: Cross-service deployment (100K users)
-- Pricing: Tiered SaaS pricing ($50-$75/user/year)
+- Pricing: Government cost-recovery model ($50-$75/user/year)
 - Deliverable: Multi-tenant architecture, self-service onboarding
 
 **Phase 3: Federal Expansion (Months 25+)**
@@ -340,7 +340,7 @@ _See POAM_DOCUMENT.md for detailed remediation plan and FEDRAMP_CONTROL_MATRIX.m
 
 ---
 
-**Document Classification:** IBM Internal - Executive Decision Support  
-**Prepared For:** IBM Leadership Team  
+**Document Classification:** UNCLASSIFIED  
+**Prepared For:** DOD Leadership & IBM Government Solutions Team  
 **Date:** November 2025  
-**Validity:** Investment analysis based on current market conditions and DOD requirements
+**Validity:** Investment analysis for DOD enterprise deployment contract

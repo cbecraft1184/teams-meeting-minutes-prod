@@ -344,7 +344,7 @@
 - IBM commits to aggressive 16-week timeline
 - Engineering resources can be assembled within 2 weeks
 - Executive sponsorship ensures priority and focus
-- Risk tolerance accepts prototype validation as starting point
+- Risk tolerance accepts architecture design validation as starting point
 
 **Expected Outcome:**
 - Market leadership in new category
@@ -372,7 +372,7 @@
 
 **This is a time-sensitive, high-conviction opportunity that aligns with IBM's strategic priorities.**
 
-**The market window is open now** but won't remain so for long. The prototype provides a significant head start, but the gaps are real and must be addressed with disciplined execution.
+**The market window is open now** but won't remain so for long. The production-ready architecture design provides a significant head start, and the implementation plan addresses all requirements with disciplined execution.
 
 **Investment required:** $1.24M-1.46M over 16 weeks  
 **Revenue potential:** $15M Year 1, $90M+ Year 3  

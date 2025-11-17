@@ -2,7 +2,7 @@
 ## DOD Teams Meeting Minutes Management System - Complete Documentation Library
 
 **Last Updated:** January 2025  
-**Document Count:** 19 (Dual-scenario: DOD Deployment + DOD Enterprise Deployment)  
+**Document Count:** 19 (Dual-scenario: DOD Deployment + IBM Commercial SaaS)  
 **Classification:** UNCLASSIFIED
 
 ---
@@ -16,10 +16,10 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 ## Quick Navigation by Audience
 
 ### 🎯 For Executives & Decision Makers
-1. [EXECUTIVE_SUMMARY_CONCISE.md](#1-executive_summary_concisemd) - DOD Enterprise Deployment
-2. [EXECUTIVE_SUMMARY_COMPREHENSIVE.md](#2-executive_summary_comprehensivemd) - DOD Enterprise Deployment
+1. [EXECUTIVE_SUMMARY_CONCISE.md](#1-executive_summary_concisemd) - IBM Commercial SaaS
+2. [EXECUTIVE_SUMMARY_COMPREHENSIVE.md](#2-executive_summary_comprehensivemd) - IBM Commercial SaaS
 3a. [INVESTMENT_SNAPSHOT_DOD.md](#3a-investment_snapshot_dodmd) - DOD Deployment
-3b. [INVESTMENT_SNAPSHOT_COMMERCIAL.md](#3b-investment_snapshot_commercialmd) - DOD Enterprise Deployment
+3b. [INVESTMENT_SNAPSHOT_COMMERCIAL.md](#3b-investment_snapshot_commercialmd) - IBM Commercial SaaS
 4. [EXECUTIVE_DOCUMENTS_GUIDE.md](#4-executive_documents_guidemd)
 
 ### 🏗️ For Architects & Technical Leaders
@@ -57,7 +57,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Key Contents:**
 - Market opportunity and competitive positioning
 - Technology differentiation vs NIPRGPT/Copilot
-- 16-week implementation timeline
+- 16-week commercialization timeline
 - Investment requirements ($400K-600K)
 - Risk assessment and go/no-go decision framework
 - Critical success metrics
@@ -101,15 +101,15 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 
 #### 3b. INVESTMENT_SNAPSHOT_COMMERCIAL.md
 **Audience:** IBM Executive Leadership  
-**Purpose:** Investment analysis for DOD Enterprise Deployment product launch  
+**Purpose:** Investment analysis for IBM commercial SaaS product launch  
 **Length:** ~15 pages  
 **Key Contents:**
-- Commercial SaaS market opportunity (2.75M DOD personnel addressable market, $280M addressable)
+- Commercial SaaS market opportunity ($2B+ TAM, $280M addressable)
 - Competitive landscape and 12-18 month first-mover window
-- Financial model ($1.4M investment, $650K-$13M annual operations, government cost-recovery model)
-- Multi-year growth projection (scaled operations costs revenue potential)
+- Financial model ($1.4M investment, $15M Year 1 revenue, 8-10x ROI)
+- Multi-year growth projection ($90M Year 3 revenue potential)
 - Strategic fit with IBM portfolio and go-to-market strategy
-- 16-week implementation sprint timeline
+- 16-week commercialization sprint timeline
 
 **When to Read:** For IBM commercial product investment decisions
 

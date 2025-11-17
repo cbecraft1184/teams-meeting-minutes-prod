@@ -103,7 +103,7 @@
 
 ### Status & Feedback
 **Classification Badges**:
-- Small pills with classification level (Standard, Enhanced, Premium security tiers)
+- Small pills with classification level (UNCLASSIFIED, CONFIDENTIAL, SECRET)
 - Distinct visual treatment, positioned prominently on documents
 
 **Processing Status**:

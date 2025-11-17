@@ -1,7 +1,7 @@
 # SharePoint Integration Plan
 ## DOD Teams Meeting Minutes Management System
 
-**Document Purpose:** Comprehensive SharePoint integration implementation plan for archiving meeting minutes with classification handling and metadata management in Azure Commercial
+**Document Purpose:** Comprehensive SharePoint integration implementation plan for archiving meeting minutes with classification handling and metadata management in Azure Government (GCC High)
 
 **Last Updated:** November 13, 2025  
 **Status:** Implementation Guide  
@@ -20,7 +20,7 @@ This document provides detailed technical specifications for integrating the DOD
 **In Scope:**
 - SharePoint Online GCC High integration via Microsoft Graph API
 - Automated minutes archival workflow
-- Classification-aware metadata tagging (Standard, Enhanced, Premium security tiers)
+- Classification-aware metadata tagging (UNCLASSIFIED, CONFIDENTIAL, SECRET)
 - Retention label assignment and lifecycle management
 - OAuth/On-Behalf-Of authentication flows
 - Document lifecycle management
@@ -43,7 +43,7 @@ Process:
   4. Apply retention label based on classification level
   5. Create audit log entry
   6. Return SharePoint document URL
-Compliance: DFARS, NARA, DoDI 5015.02, SOC 2 Type II
+Compliance: DFARS, NARA, DoDI 5015.02, FedRAMP High
 ```
 
 ---
@@ -54,7 +54,7 @@ Compliance: DFARS, NARA, DoDI 5015.02, SOC 2 Type II
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  Azure Commercial                 │
+│                  Azure Government (GCC High)                 │
 ├─────────────────────────────────────────────────────────────┤
 │                                                               │
 │  ┌──────────────────┐                                        │
@@ -420,7 +420,7 @@ async function handleMinutesApproved(meetingId: number) {
 | **DoDI 5015.02** | Records lifecycle management | Retention labels by classification | Annual audit |
 | **NARA Guidelines** | Retention schedules | 5yr/10yr/25yr retention | Label verification |
 | **DFARS 252.204-7012** | Safeguarding CUI | Classification-based access control | Quarterly review |
-| **SOC 2 Type II** | Data encryption at rest/transit | SharePoint TLS 1.2, AES-256 | Continuous monitoring |
+| **FedRAMP High** | Data encryption at rest/transit | SharePoint TLS 1.2, AES-256 | Continuous monitoring |
 
 ### Classification Handling Matrix
 
@@ -778,11 +778,11 @@ Requires sign-off from: System Owner, ISSO, Operations Lead, SharePoint Administ
 
 ---
 
-## enterprise data isolation Validation
+## IL5 Data Segregation Validation
 
 ### Purpose
 
-This section provides mandatory testing procedures to validate that SharePoint integration maintains IL5-compliant data segregation across UNCLASSIFIED, CONFIDENTIAL, and SECRET classification levels. These tests must be executed and passed before production deployment to Azure Commercial.
+This section provides mandatory testing procedures to validate that SharePoint integration maintains IL5-compliant data segregation across UNCLASSIFIED, CONFIDENTIAL, and SECRET classification levels. These tests must be executed and passed before production deployment to Azure Government (GCC High).
 
 ### IL5 Segregation Requirements
 
@@ -992,7 +992,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 ### Production Validation Checklist
 
-**Before deploying to Azure Commercial production:**
+**Before deploying to Azure Government (GCC High) production:**
 
 - [ ] **Test Case 1:** PASSED - All classifications route to correct libraries
 - [ ] **Test Case 2:** PASSED - All 9 access control combinations validated

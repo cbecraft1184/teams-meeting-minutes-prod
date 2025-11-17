@@ -502,8 +502,8 @@ Release Pipeline:
 
 ### Compliance Frameworks
 ```yaml
-- SOC 2 Type II Authorization
-- enterprise security standards Rev 5
+- FedRAMP High Authorization
+- NIST 800-53 Rev 5
 - DISA STIG (Windows/Linux/Database)
 - DFARS 252.204-7012
 - ITAR Compliance

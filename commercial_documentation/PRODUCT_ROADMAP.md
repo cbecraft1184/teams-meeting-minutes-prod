@@ -494,7 +494,7 @@ This document outlines potential feature enhancements and strategic evolution pa
 - **Priority:** Medium
 
 **Automated Compliance Reporting**
-- **Feature:** Generate compliance reports for various frameworks (SOC 2, enterprise security standards, etc.)
+- **Feature:** Generate compliance reports for various frameworks (SOC 2, FISMA, etc.)
 - **Value:** Reduces audit burden, demonstrates compliance
 - **Technical:** Report templates, data extraction
 - **Effort:** Medium (6-8 weeks)

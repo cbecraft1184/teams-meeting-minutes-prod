@@ -3,7 +3,7 @@
 **Document Version:** 1.0  
 **Last Updated:** 2025-11-14  
 **Classification:** UNCLASSIFIED  
-**Deployment Target:** Azure Commercial ONLY
+**Deployment Target:** Azure Government (GCC High) ONLY
 
 ---
 
@@ -343,7 +343,7 @@ resource "azurerm_cdn_frontdoor_origin" "unclass_va_1" {
 
 **Conclusion:** Single PostgreSQL instance cannot support 300K concurrent users. **Horizontal sharding required.**
 
-### 3.2 enterprise data isolation with Horizontal Sharding
+### 3.2 IL5 Data Segregation with Horizontal Sharding
 
 **Architecture:** Separate database clusters per classification, with horizontal sharding within each cluster.
 

@@ -74,7 +74,7 @@ Fully automated system that captures completed Teams meetings via Microsoft Grap
 - ✅ **Approval Workflow**: Review, edit, approve/reject flow with complete audit trail
 - ✅ **Email Distribution**: Automatic delivery to all attendees with formatted attachments
 - ✅ **SharePoint Archival**: Organized storage with metadata and search
-- ✅ **Classification Support**: Standard, Enhanced, Premium security tiers for government/regulated industries
+- ✅ **Classification Support**: UNCLASSIFIED, CONFIDENTIAL, SECRET for government/regulated industries
 - ✅ **Action Item Tracking**: Automatic extraction with assignees and deadlines
 
 ### Technology Stack

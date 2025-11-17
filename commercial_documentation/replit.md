@@ -3,7 +3,7 @@
 ## Overview
 This project is an autonomous, Microsoft-native solution for managing Microsoft Teams meeting minutes within DOD deployments. The system is designed with **auto-scaling capability to handle up to 300,000 concurrent users** (baseline deployment targets 10,000 users). It automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings and transcripts using AI, and distributes approved minutes to attendees. The system focuses on automated workflow for meeting minutes, operating independently of general AI tools like CapraGPT/DON-GPT, yet coexisting with them.
 
-**Timeline:** 16-week commercial deployment + 16-month DOD ATO process (security authorization) for production deployment in Azure Commercial. The project follows a phased production rollout approach, beginning with commercial Azure environment deployment to establish operational baseline before transitioning to Azure Commercial for final DOD production deployment, emphasizing security, compliance, and integration with existing DOD infrastructure.
+**Timeline:** 16-week commercial deployment + 16-month DOD ATO process (security authorization) for production deployment in Azure Government (GCC High). The project follows a phased production rollout approach, beginning with commercial Azure environment deployment to establish operational baseline before transitioning to Azure Government (GCC High) for final DOD production deployment, emphasizing security, compliance, and integration with existing DOD infrastructure.
 
 ## User Preferences
 I prefer simple language and clear, concise explanations.
@@ -30,7 +30,7 @@ Key features include:
 - **AI-Powered Minutes**: Transcription and minute generation using Azure OpenAI.
 - **Approval Workflow**: States for pending review, approved, and rejected.
 - **Email Distribution**: Approved minutes sent to attendees with attachments.
-- **Classification Support**: Standard, Enhanced, Premium security tiers levels with proper marking and access control.
+- **Classification Support**: UNCLASSIFIED, CONFIDENTIAL, SECRET levels with proper marking and access control.
 - **SharePoint Archival**: Automatic archival with metadata to DOD SharePoint.
 - **Action Item Tracking**: Automatic extraction and management.
 - **Meeting Templates**: Pre-configured templates for various meeting types.
@@ -41,14 +41,14 @@ Key features include:
 - **Data Model**: Includes `Meeting`, `Meeting Minutes`, and `Action Items` entities with clear relationships and fields for classification, status, and processing.
 - **Microsoft Teams Integration**: Uses Graph API for webhooks, access to recordings/transcripts, and attendee info.
 - **SharePoint Integration**: Authenticated via OAuth with Sites.Selected permission, uses correct Graph API paths, archives minutes with metadata, and supports graceful degradation.
-- **Azure OpenAI Integration**: Deployed within Azure Commercial, used for summarization, extraction, and detection tasks, ensuring data remains within the Gov Cloud boundary.
-- **Deployment Options**: Azure Commercial using Azure App Service Environment (ASEv3) and Azure Database for PostgreSQL (production) / Replit (dev/testing).
+- **Azure OpenAI Integration**: Deployed within Azure Government (GCC High), used for summarization, extraction, and detection tasks, ensuring data remains within the Gov Cloud boundary.
+- **Deployment Options**: Azure Government (GCC High) using Azure App Service Environment (ASEv3) and Azure Database for PostgreSQL (production) / Replit (dev/testing).
 
 ## External Dependencies
 - **Microsoft Teams**: For scheduling and conducting meetings.
 - **Microsoft Graph API**: For capturing meeting events, accessing recordings/transcripts, retrieving attendee information, and email distribution.
 - **Azure AD**: For authentication (SSO) and group-based access control.
 - **SharePoint**: For document storage and archival, specifically DOD instances.
-- **Azure OpenAI Service**: For AI-powered minute generation and processing (deployed in Azure Commercial for production).
+- **Azure OpenAI Service**: For AI-powered minute generation and processing (deployed in Azure Government (GCC High) for production).
 - **PostgreSQL**: Database for storing application data (Azure Database for PostgreSQL for production, Replit-hosted for dev).
 - **Azure Government Infrastructure**: Azure App Service Environment (ASEv3), Azure Database for PostgreSQL, Azure Key Vault, Azure Front Door for production hosting and secure infrastructure (GCC High deployment only).

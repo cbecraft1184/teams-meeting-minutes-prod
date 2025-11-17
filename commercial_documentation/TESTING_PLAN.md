@@ -1,7 +1,7 @@
 # Testing Plan
 ## DOD Teams Meeting Minutes Management System
 
-**Document Purpose:** Comprehensive testing strategy for SECRET-level classification handling, multi-phase validation, and production readiness in Azure Commercial
+**Document Purpose:** Comprehensive testing strategy for SECRET-level classification handling, multi-phase validation, and production readiness in Azure Government (GCC High)
 
 **Last Updated:** November 13, 2025  
 **Status:** Implementation Guide  
@@ -13,7 +13,7 @@
 
 ### Purpose
 
-This document defines the complete testing strategy for validating the DOD Teams Meeting Minutes Management System across functional, security, performance, and compliance dimensions before Azure Commercial deployment.
+This document defines the complete testing strategy for validating the DOD Teams Meeting Minutes Management System across functional, security, performance, and compliance dimensions before Azure Government (GCC High) deployment.
 
 ### Scope
 
@@ -114,7 +114,7 @@ export function generateSyntheticMinutes() {
 
 ```yaml
 NEVER use in non-production:
-  - Real names of Fortune 500 enterprise customers
+  - Real names of DOD personnel
   - Actual meeting subjects/content
   - Real email addresses (.mil domains)
   - Classified information of any kind

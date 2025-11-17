@@ -7,7 +7,7 @@ Integrate the DOD Teams Meeting Minutes Management System as a **multi-surface T
 - **Notification Bot** (optional) - Proactive alerts for pending approvals
 - **Message Extension** (optional) - Quick sharing of minutes in chats
 
-This plan addresses DOD security requirements including CAC/PIV MFA, conditional access, FedRAMP High logging, and on-behalf-of (OBO) token flow for backend authentication.
+This plan addresses DOD security requirements including CAC/PIV MFA, conditional access, SOC 2 Type II logging, and on-behalf-of (OBO) token flow for backend authentication.
 
 ## Architecture Design
 
@@ -247,8 +247,8 @@ useEffect(() => {
    - Teams → Apps → Manage your apps → Upload an app
    - Select `.zip` file
 
-#### Production (Azure Government (GCC High) + DOD Teams)
-1. **Host application**: Azure Government (GCC High) (Azure App Service)
+#### Production (Azure Commercial + DOD Teams)
+1. **Host application**: Azure Commercial (Azure App Service)
 2. **Domain**: `teams-minutes.dod.mil` (DOD-approved domain)
 3. **SSL Certificate**: DOD-issued TLS certificate
 4. **Manifest deployment** via **Teams Admin Center**:
@@ -328,7 +328,7 @@ if (context.page?.subPageId) {
 - Cannot screenshot/copy classified content (Teams DLP policies)
 
 ### Data Residency
-- All data stored in Azure Government (GCC High) (CONUS)
+- All data stored in Azure Commercial (CONUS)
 - Microsoft Graph API calls to Gov Cloud endpoints
 - No data leaves DOD boundary
 
@@ -391,7 +391,7 @@ if (context.page?.subPageId) {
 - **Graph API**: Included in license (throttling limits apply)
 - **Teams Apps**: Free to deploy internally
 
-### Infrastructure (Azure Government (GCC High))
+### Infrastructure (Azure Commercial)
 - **Application Hosting**: ~$500-2000/month (Azure App Service)
 - **Database**: ~$300-1000/month (Azure Database for PostgreSQL)
 - **Storage**: Minimal (< $50/month)
@@ -405,7 +405,7 @@ if (context.page?.subPageId) {
 2. **Create Teams manifest** with proper configuration
 3. **Test in commercial Teams** environment (development)
 4. **Request Azure AD app registration** from DOD IT
-5. **Deploy to Azure Government (GCC High)** test environment
+5. **Deploy to Azure Commercial** test environment
 6. **Submit for ATO certification** (6-12 month process)
 7. **Pilot with select users** on NIPR
 8. **Full rollout** after validation
@@ -513,7 +513,7 @@ export async function validateTeamsToken(req: Request, res: Response, next: Next
       tenantId: response.tenantId
     };
 
-    // Audit log for FedRAMP High compliance
+    // Audit log for SOC 2 Type II compliance
     console.log(JSON.stringify({
       timestamp: new Date().toISOString(),
       event: 'teams_auth_success',
@@ -608,7 +608,7 @@ export function ensureFreshToken(req: Request, res: Response, next: NextFunction
 }
 ```
 
-### FedRAMP High Audit Logging
+### SOC 2 Type II Audit Logging
 
 **Requirements:**
 - Log all access attempts (success + failure)
@@ -863,7 +863,7 @@ Allow users to quickly share minutes in Teams chats/channels without opening ful
 ### Phase 0: Infrastructure Preparation (Week 1-2)
 
 **Objectives:**
-- Provision Azure Government (GCC High) resources
+- Provision Azure Commercial resources
 - Configure auto-scaling groups
 - Set up Azure Monitor monitoring
 - Establish baseline metrics
@@ -1196,14 +1196,14 @@ window.addEventListener('online', () => {
 
 ### Infrastructure (Monthly)
 
-**Azure Government (GCC High):**
+**Azure Commercial:**
 - Azure App Service (10-50 tasks): $500-2,500
 - Azure Database for PostgreSQL (production + DR): $600-1,200
 - Application Load Balancer: $50
 - Azure Monitor + Application Insights: $200
 - S3 Storage (backups): $50
 - Route 53 DNS: $25
-- **Total Azure Government (GCC High)**: $1,425-4,025/month
+- **Total Azure Commercial**: $1,425-4,025/month
 
 **Azure Services:**
 - Azure AD P2 licenses (included in M365 E5)
@@ -1232,7 +1232,7 @@ window.addEventListener('online', () => {
 ### Month 3-4: Security Hardening
 - CAC/PIV integration
 - Conditional access policies
-- FedRAMP High audit logging
+- SOC 2 Type II audit logging
 - Penetration testing
 
 ### Month 5-6: Testing & Validation
@@ -1407,7 +1407,7 @@ UNCLASS/CONF environments:
 
 ### Production Validation Checklist
 
-**Before deploying Teams integration to Azure Government (GCC High) production:**
+**Before deploying Teams integration to Azure Commercial production:**
 
 - [ ] **Test Case 1:** PASSED - Webhook routing to classification-specific ASE verified
 - [ ] **Test Case 2:** PASSED - All Graph API calls use .us endpoints

@@ -66,7 +66,7 @@ Comprehensive validation of technology stack across all documentation revealed *
 - Azure Government PostgreSQL Flexible Server commonly uses version 14
 
 **Root Cause:**
-Documentation referenced newer PostgreSQL version not yet standard in Azure Government (GCC High).
+Documentation referenced newer PostgreSQL version not yet standard in Azure Commercial.
 
 **Impact:** Low - Both versions are functionally similar for this application
 

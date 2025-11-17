@@ -3,7 +3,7 @@
 **Document Version:** 1.0  
 **Last Updated:** 2025-11-14  
 **Classification:** UNCLASSIFIED  
-**Deployment Target:** Azure Government (GCC High) ONLY
+**Deployment Target:** Azure Commercial ONLY
 
 ---
 

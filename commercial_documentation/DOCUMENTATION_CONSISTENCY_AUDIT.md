@@ -40,7 +40,7 @@ This section defines the **authoritative standard** that ALL documentation must 
 
 **CANONICAL STANDARD:**
 ```
-Azure Government (GCC High)
+Azure Commercial
 ```
 
 **INCONSISTENCIES FOUND:**
@@ -50,7 +50,7 @@ Azure Government (GCC High)
 - ❌ "Azure Government Cloud" - Never use
 
 **CORRECTION REQUIRED:**
-- Use **"Azure Government (GCC High)"** for all production references
+- Use **"Azure Commercial"** for all production references
 - Use **"Azure Government (GCC High or DOD)"** ONLY when explicitly discussing IL5 vs IL6 options
 
 ---
@@ -88,7 +88,7 @@ SECRET
 - ❌ "secret" (lowercase) - Never use
 
 **CORRECTION REQUIRED:**
-- Always use **UPPERCASE** classification levels: UNCLASSIFIED, CONFIDENTIAL, SECRET
+- Always use **UPPERCASE** classification levels: Standard, Enhanced, Premium tiers
 - No suffixes: ❌ "SECRET-level" → ✅ "SECRET"
 - No spaces: ❌ "SECRET level" → ✅ "SECRET"
 - Use in context: "SECRET classification", "SECRET data" is acceptable when describing data/documents
@@ -225,11 +225,11 @@ Two Distinct Timeline Scenarios:
       - Scale to Production: 1 day
   
   Scenario 2 - Full DOD Production Timeline: 16 months
-    Scope: Complete Azure Government (GCC High) deployment with ATO certification
+    Scope: Complete Azure Commercial deployment with ATO certification
     Sources: TEAMS_INTEGRATION_PLAN.md, MASTER_DOCUMENTATION_INDEX.md (line 278)
     Breakdown:
       - Months 1-2: Development (Teams SDK, OBO auth)
-      - Months 3-4: Security Hardening (CAC/PIV, FedRAMP High)
+      - Months 3-4: Security Hardening (CAC/PIV, SOC 2 Type II)
       - Months 5-6: Testing & Validation (load tests, Section 508)
       - Months 7-12: ATO Certification (security docs, authorization)
       - Months 13-16: Phased Rollout (50 → 5,000 → 50,000 → 300,000)
@@ -333,7 +333,7 @@ Document Generation:
 
 **CANONICAL STANDARD - Azure Architecture (Production):**
 ```yaml
-Azure Government (GCC High) Resources:
+Azure Commercial Resources:
 
 Compute:
   - Azure App Service Plan (P3v3, 2-20 instances)
@@ -414,7 +414,7 @@ Monitoring:
 - [ ] Update product name to "DOD Teams Meeting Minutes Management System"
 
 **Priority 2: Terminology Standardization (Architect 1)**
-- [ ] Replace all "Azure Government (GCC High)" with "Azure Government (GCC High)"
+- [ ] Replace all "Azure Commercial" with "Azure Commercial"
 - [ ] Remove all classification suffixes ("SECRET" → "SECRET")
 - [ ] Standardize user counts ("300k" → "300,000 concurrent users")
 - [ ] Fix pilot user count to "50-100 users" consistently
@@ -456,7 +456,7 @@ Based on architect findings, the following documents require corrections:
 - Align technology stack descriptions
 
 **Multiple Documents (Terminology)**
-- Replace "Azure Government (GCC High)" → "Azure Government (GCC High)"
+- Replace "Azure Commercial" → "Azure Commercial"
 - Replace "300k" → "300,000 concurrent users"
 - Replace "DOD Teams Meeting Minutes Management System" → "DOD Teams Meeting Minutes Management System"
 - Fix classification terminology (remove "-level" suffixes)

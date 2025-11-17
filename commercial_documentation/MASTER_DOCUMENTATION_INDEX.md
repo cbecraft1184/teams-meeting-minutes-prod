@@ -76,7 +76,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 - Strategic fit with IBM portfolio
 - Resource requirements (6-8 FTEs for 16-week deployment)
 - Complete risk assessment matrix
-- 16-week implementation timeline + 16-month ATO process
+- 16-week implementation timeline + 16 weeks to launch process
 - Decision framework and next steps
 
 **When to Read:** After concise summary, before major investment decisions
@@ -85,14 +85,14 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 
 #### 3a. INVESTMENT_SNAPSHOT_DOD.md
 **Audience:** DOD Leadership, IBM Government Solutions Team  
-**Purpose:** Investment analysis for DOD enterprise deployment contract  
+**Purpose:** Investment analysis for IBM Commercial SaaS contract  
 **Length:** ~15 pages  
 **Key Contents:**
 - Production-ready architecture overview for DOD deployment
-- Azure Government (GCC High) deployment design
-- FedRAMP High security posture (89% controls in design)
+- Azure Commercial deployment design
+- SOC 2 Type II security posture (89% controls in design)
 - Financial model ($650K baseline, $13M peak capacity)
-- 16-week implementation + 16-month ATO timeline
+- 16-week implementation + 16 weeks to launch timeline
 - DOD contract value and expansion opportunities
 
 **When to Read:** For DOD deployment contract evaluation
@@ -189,7 +189,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Length:** ~65 pages  
 **Key Contents:**
 - 60-day pilot scope (50-100 users, single site)
-- Azure Government (GCC High) setup instructions
+- Azure Commercial setup instructions
 - Step-by-step Azure CLI commands
 - Resource provisioning (App Service B3, PostgreSQL B2s, Azure OpenAI)
 - Microsoft Graph API integration setup
@@ -214,7 +214,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 - High availability configuration (multi-AZ, auto-scaling)
 - Azure services setup (App Service P3v3, PostgreSQL GP D4s with HA)
 - Azure OpenAI deployment (100k TPM capacity)
-- Security and compliance (FedRAMP High, DISA SRG L5)
+- Security and compliance (SOC 2 Type II, DISA SRG L5)
 - Monitoring and operations
 - Budget: $5,000-7,000/month
 - Deployment timeline: 16 weeks (+16 months ATO process)

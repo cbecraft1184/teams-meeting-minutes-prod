@@ -502,7 +502,7 @@ Release Pipeline:
 
 ### Compliance Frameworks
 ```yaml
-- FedRAMP High Authorization
+- SOC 2 Type II Authorization
 - NIST 800-53 Rev 5
 - DISA STIG (Windows/Linux/Database)
 - DFARS 252.204-7012

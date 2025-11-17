@@ -1,7 +1,7 @@
 # Deployment Guide
 ## DOD Teams Meeting Minutes Management System
 
-**Document Purpose:** Deployment instructions for the DOD Teams Meeting Minutes Management System across development, pilot, and Azure Government (GCC High) production environments
+**Document Purpose:** Deployment instructions for the DOD Teams Meeting Minutes Management System across development, pilot, and Azure Commercial production environments
 
 **Architecture Status:** Production-ready design for 16-week implementation timeline. This guide covers the complete deployment process from Azure infrastructure provisioning through production launch.
 
@@ -87,7 +87,7 @@
 
 **For All Deployments:**
 - [ ] Microsoft 365 admin access (Global Administrator role)
-- [ ] Azure Government (GCC High) subscription with billing enabled
+- [ ] Azure Commercial subscription with billing enabled
 - [ ] Domain name (optional but recommended)
 - [ ] Credit card for Azure services
 
@@ -593,18 +593,18 @@ Application auto-deploys when you:
 
 ## 7. Azure Government Production Deployment
 
-**Document Purpose:** This section provides an overview of Azure Government (GCC High) production deployment. For detailed step-by-step instructions, refer to the comprehensive deployment plans referenced below.
+**Document Purpose:** This section provides an overview of Azure Commercial production deployment. For detailed step-by-step instructions, refer to the comprehensive deployment plans referenced below.
 
 ### 7.1 Overview
 
-The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure Government (GCC High)** cloud infrastructure to meet DOD security requirements and compliance standards.
+The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure Commercial** cloud infrastructure to meet DOD security requirements and compliance standards.
 
 **IMPORTANT:** This section provides a simplified overview. Production deployment uses a **multi-scale-unit App Service Environment (ASEv3) architecture** with horizontally sharded databases. For complete deployment instructions, see SCALABILITY_ARCHITECTURE.md Section 7.
 
 **Key Characteristics:**
 - **Scale:** Auto-scaling capability to support up to 300,000 concurrent users (baseline: 10,000 users)
-- **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications with IL5 data segregation
-- **Compliance:** FedRAMP High, DISA SRG Level 5, IL5 boundary
+- **Classification:** Supports UNCLASSIFIED, CONFIDENTIAL, and SECRET classifications with enterprise data isolation
+- **Compliance:** SOC 2 Type II, DISA SRG Level 5, IL5 boundary
 - **Architecture:** Multi-scale-unit ASEv3 clusters (12 units max) with 12 horizontally sharded PostgreSQL databases
 
 ### 7.2 Production Architecture Overview
@@ -613,7 +613,7 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure G
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│              Azure Government (GCC High) Cloud                       │
+│              Azure Commercial Cloud                       │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  Microsoft 365 GCC High                                             │
@@ -698,7 +698,7 @@ The DOD Teams Meeting Minutes Management System deploys exclusively to **Azure G
 **High-Level Deployment Steps:**
 
 1. **Prerequisites Validation** (1-2 days)
-   - Azure Government (GCC High) subscription active
+   - Azure Commercial subscription active
    - Microsoft 365 GCC High tenant configured
    - Azure AD admin permissions verified
    - Clearance levels documented for administrators
@@ -772,7 +772,7 @@ For detailed step-by-step deployment instructions, configuration examples, troub
 2. **AZURE_GOV_IMPLEMENTATION_PLAN.md**
    - Production-grade architecture with auto-scaling for up to 300,000 concurrent users
    - High availability, disaster recovery, security hardening
-   - FedRAMP High, DISA SRG Level 5 compliance
+   - SOC 2 Type II, DISA SRG Level 5 compliance
    - Complete resource manifests and deployment scripts
    - ATO preparation guidance
    - Monitoring, alerting, and incident response procedures

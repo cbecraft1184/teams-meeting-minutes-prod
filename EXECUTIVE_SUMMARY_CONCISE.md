@@ -46,7 +46,7 @@
 **Strategic Fit:**
 - Aligns with cloud strategy (Azure Government (GCC High) deployment only)
 - Showcases practical enterprise AI with measurable business impact
-- Targets IBM's core customers: government agencies and Fortune 500 enterprises
+- Targets IBM's core customers: Fortune 500 enterprises and large commercial organizations
 - Leverages existing enterprise sales relationships and channels
 
 ### The Cost of Inaction

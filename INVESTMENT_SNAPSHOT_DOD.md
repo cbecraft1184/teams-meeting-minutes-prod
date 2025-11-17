@@ -14,10 +14,10 @@
 This investment snapshot presents a **production-ready architectural design** for an autonomous, Microsoft-native meeting minutes management system purpose-built for Department of Defense enterprise deployment. The system automates the complete lifecycle of Teams meeting documentation—from webhook-based capture through AI-powered processing, approval workflows, email distribution, and SharePoint archival—while maintaining strict DOD classification and compliance requirements.
 
 **Investment Highlights:**
-- **Market Opportunity:** DOD enterprise SaaS platform serving up to 300,000 concurrent users
+- **Deployment Scope:** DOD enterprise deployment serving up to 300,000 concurrent users
 - **Implementation Timeline:** 16 weeks commercial deployment + 16 months DOD ATO process
-- **Baseline Investment:** $650K/year operational costs (10K concurrent users)
-- **Peak Capacity:** $13M/year at maximum scale (300K concurrent users, sustained)
+- **Implementation Investment:** $1.8M-$2.2M total (commercial deployment + ATO process)
+- **Annual Operations:** $650K/year baseline to $13M/year peak operational costs
 - **Security Posture:** 89% FedRAMP High controls implemented in design, 11% to be completed during deployment
 - **Deployment Target:** Azure Government (GCC High) with multi-scale-unit ASEv3 architecture
 
@@ -220,7 +220,7 @@ _See POAM_DOCUMENT.md for detailed remediation plan and FEDRAMP_CONTROL_MATRIX.m
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|-----------|
-| DOD budget constraints | MEDIUM | MEDIUM | SaaS pricing flexibility, phased rollout |
+| DOD budget constraints | MEDIUM | MEDIUM | Contract pricing flexibility, phased rollout |
 | Competing solutions | LOW | LOW | Microsoft partnership, purpose-built for DOD |
 | Regulatory changes | LOW | MEDIUM | Continuous compliance monitoring, architecture flexibility |
 
@@ -323,7 +323,7 @@ _See POAM_DOCUMENT.md for detailed remediation plan and FEDRAMP_CONTROL_MATRIX.m
 
 ## Recommendation
 
-**Proceed with 16-week commercial deployment** to validate technology stack, establish operational baseline, and prepare for 16-month DOD ATO process. The architecture is production-ready, security controls are well-defined, and the market opportunity is substantial.
+**Proceed with 16-week commercial deployment** to establish operational baseline and prepare for 16-month DOD ATO process. The architecture is production-ready, security controls are well-defined, and the market opportunity is substantial.
 
 **Key Decision Factors:**
 - ✅ **Technical Feasibility:** Proven technology stack (Microsoft Graph, Azure Government, Azure OpenAI)

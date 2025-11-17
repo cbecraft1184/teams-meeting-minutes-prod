@@ -3,7 +3,7 @@
 ## Overview
 This project is an autonomous, Microsoft-native solution for managing Microsoft Teams meeting minutes within DOD deployments. The system is designed with **auto-scaling capability to handle up to 300,000 concurrent users** (baseline deployment targets 10,000 users). It automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings and transcripts using AI, and distributes approved minutes to attendees. The system focuses on automated workflow for meeting minutes, operating independently of general AI tools like CapraGPT/DON-GPT, yet coexisting with them.
 
-**Timeline:** 16-week commercial deployment (technology validation) + 16-month DOD ATO process (security authorization) for production deployment in Azure Government (GCC High). The project prioritizes commercial testing to ensure technology stack validation and debugging in an open environment before final DOD production deployment, emphasizing security, compliance, and integration with existing DOD infrastructure.
+**Timeline:** 16-week commercial deployment + 16-month DOD ATO process (security authorization) for production deployment in Azure Government (GCC High). The project follows a phased production rollout approach, beginning with commercial Azure environment deployment to establish operational baseline before transitioning to Azure Government (GCC High) for final DOD production deployment, emphasizing security, compliance, and integration with existing DOD infrastructure.
 
 ## User Preferences
 I prefer simple language and clear, concise explanations.

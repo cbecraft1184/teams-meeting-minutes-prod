@@ -23,7 +23,7 @@
 
 This document provides a complete implementation plan for deploying the DOD Teams Meeting Minutes Management System to Microsoft Azure Government Cloud (GCC High/DOD). The solution will serve 300,000+ users with SECRET classification support.
 
-**Timeline:** 8-12 weeks  
+**Timeline:** 16 weeks (commercial deployment) + 16 months (DOD ATO process)  
 **Environment:** Azure Government (GCC High or DOD)  
 **Compliance:** FedRAMP High, DFARS, ITAR, DISA SRG L5  
 **Scale:** 300,000 concurrent users

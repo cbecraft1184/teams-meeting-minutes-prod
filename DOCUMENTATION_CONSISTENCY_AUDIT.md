@@ -206,12 +206,12 @@ Pilot to Production Scaling:
   Document: PILOT_TO_PRODUCTION_SCALING.md
 
 Production Deployment:
-  Duration: 8-12 weeks
+  Duration: 16 weeks (commercial deployment) + 16 months (DOD ATO process)
   Document: AZURE_GOV_IMPLEMENTATION_PLAN.md
 
 Total Pilot-to-Production Timeline:
-  - Option 1 (Direct Production): 8-12 weeks
-  - Option 2 (Pilot First): 2-4 weeks (deploy) + 60 days (run) + 1 day (scale) = ~14-16 weeks total
+  - Option 1 (Direct Production): 16 weeks commercial + 16 months ATO
+  - Option 2 (Pilot First): 2-4 weeks (deploy) + 60 days (run) + 1 day (scale) + 16 weeks commercial + 16 months ATO
 
 Two Distinct Timeline Scenarios:
   Scenario 1 - Commercial/Pilot Timeline: 16 weeks
@@ -434,7 +434,7 @@ Monitoring:
 - [ ] Standardize cost formatting (space before/after hyphen)
 
 **Priority 5: Timeline Validation (Architect 3)**
-- [ ] Verify deployment timelines (2-4 weeks pilot, 8-12 weeks production)
+- [ ] Verify deployment timelines (2-4 weeks pilot, 16 weeks production + 16 months ATO)
 - [ ] Verify pilot duration (60 days = 2 months)
 - [ ] Verify scaling timeline (1 day)
 - [ ] Check timeline math: Do totals equal sum of phases?

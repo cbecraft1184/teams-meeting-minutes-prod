@@ -160,7 +160,7 @@ Total: 61 days from pilot start to production scaling
 | **Geo-replication** | No | Yes |
 | **Load Balancer** | Basic | Application Gateway (WAF) |
 | **Cost/Month** | $1,500-2,500 | $5,000-7,000 |
-| **Deployment Time** | 2-4 weeks | 8-12 weeks |
+| **Deployment Time** | 2-4 weeks | 16 weeks (+16mo ATO) |
 | **Compliance Depth** | Basic | Full FedRAMP High |
 
 ---

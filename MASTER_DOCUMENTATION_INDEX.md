@@ -155,7 +155,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 **Key Contents:**
 - Decision matrix for deployment paths (Demo, Pilot, Production)
 - Document navigation guide
-- Timeline comparisons (Demo: hours, Pilot: 2-4 weeks, Production: 8-12 weeks)
+- Timeline comparisons (Demo: hours, Pilot: 2-4 weeks, Production: 16 weeks + 16mo ATO)
 - Cost comparisons (Pilot: $1,500-2,500/mo, Production: $5,000-7,000/mo)
 - Prerequisites checklists
 - Success criteria definitions
@@ -200,7 +200,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 - Security and compliance (FedRAMP High, DISA SRG L5)
 - Monitoring and operations
 - Budget: $5,000-7,000/month
-- Deployment timeline: 8-12 weeks
+- Deployment timeline: 16 weeks (+16 months ATO process)
 
 **When to Read:** For production-scale deployment planning
 
@@ -507,7 +507,7 @@ All Implementation Docs
 | **Pilot (Deploy)** | 2-4 weeks | AZURE_GOV_PILOT_PLAN |
 | **Pilot (Run)** | 60 days | AZURE_GOV_PILOT_PLAN |
 | **Scale to Prod** | 1 day | PILOT_TO_PRODUCTION_SCALING |
-| **Production** | 8-12 weeks | AZURE_GOV_IMPLEMENTATION_PLAN |
+| **Production** | 16 weeks (+16mo ATO) | AZURE_GOV_IMPLEMENTATION_PLAN |
 
 ### Cost Summary
 | Deployment Type | Monthly Cost | Primary Document |

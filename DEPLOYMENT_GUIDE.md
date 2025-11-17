@@ -756,7 +756,7 @@ For detailed step-by-step deployment instructions, configuration examples, troub
 | Deployment Scenario | Document | Lines | Timeline | Users |
 |-------------------|----------|-------|----------|-------|
 | **Pilot (Recommended First Step)** | `AZURE_GOV_PILOT_PLAN.md` | 1,282 | 2-4 weeks | 50-100 |
-| **Production (Full Scale)** | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | Comprehensive | 8-12 weeks | 300,000 |
+| **Production (Full Scale)** | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | Comprehensive | 16 weeks (+16mo ATO) | 300,000 |
 | **Scaling (Pilot → Production)** | `PILOT_TO_PRODUCTION_SCALING.md` | Detailed | 1 day | 100 → 300K |
 
 **Key Documents:**

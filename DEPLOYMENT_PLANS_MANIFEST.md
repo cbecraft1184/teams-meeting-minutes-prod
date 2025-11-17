@@ -73,7 +73,7 @@ This manifest provides an overview of all deployment planning documents for the 
 |----------|-----------------|------------------|----------|
 | **Quick commercial demo for IBM** | Demo Setup | `MICROSOFT_DEMO_SETUP_GUIDE.md` | Immediate |
 | **Validate technology with 100 users** | Pilot Deployment | `AZURE_GOV_PILOT_PLAN.md` | 2-4 weeks |
-| **Full DOD production deployment** | Production | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | 8-12 weeks |
+| **Full DOD production deployment** | Production | `AZURE_GOV_IMPLEMENTATION_PLAN.md` | 16 weeks (+16mo ATO) |
 | **Scale pilot to production** | Scaling Guide | `PILOT_TO_PRODUCTION_SCALING.md` | 1 day |
 
 ---
@@ -281,7 +281,7 @@ This manifest provides an overview of all deployment planning documents for the 
           │
           ▼
 ┌────────────────────┐
-│ 4. Production      │  (8-12 weeks rollout)
+│ 4. Production      │  (16 weeks rollout + 16mo ATO)
 │ 300,000 users      │  $5,000-7,000/mo
 │ Full compliance    │  99.9% SLA
 └────────────────────┘
@@ -296,7 +296,7 @@ This manifest provides an overview of all deployment planning documents for the 
 
 ```
 ┌────────────────────┐
-│ 1. Full Production │  (8-12 weeks)
+│ 1. Full Production │  (16 weeks + 16mo ATO)
 │ IMPLEMENTATION.md  │  $5,000-7,000/mo
 │ 300,000 users      │  
 └─────────┬──────────┘
@@ -448,7 +448,7 @@ This manifest provides an overview of all deployment planning documents for the 
 - [ ] Read `AZURE_GOV_IMPLEMENTATION_PLAN.md` (all sections)
 - [ ] Complete all prerequisite approvals
 - [ ] Budget approved ($5,000-7,000/month)
-- [ ] Timeline approved (8-12 weeks)
+- [ ] Timeline approved (16 weeks + 16 months ATO)
 - [ ] Security team engaged
 - [ ] Disaster recovery plan reviewed
 

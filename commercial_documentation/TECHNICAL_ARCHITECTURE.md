@@ -84,7 +84,7 @@
 │  │                      Microsoft 365 Commercial Cloud Services                       │   │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌───────────────────────────────┐   │   │
 │  │  │ Microsoft    │  │ SharePoint   │  │    Azure AD                    │   │   │
-│  │  │ Teams        │  │ Online       │  │    - CAC/PIV Authentication    │   │   │
+│  │  │ Teams        │  │ Online       │  │    - SSO/MFA Authentication    │   │   │
 │  │  │ - Meetings   │  │ - Enterprise Sites  │  │    - Clearance Groups (RBAC)   │   │   │
 │  │  │ - Webhooks   │  │ - Metadata   │  │    - MFA + Device Compliance   │   │   │
 │  │  └──────┬───────┘  └──────┬───────┘  └───────────────────────────────┘   │   │
@@ -399,7 +399,7 @@ interface Job {
 
 ### 4.2 Group Structure
 
-**Clearance-Level Groups:**
+**Access-Level Groups:**
 ```
 Clearance-Standard   → Can view Standard meetings
 Clearance-Standard   → Can view Standard + Standard

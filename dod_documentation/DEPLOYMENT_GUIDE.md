@@ -69,7 +69,7 @@
 |------------|----------|-----------|
 | **Development/Testing** | 3-4 hours | M365 trial + Azure AD + Replit setup |
 | **Azure Government Production** | 6-8 hours | Infrastructure + DB + Application + Teams app |
-| **Full Commercial Testing** | 5 hours | Complete validation before production |
+| **DOD Validation Testing** | 5 hours | Complete validation before production |
 
 ### 1.2 Cost Estimates
 

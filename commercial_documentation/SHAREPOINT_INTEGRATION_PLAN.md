@@ -43,7 +43,7 @@ Process:
   4. Apply retention label based on classification level
   5. Create audit log entry
   6. Return SharePoint document URL
-Compliance: DFARS, NARA, DoDI 5015.02, SOC 2 Type II
+Compliance: enterprise compliance, NARA, ISO 15489, SOC 2 Type II
 ```
 
 ---
@@ -102,8 +102,8 @@ Compliance: DFARS, NARA, DoDI 5015.02, SOC 2 Type II
 | Component | Technology | Purpose | Commercial Cloud Endpoint |
 |-----------|-----------|---------|-------------------|
 | **Authentication** | Azure AD OAuth 2.0 | User identity & authorization | login.microsoftonline.us |
-| **API Gateway** | Microsoft Graph API | SharePoint access | graph.microsoft.us |
-| **Document Library** | SharePoint Online | Minutes storage | tenant.sharepoint.us |
+| **API Gateway** | Microsoft Graph API | SharePoint access | graph.microsoft.com |
+| **Document Library** | SharePoint Online | Minutes storage | tenant.sharepoint.com |
 | **Metadata Service** | SharePoint Managed Metadata | Classification tagging | Built-in |
 | **Retention** | SharePoint Retention Labels | Lifecycle management | Built-in |
 | **Audit Log** | M365 Audit Log | Compliance tracking | compliance.microsoft.us |
@@ -165,7 +165,7 @@ Administrcertificationr must grant tenant-wide admin consent for `Sites.Selected
 ```powershell
 # Connect to the specific SharePoint site (Commercial Cloud)
 Connect-PnPOnline `
-  -Url "https://tenant.sharepoint.us/sites/meeting-minutes" `
+  -Url "https://tenant.sharepoint.com/sites/meeting-minutes" `
   -Interactive
 
 # Grant app access to specific site using Sites.Selected permission
@@ -182,7 +182,7 @@ Grant-PnPAzureADAppSitePermission `
 ```powershell
 # Create dedicated site for meeting minutes
 New-SPOSite `
-  -Url https://tenant.sharepoint.us/sites/meeting-minutes `
+  -Url https://tenant.sharepoint.com/sites/meeting-minutes `
   -Title "Enterprise Meeting Minutes Archive" `
   -Owner admin@tenant.onmicrosoft.us `
   -StorageQuota 102400 `
@@ -193,7 +193,7 @@ New-SPOSite `
 
 ```powershell
 # Connect to site
-$context = Connect-PnPOnline -Url https://tenant.sharepoint.us/sites/meeting-minutes -Interactive -ReturnConnection
+$context = Connect-PnPOnline -Url https://tenant.sharepoint.com/sites/meeting-minutes -Interactive -ReturnConnection
 
 # Create libraries
 Add-PnPList -Title "Standard_Minutes" -Template DocumentLibrary -Connection $context
@@ -253,7 +253,7 @@ New-ComplianceTag `
 # Publish labels to SharePoint site
 New-RetentionCompliancePolicy `
   -Name "Meeting Minutes Retention" `
-  -SharePointLocation "https://tenant.sharepoint.us/sites/meeting-minutes"
+  -SharePointLocation "https://tenant.sharepoint.com/sites/meeting-minutes"
 
 New-RetentionComplianceRule `
   -Name "Apply Meeting Minutes Labels" `
@@ -417,9 +417,9 @@ async function handleMinutesApproved(meetingId: number) {
 
 | Requirement | Control | Implementation | Validation |
 |-------------|---------|----------------|------------|
-| **DoDI 5015.02** | Records lifecycle management | Retention labels by classification | Annual audit |
+| **ISO 15489** | Records lifecycle management | Retention labels by classification | Annual audit |
 | **NARA Guidelines** | Retention schedules | 5yr/10yr/25yr retention | Label verification |
-| **DFARS 252.204-7012** | Safeguarding CUI | Classification-based access control | Quarterly review |
+| **enterprise compliance 252.204-7012** | Safeguarding CUI | Classification-based access control | Quarterly review |
 | **SOC 2 Type II** | Data encryption at rest/transit | SharePoint TLS 1.2, AES-256 | Continuous monitoring |
 
 ### Classification Handling Matrix
@@ -545,7 +545,7 @@ async function handleMinutesApproved(meetingId: number) {
 
 ### Appendix A: Graph API Endpoints (Commercial Cloud)
 
-**Base URL:** `https://graph.microsoft.us/v1.0`
+**Base URL:** `https://graph.microsoft.com/v1.0`
 
 | Operation | Method | Endpoint | Description |
 |-----------|--------|----------|-------------|
@@ -668,7 +668,7 @@ Restore-PnPRecycleBinItem -Identity <item-id> -Force
 **Scenario 2: Library Corruption**
 ```powershell
 # Restore entire library from backup
-Restore-PnPTenantRecycleBinItem -Url "https://tenant.sharepoint.us/sites/meeting-minutes"
+Restore-PnPTenantRecycleBinItem -Url "https://tenant.sharepoint.com/sites/meeting-minutes"
 ```
 
 **Scenario 3: Complete Site Loss**
@@ -909,11 +909,11 @@ Search-UnifiedAuditLog -StartDate (Get-Date).AddHours(-1) `
   "CreationDate": "2025-11-15T10:30:00Z",
   "UserId": "admin@dod.mil",
   "Operation": "FileUploaded",
-  "ObjectId": "https://tenant.sharepoint.us/sites/meeting-minutes/Standard_Minutes/Meeting_789.docx",
+  "ObjectId": "https://tenant.sharepoint.com/sites/meeting-minutes/Standard_Minutes/Meeting_789.docx",
   "AuditData": {
     "Classification": "Standard",
     "SourceFileName": "Meeting_789.docx",
-    "SiteUrl": "https://tenant.sharepoint.us/sites/meeting-minutes",
+    "SiteUrl": "https://tenant.sharepoint.com/sites/meeting-minutes",
     "UserAgent": "Enterprise-Meetings-App/1.0"
   }
 }
@@ -939,12 +939,12 @@ Search-UnifiedAuditLog -StartDate (Get-Date).AddHours(-1) `
 **Expected Results:**
 ```bash
 # From internet (should FAIL):
-curl https://tenant.sharepoint.us/sites/meeting-minutes/Standard_Minutes
+curl https://tenant.sharepoint.com/sites/meeting-minutes/Standard_Minutes
 # Error: Connection refused or timeout
 
 # From authorized ASE instance (should SUCCEED):
 curl -H "Authorization: Bearer $TOKEN" \
-  https://tenant-internal.sharepoint.us/sites/meeting-minutes/Standard_Minutes
+  https://tenant-internal.sharepoint.com/sites/meeting-minutes/Standard_Minutes
 # Response: 200 OK
 ```
 

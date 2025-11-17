@@ -28,8 +28,8 @@ This index provides a comprehensive catalog of all documentation for the Enterpr
 7. [DEPLOYMENT_PLANS_MANIFEST.md](#7-deployment_plans_manifestmd)
 
 ### 🚀 For Deployment Teams
-8. [AZURE_GOV_PILOT_PLAN.md](#8-azure_gov_pilot_planmd)
-9. [AZURE_GOV_IMPLEMENTATION_PLAN.md](#9-azure_gov_implementation_planmd)
+8. [](#8-azure_gov_pilot_planmd)
+9. [](#9-azure_gov_implementation_planmd)
 10. [PILOT_TO_PRODUCTION_SCALING.md](#10-pilot_to_production_scalingmd)
 11. [DEPLOYMENT_GUIDE.md](#11-deployment_guidemd)
 
@@ -183,7 +183,7 @@ This index provides a comprehensive catalog of all documentation for the Enterpr
 
 ### Deployment Implementation Documents
 
-#### 8. AZURE_GOV_PILOT_PLAN.md
+#### 8. 
 **Audience:** Azure administrcertificationrs, pilot deployment teams  
 **Purpose:** Complete pilot deployment guide for Azure Commercial Cloud  
 **Length:** ~65 pages  
@@ -203,7 +203,7 @@ This index provides a comprehensive catalog of all documentation for the Enterpr
 
 ---
 
-#### 9. AZURE_GOV_IMPLEMENTATION_PLAN.md
+#### 9. 
 **Audience:** Production deployment teams, enterprise architects  
 **Purpose:** Full production deployment to Azure Commercial Cloud  
 **Length:** ~75 pages  

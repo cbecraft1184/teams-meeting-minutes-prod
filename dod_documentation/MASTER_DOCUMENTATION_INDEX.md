@@ -19,7 +19,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 1. [EXECUTIVE_SUMMARY_CONCISE.md](#1-executive_summary_concisemd) - DOD Enterprise System
 2. [EXECUTIVE_SUMMARY_COMPREHENSIVE.md](#2-executive_summary_comprehensivemd) - DOD Enterprise System
 3a. [INVESTMENT_SNAPSHOT_DOD.md](#3a-investment_snapshot_dodmd) - DOD Deployment
-3b. [INVESTMENT_SNAPSHOT_COMMERCIAL.md](#3b-investment_snapshot_commercialmd) - DOD Enterprise System
+3b. [](#3b-investment_snapshot_commercialmd) - DOD Enterprise System
 4. [EXECUTIVE_DOCUMENTS_GUIDE.md](#4-executive_documents_guidemd)
 
 ### 🏗️ For Architects & Technical Leaders
@@ -39,7 +39,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 14. [MICROSOFT_DEMO_SETUP_GUIDE.md](#14-microsoft_demo_setup_guidemd)
 
 ### 📋 For Product & Planning
-15. [PRODUCT_ROADMAP.md](#15-product_roadmapmd)
+15. [](#15-product_roadmapmd)
 16. [design_guidelines.md](#16-design_guidelinesmd)
 17. [TECHNOLOGY_STACK_VALIDATION_REPORT.md](#17-technology_stack_validation_reportmd)
 18. [replit.md](#18-replitmd)
@@ -99,7 +99,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 
 ---
 
-#### 3b. INVESTMENT_SNAPSHOT_COMMERCIAL.md
+#### 3b. 
 **Audience:** DOD Leadership  
 **Purpose:** Investment analysis for DOD Enterprise System product launch  
 **Length:** ~15 pages  
@@ -319,7 +319,7 @@ This index provides a comprehensive catalog of all documentation for the DOD Tea
 
 ### Product & Planning Documents
 
-#### 15. PRODUCT_ROADMAP.md
+#### 15. 
 **Audience:** Product managers, strategic planners  
 **Purpose:** Feature roadmap and long-term vision  
 **Length:** ~50 pages  

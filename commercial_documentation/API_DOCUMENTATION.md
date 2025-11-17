@@ -3,7 +3,7 @@
 
 ### Base URL
 ```
-Production: https://your-domain.gov/api
+Production: https://your-domain.com/api
 Development: http://localhost:5000/api
 ```
 
@@ -621,7 +621,7 @@ if (req.body.value[0].clientState !== process.env.TEAMS_WEBHOOK_CLIENT_STATE) {
 import axios from 'axios';
 
 const client = axios.create({
-  baseURL: 'https://your-domain.gov/api',
+  baseURL: 'https://your-domain.com/api',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json'
@@ -658,12 +658,12 @@ const results = await client.get('/search', {
 ### curl Examples
 ```bash
 # Get meetings
-curl -X GET "https://your-domain.gov/api/meetings?status=completed" \
+curl -X GET "https://your-domain.com/api/meetings?status=completed" \
   -H "Cookie: dod.teams.sid=xxx" \
   -H "Content-Type: application/json"
 
 # Create meeting
-curl -X POST "https://your-domain.gov/api/meetings" \
+curl -X POST "https://your-domain.com/api/meetings" \
   -H "Cookie: dod.teams.sid=xxx" \
   -H "Content-Type: application/json" \
   -d '{
@@ -675,7 +675,7 @@ curl -X POST "https://your-domain.gov/api/meetings" \
   }'
 
 # Download minutes
-curl -X GET "https://your-domain.gov/api/minutes/min456/download?format=pdf" \
+curl -X GET "https://your-domain.com/api/minutes/min456/download?format=pdf" \
   -H "Cookie: dod.teams.sid=xxx" \
   -o minutes.pdf
 ```

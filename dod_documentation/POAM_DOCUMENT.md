@@ -11,7 +11,7 @@
 
 ## Executive Summary
 
-This Plan of Action & Milestones (POA&M) documents the remediation strategy for **7 incomplete FedRAMP High security controls** and **1 documentation meta-item** identified in the DOD Meeting Minutes Management System. All remediation will occur during the **16-week commercial deployment timeline** prior to the 16-month DOD ATO process.
+This Plan of Action & Milestones (POA&M) documents the remediation strategy for **7 incomplete FedRAMP High security controls** and **1 documentation meta-item** identified in the DOD Meeting Minutes Management System. All remediation will occur during the **16-week DOD pilot deployment timeline** prior to the 16-month DOD ATO process.
 
 ### Control Implementation Status
 

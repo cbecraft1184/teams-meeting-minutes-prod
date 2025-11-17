@@ -40,13 +40,13 @@
 **Market Positioning:**
 - **First enterprise solution** in a greenfield market
 - Entry into DOD enterprise TAM (Total Addressable Market) for meeting productivity tools
-- Expands IBM's SaaS portfolio with high-margin recurring revenue model
+- Expands DOD's enterprise capabilities with high-margin recurring revenue model
 - Differentiates IBM in crowded collaboration software market
 
 **Strategic Fit:**
 - Aligns with cloud strategy (Azure Government (GCC High) deployment only)
 - Showcases practical enterprise AI with measurable business impact
-- Targets IBM's core customers: Department of Defense organizations and large commercial organizations
+- Targets IBM's core customers: Department of Defense organizations and large DOD organizations
 - Leverages existing enterprise sales relationships and channels
 
 ### The Cost of Inaction

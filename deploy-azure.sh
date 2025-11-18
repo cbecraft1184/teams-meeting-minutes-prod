@@ -8,7 +8,8 @@ set -e
 
 # Find and add Azure CLI to PATH dynamically (Replit-specific)
 if [ -d /nix/store ]; then
-    AZ_PATH=$(find /nix/store -name "az" -type f 2>/dev/null | grep "bin/az" | head -1)
+    # Use a faster, more targeted search with maxdepth and timeout
+    AZ_PATH=$(timeout 10 find /nix/store -maxdepth 3 -path "*/azure-cli*/bin/az" -type f 2>/dev/null | head -1)
     if [ -n "$AZ_PATH" ]; then
         export PATH="$(dirname "$AZ_PATH"):$PATH"
     fi

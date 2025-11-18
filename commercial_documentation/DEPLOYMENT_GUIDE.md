@@ -1,1152 +1,734 @@
-# Deployment Guide
-## Enterprise Meeting Minutes Platform
+# Enterprise Meeting Minutes Management System
+## Production Deployment Guide - Azure Commercial Multi-Tenant SaaS
 
-**Document Purpose:** Deployment instructions for the Enterprise Meeting Minutes Platform across development, pilot, and Azure Commercial production environments
-
-**Architecture Status:** Production-ready design for 16-week implementation timeline. This guide covers the complete deployment process from Azure infrastructure provisioning through production launch.
-
-**What You're Deploying:** An enterprise-grade autonomous meeting minutes system with backend services, database schema, API layer, workflow engine, Microsoft Graph integrations, and comprehensive frontend UI - all following Enterprise security and compliance requirements.
-
-**Last Updated:** November 17, 2025
+**Classification:** Confidential - Deployment Documentation  
+**Document Version:** 1.0  
+**Date:** November 2025  
+**Audience:** DevOps Engineers, Platform Engineers, SRE Teams
 
 ---
 
-## What This System Includes
+## Overview
 
-**Production architecture components:**
+This guide provides comprehensive instructions for deploying the Enterprise Meeting Minutes Management System as a multi-tenant SaaS platform on Azure Commercial infrastructure. The deployment supports global enterprise customers with SOC 2 Type II compliance, 99.9% SLA guarantees, and auto-scaling to support 300,000+ concurrent users.
 
-✅ **Backend Services:**
-- Durable PostgreSQL-backed job queue with automatic retry
-- Meeting orchestrcertificationr coordinating entire workflow
-- Microsoft Graph API client (webhooks, meetings, email, SharePoint)
-- Azure OpenAI integration for AI processing
-- Document generation (DOCX, PDF)
-- Email distribution system
-- Azure AD group-based access control
-
-✅ **Database:**
-- Full PostgreSQL schema with 7 tables
-- Migration system (Drizzle ORM)
-- Session management
-- Job queue persistence
-
-✅ **API Layer:**
-- 15+ RESTful endpoints
-- Authentication middleware
-- Webhook receivers for Microsoft Teams
-- Health check endpoints
-
-✅ **Integration Layer:**
-- Microsoft Teams meeting capture
-- SharePoint document archival
-- Azure OpenAI processing
-- Email distribution via Graph API
-
-✅ **Frontend:** React application with comprehensive UI (Microsoft Fluent + IBM Carbon design, WCAG 2.1 AA accessibility, dual-theme system)
+**Deployment Architecture:**
+- **Primary Region:** East US 2 (primary customer base)
+- **Secondary Regions:** West US 2, West Europe (geographic distribution + DR)
+- **Compliance:** SOC 2 Type II, ISO 27001, GDPR
+- **SLA:** 99.9% uptime with financial penalties
 
 ---
 
-## Table of Contents
+## Prerequisites
 
-1. [Quick Reference](#1-quick-reference)
-2. [Microsoft 365 Test Environment Setup](#2-microsoft-365-test-environment-setup)
-3. [Azure AD Application Registration](#3-azure-ad-application-registration)
-4. [Azure OpenAI Setup](#4-azure-openai-setup)
-5. [SharePoint Configuration](#5-sharepoint-configuration)
-6. [Replit Development Deployment](#6-replit-development-deployment)
-7. [Azure Commercial Production Deployment](#7-azure-government-production-deployment)
-8. [Teams App Packaging and Installation](#8-teams-app-packaging-and-installation)
-9. [Post-Deployment Configuration](#9-post-deployment-configuration)
-10. [Troubleshooting](#10-troubleshooting)
+### Azure Subscription Requirements
 
----
+**Production Subscription:**
+- Azure subscription with Enterprise Agreement or Pay-As-You-Go
+- Resource quotas: 200+ vCPUs, App Service Plan capacity
+- Microsoft 365 Business or Enterprise tenant for Graph API testing
 
-## 1. Quick Reference
+**Required Permissions:**
+- Contributor access to production resource groups
+- User Access Administrator for RBAC
+- Key Vault Administrator for secrets management
+- Network Contributor for VNet and Front Door configuration
 
-### 1.1 Deployment Timeline
+### External Service Accounts
 
-| Environment | Duration | Key Steps |
-|------------|----------|-----------|
-| **Development/Testing** | 3-4 hours | M365 trial + Azure AD + Replit setup |
-| **Azure Commercial Production** | 6-8 hours | Infrastructure + DB + Application + Teams app |
-| **Full Commercial Testing** | 5 hours | Complete validation before production |
+**Required Services:**
+- **Stripe:** Payment processing and subscription billing
+- **SendGrid or Azure Communication Services:** Transactional email (backup channel)
+- **DataDog or Application Insights:** Monitoring and observability
+- **PagerDuty or Azure Monitor Alerts:** Incident management
 
-### 1.2 Cost Estimates
+### Domain and DNS
 
-**Note:** Production architecture uses multi-scale-unit App Service Environment (ASEv3) design with auto-scaling capability to support up to 300,000 concurrent users if necessary. See SCALABILITY_ARCHITECTURE.md for detailed capacity planning.
-
-| Environment | Monthly Cost | Components |
-|------------|-------------|------------|
-| **Development (Replit)** | $15-20 | Azure OpenAI only (M365 trial free, PostgreSQL included) |
-| **Azure Commercial Baseline (10K users)** | $54,150 | 3× ASEv3, 18× I3v2 instances, 12× PostgreSQL shards, Azure Front Door, Azure OpenAI |
-| **Azure Commercial Peak (300K users)** | $1,088,200 | 12× ASEv3, 880× I3v2 instances, 12× scaled PostgreSQL shards, Azure Front Door, Azure OpenAI |
-
-**Deployment Model:** This guide covers Replit development deployment. Production Azure Commercial deployment requires Infrastructure-as-Code (Terraform/Bicep) and is documented in SCALABILITY_ARCHITECTURE.md Section 7.
-
-### 1.3 Prerequisites Checklist
-
-**For All Deployments:**
-- [ ] Microsoft 365 admin access (Global Administrcertificationr role)
-- [ ] Azure Commercial subscription with billing enabled
-- [ ] Domain name (optional but recommended)
-- [ ] Credit card for Azure services
-
-**For Azure Commercial Production:**
-- [ ] Azure Commercial subscription (Commercial Cloud or Enterprise)
-- [ ] Azure CLI installed and configured
-- [ ] Appropriate clearance levels for administrcertificationrs
-
-**For Replit Deployment:**
-- [ ] Replit account (free or Teams plan)
-- [ ] Basic understanding of environment variables
+**Custom Domain Setup:**
+- Primary domain: `app.yourcompany.com`
+- API subdomain: `api.yourcompany.com`
+- Admin portal: `admin.yourcompany.com`
+- DNS provider with API access for automated certificate validation
+- SSL/TLS certificates (Azure Front Door managed or custom)
 
 ---
 
-## 2. Microsoft 365 Test Environment Setup
+## Infrastructure Architecture
 
-### 2.1 Option A: Microsoft 365 E5 Trial (Recommended for Testing)
+### Network Topology
 
-**What you get:** 30 days free, 25 user licenses, full Teams/Azure AD access
-
-#### Step 1: Sign Up for Trial
-
-1. Visit: https://www.microsoft.com/en-us/microsoft-365/enterprise/e5
-2. Click **"Free trial"**
-3. Enter your email address
-4. Fill in organization details:
-   - Company: `Meeting Minutes Testing` (or your organization name)
-   - Organization size: `25 users`
-   - Country: `United States`
-5. Create subdomain (cannot be changed later):
-   - Example: `meetingminutestest`
-   - Full domain: `meetingminutestest.onmicrosoft.com`
-6. Create admin account:
-   - Username: `admin`
-   - Full email: `admin@meetingminutestest.onmicrosoft.com`
-   - Password: **Create strong password and save it securely!**
-7. Verify phone number (SMS or call)
-8. Wait 2-5 minutes for provisioning
-
-**Success indiccertificationr:** You see "You're all set!" message
-
-#### Step 2: Bookmark Admin Centers
-
-Save these URLs for quick access:
-- **Microsoft 365 Admin:** https://admin.microsoft.com
-- **Teams Admin Center:** https://admin.teams.microsoft.com
-- **Azure AD Portal:** https://portal.azure.com
-- **Teams Web Client:** https://teams.microsoft.com
-
-Sign in with: `admin@meetingminutestest.onmicrosoft.com`
-
-#### Step 3: Create Test Users
-
-Create 5-10 test users for access control validation:
-
-1. Go to https://admin.microsoft.com
-2. Navigate to **Users** → **Active users** → **Add a user**
-3. Create these users:
-
-| Display Name | Email Prefix | Password | Purpose |
-|-------------|-------------|----------|---------|
-| John Doe | john.doe | TestPass123! | Viewer role testing |
-| Jane Smith | jane.smith | TestPass123! | Admin role testing |
-| Bob Johnson | bob.johnson | TestPass123! | Approver role testing |
-| Alice Williams | alice.williams | TestPass123! | Approver role testing |
-| Charlie Brown | charlie.brown | TestPass123! | Viewer role testing |
-
-**For each user:**
-- Assign **Microsoft 365 E5** license
-- **UNCHECK** "Require password change on next login"
-- Click **Finish adding user**
-
-#### Step 4: Enable Custom Apps in Teams
-
-1. Go to **Teams Admin Center:** https://admin.teams.microsoft.com
-2. Navigate to **Teams apps** → **Setup policies** → **Global**
-3. Under **Upload custom apps:** Toggle to **On**
-4. Click **Save**
-5. Wait up to 24 hours for changes to propagate (usually instant)
-
-### 2.2 Option B: Microsoft 365 Developer Program (Free - If Eligible)
-
-**Eligibility:** Visual Studio Professional/Enterprise subscribers, Microsoft partners
-
-**Benefits over Trial:**
-- 90-day duration (vs. 30 days)
-- Auto-renews if actively used
-- Pre-loaded sample data
-- 25 test users already configured
-
-#### Step 1: Join Developer Program
-
-1. Visit: https://developer.microsoft.com/en-us/microsoft-365/dev-program
-2. Click **"Join Now"**
-3. Sign in with your Microsoft account (use Visual Studio subscription account)
-4. Complete profile:
-   - Country: United States
-   - Company: Your organization
-   - Development interests: Select "Microsoft Teams"
-5. Accept terms and conditions
-
-#### Step 2: Create Instant Sandbox
-
-1. In Developer Program dashboard, click **"Set up E5 subscription"**
-2. Choose **"Instant sandbox"** (recommended for Teams testing)
-3. Select region: **United States**
-4. Create admin credentials:
-   - Username: `admin`
-   - Password: Strong password (save it!)
-5. Verify phone number
-6. Wait 1-2 minutes for provisioning
-
-**What you get:**
-- 25 pre-configured test users (e.g., Adele Vance, Alex Wilber, etc.)
-- Sample Teams with existing data
-- Pre-configured SharePoint sites
-- Teams app sideloading already enabled
-
-### 2.3 Create Azure AD Access Control Groups
-
-**Purpose:** Support multi-level access control for 300,000+ users
-
-#### Step 1: Navigate to Groups
-
-1. Go to https://portal.azure.com
-2. Sign in as admin
-3. Navigate to **Azure Active Directory** → **Groups** → **All groups**
-
-#### Step 2: Create Clearance-Level Groups
-
-Click **+ New group** for each:
-
-**Group 1: Standard Clearance**
-- Group type: **Security**
-- Group name: `Clearance-Standard`
-- Description: `Users cleared for Standard meetings`
-- Membership type: **Assigned** (or Dynamic for automation)
-- Add members: All test users
-
-**Group 2: Standard Clearance**
-- Group type: **Security**
-- Group name: `Clearance-Standard`
-- Description: `Users cleared for Standard meetings (includes Standard)`
-- Membership type: **Assigned**
-- Add members: jane.smith, bob.johnson
-
-**Group 3: Standard Clearance**
-- Group type: **Security**
-- Group name: `Clearance-Standard`
-- Description: `Users cleared for Standard meetings (includes all lower)`
-- Membership type: **Assigned**
-- Add members: jane.smith only
-
-#### Step 3: Create Role Groups
-
-**Group 4: Viewer Role**
-- Group name: `Role-Viewer`
-- Description: `Can view meetings they attended`
-- Add members: john.doe, charlie.brown
-
-**Group 5: Editor Role**
-- Group name: `Role-Editor`
-- Description: `Can edit minutes before approval`
-- Add members: bob.johnson
-
-**Group 6: Approver Role**
-- Group name: `Role-Approver`
-- Description: `Can approve/reject meeting minutes`
-- Add members: bob.johnson, alice.williams
-
-**Group 7: Admin Role**
-- Group name: `Role-Admin`
-- Description: `Full system access and configuration`
-- Add members: jane.smith
-
-**Success indiccertificationr:** All 7 groups created and members assigned
-
----
-
-## 3. Azure AD Application Registration
-
-### 3.1 Register New Application
-
-#### Step 1: Create App Registration
-
-1. Go to https://portal.azure.com
-2. Sign in as admin
-3. Navigate to **Azure Active Directory** → **App registrations**
-4. Click **+ New registration**
-
-#### Step 2: Configure Basic Settings
-
-**Application name:** `Meeting Minutes System` (or your preferred name)
-
-**Supported account types:** 
-- Select **Accounts in this organizational directory only (Single tenant)**
-
-**Redirect URI:**
-- Platform: **Web**
-- For Replit: `https://your-workspace.replit.app/auth/callback`
-- For Azure Commercial: `https://your-domain.com/auth/callback`
-- Leave blank for now (update later)
-
-Click **Register**
-
-#### Step 3: Save Application IDs
-
-**CRITICAL:** Copy and save these values immediately:
+**Multi-Region Virtual Networks:**
 
 ```
-Application (client) ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-Directory (tenant) ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+East US 2 (Primary):
+  VNet: 10.10.0.0/16
+    - AppService Subnet: 10.10.1.0/24
+    - Database Subnet: 10.10.2.0/24 (Private Endpoints)
+    - Redis Subnet: 10.10.3.0/24 (Cache)
+    - Management Subnet: 10.10.10.0/24
+
+West US 2 (Secondary):
+  VNet: 10.20.0.0/16
+    - AppService Subnet: 10.20.1.0/24
+    - Database Subnet: 10.20.2.0/24
+    - Redis Subnet: 10.20.3.0/24
+
+West Europe (Secondary):
+  VNet: 10.30.0.0/16
+    - AppService Subnet: 10.30.1.0/24
+    - Database Subnet: 10.30.2.0/24
+    - Redis Subnet: 10.30.3.0/24
 ```
 
-### 3.2 Create Client Secret
+**Traffic Management:**
+- Azure Front Door Premium: Global load balancing, WAF, DDoS protection
+- Geographic routing: US customers → East/West US, EU customers → West Europe
+- Automatic failover if primary region degraded
+- CDN for static assets (images, JS, CSS)
 
-1. In your app, navigate to **Certificates & secrets**
-2. Click **+ New client secret**
-3. Configure:
-   - Description: `Meeting Minutes Secret`
-   - Expires: **24 months** (recommended for production)
-4. Click **Add**
-5. **IMMEDIATELY COPY THE Standard VALUE** (shows only once!)
-   - Example: `abc123~DEF456.G7H8I9J0K1L2M3N4O5P6Q7R8S9T0`
+**Security:**
+- Network Security Groups on all subnets
+- Private endpoints for databases, storage, Key Vault
+- No public IP addresses on backend resources
+- Azure Firewall for egress control (optional for enhanced security)
 
-**⚠️ WARNING:** You cannot retrieve this secret later. Save it securely!
+### Compute Infrastructure
 
-### 3.3 Configure API Permissions
+**App Service Plans (Production Standard PV3):**
 
-#### Step 1: Add Microsoft Graph Permissions
+```yaml
+East US 2:
+  Tier: Production Standard (PremiumV3)
+  SKU: P3v3 (8 vCPU, 16 GB RAM per instance)
+  Instances: 
+    - Minimum: 6 (baseline)
+    - Maximum: 60 (auto-scale for peak load)
+  Zone Redundancy: Enabled (3 availability zones)
 
-1. Navigate to **API permissions**
-2. Click **+ Add a permission**
-3. Select **Microsoft Graph**
+West US 2:
+  Tier: Production Standard (PremiumV3)
+  SKU: P3v3
+  Instances: 4-40 (scaled to ~70% of East US)
+  Zone Redundancy: Enabled
 
-#### Step 2: Add Delegated Permissions (User context)
+West Europe:
+  Tier: Production Standard (PremiumV3)
+  SKU: P3v3
+  Instances: 4-40
+  Zone Redundancy: Enabled
+```
 
-Add these delegated permissions:
+**Auto-Scaling Configuration:**
 
-| Permission | Purpose |
-|-----------|---------|
-| `User.Read` | Read signed-in user profile |
-| `OnlineMeetings.Read` | Read user's Teams meetings |
-| `Group.Read.All` | Read user's group memberships for access control |
-| `Mail.Send` | Send email as signed-in user |
+```yaml
+Scale-Out Rules:
+  - CPU > 70% for 5 minutes → Add 3 instances
+  - Memory > 80% for 5 minutes → Add 3 instances
+  - HTTP Response Time > 2 seconds avg for 3 minutes → Add 5 instances
+  - Queue Depth > 500 jobs → Add 5 instances
 
-**To add:**
-1. Click **Delegated permissions**
-2. Search for each permission
-3. Check the box
-4. Click **Add permissions**
+Scale-In Rules:
+  - CPU < 30% for 20 minutes → Remove 2 instances
+  - Memory < 40% for 20 minutes → Remove 2 instances
+  - Minimum instances: 6 (East US), 4 (West US/Europe)
+  
+Cooldown Period: 10 minutes between scaling operations
+```
 
-#### Step 3: Add Application Permissions (Service context)
+### Database Infrastructure
 
-Add these application permissions:
+**Azure Database for PostgreSQL (Flexible Server):**
 
-| Permission | Purpose |
-|-----------|---------|
-| `User.Read.All` | Read all users' profiles for attendee lookup |
-| `Group.Read.All` | Read all group memberships for Azure AD sync |
-| `OnlineMeetings.Read.All` | Read all meetings via webhooks |
-| `Calendars.Read` | Read meeting schedules and metadata |
-| `Mail.Send` | Send minutes distribution emails |
-| `Sites.Selected` | Access SharePoint sites for archival |
+```yaml
+Production Configuration:
+  Version: PostgreSQL 14 LTS
+  Tier: General Purpose
+  Compute: 32 vCores (scalable to 64)
+  Memory: 128 GB
+  Storage: 2 TB with auto-growth to 16 TB
+  IOPS: 20,000 baseline, burstable to 80,000
+  
+High Availability:
+  Mode: Zone-redundant (automatic failover within region)
+  Replication: Synchronous to standby replica
+  Failover Time: <120 seconds automatic
+  
+Backup:
+  Retention: 35 days (maximum for compliance)
+  Geo-Backup: Enabled to paired region
+  Point-in-Time Restore: Any point within retention window
 
-**Alternative:** If `Sites.Selected` is unavailable, use `Files.ReadWrite.All`
+Read Replicas:
+  - 3 read replicas in East US 2 (query distribution)
+  - 1 read replica in West US 2 (failover capable)
+  - 1 read replica in West Europe (local read performance)
 
-**To add:**
-1. Click **Application permissions**
-2. Search for each permission
-3. Check the box
-4. Click **Add permissions**
+Connection Pooling:
+  PgBouncer: Integrated, transaction mode
+  Max Connections: 5,000 (distributed across replicas)
+  Connection Timeout: 30 seconds
+```
 
-#### Step 4: Grant Admin Consent
+**Data Isolation (Multi-Tenancy):**
+- Organization ID in every table (indexed)
+- Row-Level Security (RLS) policies enforce tenant boundaries
+- Application-level validation as defense-in-depth
+- Separate encryption keys per organization (optional Premium tier)
 
-**CRITICAL:** Application permissions require tenant admin consent
+### Caching Layer
 
-1. Click **Grant admin consent for [Your Organization]**
-2. Confirm by clicking **Yes**
-3. Verify all permissions show **Granted** with green checkmarks
+**Azure Cache for Redis (Premium):**
 
-**Success indiccertificationr:** All permissions display green checkmarks in "Status" column
+```yaml
+Configuration:
+  Tier: Premium P2 (13 GB cache)
+  Clustering: Enabled (6 shards)
+  Replication: Zone-redundant
+  Persistence: RDB snapshots every 15 minutes
+  
+Cache Strategy:
+  - User sessions: 8-hour TTL
+  - Meeting metadata: 15-minute TTL
+  - Organization settings: 30-minute TTL
+  - Static assets: 24-hour TTL
+  
+Eviction Policy: allkeys-lru (least recently used)
+```
 
-### 3.4 Configure Authentication Settings
+### Identity and Access Management
 
-1. Navigate to **Authentication**
-2. Under **Implicit grant and hybrid flows:**
-   - ✅ Check **Access tokens**
-   - ✅ Check **ID tokens**
-3. Under **Advanced settings:**
-   - Allow public client flows: **Yes**
-4. Click **Save**
+**Azure AD B2C (Customer Identity):**
+- Custom branded login experience per organization
+- Support for enterprise SSO (SAML, OIDC)
+- MFA enforcement configurable per organization
+- Social identity providers (Google, Microsoft) for smaller customers
+
+**Service Principals:**
+- Application registration for Microsoft Graph API access
+- Managed Identity for Azure resource access
+- Least privilege permissions (minimal Graph API scopes)
+- Certificate-based authentication (90-day rotation)
+
+**Role-Based Access Control:**
+
+```yaml
+Application Roles:
+  SuperAdmin:
+    - Platform-level configuration
+    - Customer onboarding and offboarding
+    - Billing and subscription management
+    
+  OrgAdmin:
+    - Organization settings and branding
+    - User provisioning within organization
+    - Usage analytics and reporting
+    
+  Approver:
+    - Review and approve meeting minutes
+    - Edit and manage action items
+    
+  Editor:
+    - Edit meeting minutes
+    - Manage action items
+    
+  Viewer:
+    - Read-only access to approved minutes
+```
 
 ---
 
-## 4. Azure OpenAI Setup
+## Deployment Steps
 
-### 4.1 Create Azure OpenAI Resource
-
-#### Step 1: Navigate to Azure OpenAI
-
-1. Go to https://portal.azure.com
-2. Search for "Azure OpenAI" in top search bar
-3. Click **+ Create**
-
-#### Step 2: Configure Resource
-
-**Basics:**
-- Subscription: Select your subscription
-- Resource group: Create new or use existing
-- Region: **East US** or **West Europe** (check GPT-4 availability)
-- Name: `meeting-minutes-openai`
-- Pricing tier: **Standard S0**
-
-**Networking:**
-- Network connectivity: **All networks** (or configure private endpoint)
-
-**Tags:** (optional)
-- Environment: Development
-
-Click **Review + create** → **Create**
-
-Wait 3-5 minutes for deployment
-
-#### Step 3: Deploy GPT-4 Model
-
-1. Once created, click **Go to resource**
-2. Navigate to **Model deployments** → **Manage Deployments**
-   - This opens Azure OpenAI Studio
-3. Click **+ Create new deployment**
-4. Configure:
-   - Model: **gpt-4** or **gpt-4-32k**
-   - Deployment name: `gpt-4`
-   - Model version: Select latest
-   - Deployment type: **Standard**
-5. Click **Create**
-
-#### Step 4: Get API Credentials
-
-1. In Azure Portal, go to your Azure OpenAI resource
-2. Navigate to **Keys and Endpoint**
-3. **Save these values:**
-
-```
-Endpoint: https://meeting-minutes-openai.openai.azure.com/
-Key 1: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-Deployment Name: gpt-4
-```
-
-### 4.2 Test API Access (Optional)
+### Step 1: Resource Group Creation
 
 ```bash
-curl https://meeting-minutes-openai.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview \
-  -H "Content-Type: application/json" \
-  -H "api-key: YOUR_KEY_HERE" \
-  -d '{
-    "messages": [{"role": "user", "content": "Test connection"}],
-    "max_tokens": 10
-  }'
+# Set Azure subscription
+az account set --subscription "<production-subscription-id>"
+
+# Create resource groups for each region
+az group create \
+  --name rg-meeting-minutes-eastus2 \
+  --location eastus2 \
+  --tags "Environment=Production" "Service=MeetingMinutes" "CostCenter=Engineering"
+
+az group create \
+  --name rg-meeting-minutes-westus2 \
+  --location westus2 \
+  --tags "Environment=Production" "Service=MeetingMinutes" "CostCenter=Engineering"
+
+az group create \
+  --name rg-meeting-minutes-westeurope \
+  --location westeurope \
+  --tags "Environment=Production" "Service=MeetingMinutes" "CostCenter=Engineering"
 ```
 
-**Expected response:** JSON with completion text
-
----
-
-## 5. SharePoint Configuration
-
-### 5.1 Create SharePoint Site
-
-#### Step 1: Create Site Collection
-
-1. Go to https://admin.microsoft.com
-2. Navigate to **Show all** → **SharePoint** → **Active sites**
-3. Click **+ Create**
-4. Select **Team site**
-5. Configure:
-   - Site name: `Meeting Minutes`
-   - Site address: `/sites/meetingminutes`
-   - Privacy: **Private**
-   - Language: English
-6. Click **Finish**
-
-#### Step 2: Create Document Library
-
-1. Navigate to your new site: `https://yourtenant.sharepoint.com/sites/meetingminutes`
-2. Click **+ New** → **Document library**
-3. Name: `Minutes Archive`
-4. Description: `Automated meeting minutes storage`
-5. Click **Create**
-
-#### Step 3: Create Folder Structure
-
-Create this folder hierarchy in the library:
-
-```
-/Minutes Archive/
-  ├─ 2025/
-  │   ├─ 01-January/
-  │   │   ├─ Standard/
-  │   │   ├─ Standard/
-  │   │   └─ Standard/
-  │   ├─ 02-February/
-  │   │   └─ (same structure)
-  └─ (repeat for each year/month)
-```
-
-### 5.2 Grant Application Access (Sites.Selected Permission)
-
-#### Step 1: Get Site ID
-
-1. Use Microsoft Graph Explorer: https://developer.microsoft.com/graph/graph-explorer
-2. Sign in as admin
-3. Run this query:
-   ```
-   GET https://graph.microsoft.com/v1.0/sites/yourtenant.sharepoint.com:/sites/meetingminutes
-   ```
-4. Copy the `id` field from response
-
-#### Step 2: Grant Permission via Graph API
-
-Use Graph Explorer or PowerShell:
-
-```http
-POST https://graph.microsoft.com/v1.0/sites/{site-id}/permissions
-Content-Type: application/json
-
-{
-  "roles": ["write"],
-  "grantedToIdentities": [{
-    "application": {
-      "id": "YOUR_APP_CLIENT_ID",
-      "displayName": "Meeting Minutes System"
-    }
-  }]
-}
-```
-
-**Success indiccertificationr:** Response with `id` and granted permission
-
----
-
-## 6. Replit Development Deployment
-
-### 6.1 Configure Environment Variables
-
-#### Step 1: Add Secrets to Replit
-
-1. Open your Replit workspace
-2. Click **Tools** → **Secrets**
-3. Add these secrets:
-
-**Microsoft Graph API:**
-```
-GRAPH_TENANT_ID=your-tenant-id
-GRAPH_CLIENT_ID=your-client-id
-GRAPH_CLIENT_Standard=your-client-secret
-```
-
-**Azure OpenAI:**
-```
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4
-```
-
-**SharePoint:**
-```
-SHAREPOINT_SITE_URL=https://yourtenant.sharepoint.com/sites/meetingminutes
-SHAREPOINT_LIBRARY=Minutes Archive
-```
-
-**Database (auto-configured by Replit):**
-```
-DATABASE_URL=postgresql://...
-SESSION_Standard=auto-generated
-```
-
-### 6.2 Update Redirect URI
-
-1. Copy your Replit app URL: `https://your-workspace.replit.app`
-2. Go to Azure Portal → Azure AD → App registrations → Your app
-3. Navigate to **Authentication**
-4. Add redirect URI: `https://your-workspace.replit.app/auth/callback`
-5. Click **Save**
-
-### 6.3 Deploy Application
-
-Application auto-deploys when you:
-1. Click **Run** in Replit
-2. Wait for workflow to start
-3. Open webview to see application
-
-**Success indiccertificationr:** Application loads, shows login page
-
-### 6.4 Test Authentication
-
-1. Click **Login**
-2. Sign in with test user (e.g., `john.doe@meetingminutestest.onmicrosoft.com`)
-3. Consent to permissions if prompted
-4. Verify dashboard loads
-
----
-
-## 7. Azure Commercial Production Deployment
-
-**Document Purpose:** This section provides an overview of Azure Commercial production deployment. For detailed step-by-step instructions, refer to the comprehensive deployment plans referenced below.
-
-### 7.1 Overview
-
-The Enterprise Meeting Minutes Platform deploys exclusively to **Azure Commercial** cloud infrastructure to meet Enterprise security requirements and compliance standards.
-
-**IMPORTANT:** This section provides a simplified overview. Production deployment uses a **multi-scale-unit App Service Environment (ASEv3) architecture** with horizontally sharded databases. For complete deployment instructions, see SCALABILITY_ARCHITECTURE.md Section 7.
-
-**Key Characteristics:**
-- **Scale:** Auto-scaling capability to support up to 300,000 concurrent users (baseline: 10,000 users)
-- **Classification:** Supports Standard, Standard, and Standard classifications with enterprise data isolation
-- **Compliance:** SOC 2 Type II, DISA SRG Level 5, Enterprise boundary
-- **Architecture:** Multi-scale-unit ASEv3 clusters (12 units max) with 12 horizontally sharded PostgreSQL databases
-
-### 7.2 Production Architecture Overview
-
-**Note:** The following diagram shows the multi-scale-unit production architecture. Development deployment on Replit uses a simplified single-instance configuration.
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│              Azure Commercial Cloud                       │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  Microsoft 365 Commercial Cloud                                             │
-│  ├─ Teams (Meeting Capture via Graph API .us endpoints)            │
-│  ├─ SharePoint (Enterprise-compliant Document Archival)                   │
-│  ├─ Exchange (Email Distribution)                                   │
-│  └─ Azure AD (SSO/MFA Authentication + Clearance-based RBAC)       │
-│                                                                      │
-│  Azure Front Door Premium                                           │
-│  ├─ Global Load Balancing & Classification-based Routing            │
-│  ├─ WAF + DDoS Protection                                           │
-│  └─ TLS 1.2+ Termination                                            │
-│                                                                      │
-│  Multi-Scale-Unit ASE Clusters (Classification-Specific VNets)      │
-│  ├─ BASELINE (10K users): 3 ASEv3, 18 I3v2 instances               │
-│  │  • Standard: 1 ASEv3 (12 instances) - VNet 10.0.0.0/16           │
-│  │  • Enhanced: 1 ASEv3 (4 instances) - VNet 10.10.0.0/16              │
-│  │  • Standard: 1 ASEv3 (2 instances) - VNet 10.20.0.0/16 (no egress)│
-│  │                                                                   │
-│  └─ PEAK (300K users): 12 ASEv3, 880 I3v2 instances                │
-│     • Standard: 6 ASEv3 (600 instances)                              │
-│     • Enhanced: 4 ASEv3 (240 instances)                                 │
-│     • Standard: 2 ASEv3 (40 instances)                                │
-│                                                                      │
-│  Horizontally Sharded PostgreSQL (12 shards total)                  │
-│  ├─ Standard: 6 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)      │
-│  ├─ Enhanced: 4 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)         │
-│  └─ Standard: 2 shards (GP_Gen5_4-8 baseline, GP_Gen5_16 peak)       │
-│     • HSM-backed CMK encryption (Key Vault Premium)                 │
-│     • 90-day backups, private endpoint only                         │
-│                                                                      │
-│  Azure OpenAI Service (Commercial Cloud)                                    │
-│  ├─ GPT-4o + Whisper Models                                         │
-│  ├─ 100K TPM Capacity                                               │
-│  └─ Regional Deployment (Virginia)                                  │
-│                                                                      │
-│  Azure Key Vault (Standard + Premium HSM)                           │
-│  ├─ Standard database encryption (Premium HSM, FIPS 140-2 Level 2)   │
-│  ├─ Enhanced database encryption (Standard, Customer-Managed Keys)      │
-│  └─ Application secrets and certificates                            │
-│                                                                      │
-│  Azure Monitor + Application Insights                               │
-│  ├─ Classification-aware audit logging                              │
-│  ├─ Performance monitoring across all ASE clusters                  │
-│  └─ 7-year log retention for Standard data                            │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### 7.3 Resource Blueprint
-
-**BASELINE Configuration (10,000 concurrent users):**
-
-| Resource Category | Configuration | Purpose | Monthly Cost |
-|----------|------------------|---------|--------------|
-| **Compute (ASEv3)** | 3× ASE, 18× I3v2 instances | Classification-specific application hosting | $28,350 |
-| **Database** | 12× PostgreSQL shards (GP_Gen5_4-8) | Horizontally sharded storage | $14,400 |
-| **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $5,000 |
-| **Azure OpenAI** | GPT-4o + Whisper, 100K TPM | AI processing | $4,000 |
-| **Key Vault** | Standard + Premium (HSM for Standard) | Secrets & encryption key management | $1,200 |
-| **Networking** | 3× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $800 |
-| **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $400 |
-| **TOTAL BASELINE** | | | **$54,150/month** |
-
-**PEAK Configuration (300,000 concurrent users - sustained load):**
-
-| Resource Category | Configuration | Purpose | Monthly Cost |
-|----------|------------------|---------|--------------|
-| **Compute (ASEv3)** | 12× ASE, 880× I3v2 instances | Scaled classification-specific hosting | $939,600 |
-| **Database** | 12× PostgreSQL shards (GP_Gen5_16) | Scaled sharded storage | $115,200 |
-| **Azure Front Door** | Premium tier, WAF enabled | Global load balancing & routing | $10,000 |
-| **Azure OpenAI** | GPT-4o + Whisper, scaled capacity | AI processing | $15,000 |
-| **Key Vault** | Standard + Premium (HSM for Standard) | Secrets & encryption key management | $2,400 |
-| **Networking** | 12× VNets, Private Endpoints, NSGs | Classification-specific network isolation | $4,000 |
-| **Monitoring** | Application Insights, 7-year retention | Audit logging & performance monitoring | $2,000 |
-| **TOTAL PEAK** | | | **$1,088,200/month** |
-
-**Note:** For complete cost breakdown including read replicas, Azure Monitor metrics, and operational overhead, see SCALABILITY_ARCHITECTURE.md Section 9.
-
-### 7.4 Deployment Workflow Summary
-
-**High-Level Deployment Steps:**
-
-1. **Prerequisites Validation** (1-2 days)
-   - Azure Commercial subscription active
-   - Microsoft 365 Commercial Cloud tenant configured
-   - Azure AD admin permissions verified
-   - Clearance levels documented for administrcertificationrs
-
-2. **Phase 1: Azure Infrastructure** (2-3 days)
-   - Create Resource Group in eastus region
-   - Deploy VNET with subnets (public, app, data, management)
-   - Configure Network Security Groups (NSGs)
-   - Deploy Azure Database for PostgreSQL Flexible Server
-   - Set up private endpoints for database
-
-3. **Phase 2: Application Services** (2-3 days)
-   - Deploy App Service Environment v3 (ASEv3) clusters
-   - Configure classification-specific VNets (Standard, Enhanced, Standard)
-   - Deploy I3v2 instances with Node.js 20 runtime
-   - Configure auto-scaling rules per classification level
-   - Deploy Azure Front Door Premium for global load balancing
-
-4. **Phase 3: AI & Integration** (1-2 days)
-   - Provision Azure OpenAI Service
-   - Deploy GPT-4 model
-   - Configure Microsoft Graph API application
-   - Set up SharePoint site and document libraries
-
-5. **Phase 4: Security Configuration** (1-2 days)
-   - Create Azure Key Vault
-   - Store all secrets and certificates
-   - Configure Managed Identities
-   - Set up Azure AD group-based RBAC
-   - Implement clearance-level access control
-
-6. **Phase 5: Application Deployment** (1 day)
-   - Deploy application code to App Service
-   - Run database migrations
-   - Configure environment variables from Key Vault
-   - Verify health checks
-
-7. **Phase 6: Microsoft Teams Integration** (1-2 days)
-   - Package Teams app manifest
-   - Install Teams app in tenant
-   - Configure Graph API webhooks
-   - Test meeting capture workflow
-
-8. **Phase 7: Testing & Validation** (3-5 days pilot / 7-14 days production)
-   - End-to-end workflow testing
-   - Security validation (clearance levels, classifications)
-   - Performance testing (load, scale)
-   - User acceptance testing
-   - Security Authority to Operate (certification) preparation
-
-### 7.5 Comprehensive Deployment Documentation
-
-For detailed step-by-step deployment instructions, configuration examples, troubleshooting guides, and security hardening procedures, refer to these comprehensive deployment plans:
-
-| Deployment Scenario | Document | Lines | Timeline | Users |
-|-------------------|----------|-------|----------|-------|
-| **Pilot (Recommended First Step)** | `` | 1,282 | 2-4 weeks | 50-100 |
-| **Production (Full Scale)** | `` | Comprehensive | 16 weeks (+16mo certification) | 300,000 |
-| **Scaling (Pilot → Production)** | `PILOT_TO_PRODUCTION_SCALING.md` | Detailed | 1 day | 100 → 300K |
-
-**Key Documents:**
-
-1. ****
-   - Cost-optimized pilot deployment ($1,500-2,500/month)
-   - Simplified architecture for 50-100 users
-   - 60-day evaluation period
-   - Built-in scaling path to production
-   - Go/no-go decision framework
-   - Complete Azure CLI commands and configuration examples
-
-2. ****
-   - Production-grade architecture with auto-scaling for up to 300,000 concurrent users
-   - High availability, disaster recovery, security hardening
-   - SOC 2 Type II, DISA SRG Level 5 compliance
-   - Complete resource manifests and deployment scripts
-   - certification preparation guidance
-   - Monitoring, alerting, and incident response procedures
-
-3. **PILOT_TO_PRODUCTION_SCALING.md**
-   - Multi-day upgrade procedure from pilot to production
-   - Infrastructure scaling to multi-scale-unit ASEv3 architecture
-   - Database shard deployment and data migration
-   - Cost impact analysis (baseline → peak capacity)
-   - Performance validation procedures
-
-### 7.6 Prerequisites for Azure Commercial Deployment
-
-**Required Access:**
-- [ ] Azure Commercial subscription (Commercial Cloud or Enterprise)
-- [ ] Microsoft 365 Commercial Cloud tenant
-- [ ] Azure AD Global Administrcertificationr access
-- [ ] Billing account configured
-- [ ] Standard clearance for system administrcertificationrs (production)
-
-**Required Tools:**
-- [ ] Azure CLI configured for Azure Commercial (`az cloud set --name AzureUSGovernment`)
-- [ ] PowerShell 7+ with Az modules
-- [ ] Node.js 20 LTS for local development/testing
-- [ ] Git for source control
-
-**Required Documentation:**
-- [ ] Security Authorization to Operate (certification) requirements (production)
-- [ ] Data classification policies documented
-- [ ] Incident response procedures defined
-- [ ] Disaster recovery plan approved
-
----
-
-## 8. Teams App Packaging and Installation
-
-### 8.1 Create App Manifest
-
-#### Step 1: Create manifest.json
-
-```json
-{
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.16",
-  "version": "1.0.0",
-  "id": "YOUR_APP_CLIENT_ID",
-  "packageName": "com.yourorg.meetingminutes",
-  "developer": {
-    "name": "Your Organization",
-    "websiteUrl": "https://your-domain.com",
-    "privacyUrl": "https://your-domain.com/privacy",
-    "termsOfUseUrl": "https://your-domain.com/terms"
-  },
-  "name": {
-    "short": "Meeting Minutes",
-    "full": "Enterprise Meeting Minutes Platform"
-  },
-  "description": {
-    "short": "Automated Teams meeting minutes generation and distribution",
-    "full": "Automatically captures, processes, and distributes Teams meeting minutes with AI-powered summarization, action item extraction, and SharePoint archival."
-  },
-  "icons": {
-    "outline": "outline.png",
-    "color": "color.png"
-  },
-  "accentColor": "#0078D4",
-  "configurableTabs": [],
-  "staticTabs": [{
-    "entityId": "dashboard",
-    "name": "Dashboard",
-    "contentUrl": "https://your-domain.com/",
-    "scopes": ["personal"]
-  }],
-  "permissions": [
-    "identity",
-    "messageTeamMembers"
-  ],
-  "validDomains": [
-    "your-domain.com"
-  ],
-  "webApplicationInfo": {
-    "id": "YOUR_APP_CLIENT_ID",
-    "resource": "api://your-domain.com/YOUR_APP_CLIENT_ID"
-  }
-}
-```
-
-#### Step 2: Create App Icons
-
-**Color icon (color.png):**
-- Size: 192x192 pixels
-- Format: PNG
-- Use your organization branding
-
-**Outline icon (outline.png):**
-- Size: 32x32 pixels
-- Format: PNG
-- Transparent background, white icon
-
-### 8.2 Package App
+### Step 2: Virtual Network Setup
 
 ```bash
-# Create app package directory
-mkdir teams-app
-cd teams-app
+# East US 2 VNet
+az network vnet create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --name vnet-meeting-minutes-eastus2 \
+  --address-prefix 10.10.0.0/16 \
+  --location eastus2
 
-# Add files
-# - manifest.json
-# - color.png
-# - outline.png
+# Create subnets
+az network vnet subnet create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --vnet-name vnet-meeting-minutes-eastus2 \
+  --name snet-appservice \
+  --address-prefix 10.10.1.0/24 \
+  --delegations Microsoft.Web/serverFarms
 
-# Create ZIP package
-zip -r meeting-minutes-app.zip manifest.json color.png outline.png
+az network vnet subnet create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --vnet-name vnet-meeting-minutes-eastus2 \
+  --name snet-database \
+  --address-prefix 10.10.2.0/24 \
+  --disable-private-endpoint-network-policies true
+
+# Repeat for West US 2 and West Europe
 ```
 
-### 8.3 Install App in Teams
+### Step 3: Key Vault Deployment
 
-#### Method 1: Upload to Teams Admin Center (Recommended)
+```bash
+# Create Key Vault (Standard tier)
+az keyvault create \
+  --name kv-meeting-minutes-prod \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --location eastus2 \
+  --sku Standard \
+  --enable-rbac-authorization true \
+  --enable-soft-delete true \
+  --retention-days 90
 
-1. Go to https://admin.teams.microsoft.com
-2. Navigate to **Teams apps** → **Manage apps**
-3. Click **Upload new app** → **Upload**
-4. Select `meeting-minutes-app.zip`
-5. Click **Submit**
-6. Wait for approval (instant for admin)
+# Create private endpoint
+az network private-endpoint create \
+  --name pe-keyvault-eastus2 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --vnet-name vnet-meeting-minutes-eastus2 \
+  --subnet snet-database \
+  --private-connection-resource-id $(az keyvault show --name kv-meeting-minutes-prod --query id -o tsv) \
+  --group-id vault \
+  --connection-name kv-private-connection
 
-#### Method 2: Sideload Directly (Testing Only)
+# Store critical secrets
+az keyvault secret set --vault-name kv-meeting-minutes-prod --name database-url --value "<connection-string>"
+az keyvault secret set --vault-name kv-meeting-minutes-prod --name session-secret --value "<random-256-bit-key>"
+az keyvault secret set --vault-name kv-meeting-minutes-prod --name stripe-secret-key --value "<stripe-key>"
+az keyvault secret set --vault-name kv-meeting-minutes-prod --name openai-api-key --value "<azure-openai-key>"
+```
 
-1. Open Teams web or desktop client
-2. Click **Apps** in left sidebar
-3. Click **Manage your apps**
-4. Click **Upload a custom app** → **Upload for me or my teams**
-5. Select `meeting-minutes-app.zip`
-6. Click **Add**
+### Step 4: PostgreSQL Database
 
-### 8.4 Pin App to Sidebar
+```bash
+# Create PostgreSQL server
+az postgres flexible-server create \
+  --name psql-meeting-minutes-prod \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --location eastus2 \
+  --admin-user dbadmin \
+  --admin-password '<strong-password>' \
+  --sku-name Standard_D32s_v3 \
+  --tier GeneralPurpose \
+  --storage-size 2048 \
+  --version 14 \
+  --high-availability ZoneRedundant \
+  --backup-retention 35 \
+  --geo-redundant-backup Enabled \
+  --public-access None
 
-1. In Teams, click **Apps**
-2. Search for "Meeting Minutes"
-3. Right-click app → **Pin**
-4. App now appears in left sidebar
+# Create private endpoint
+az network private-endpoint create \
+  --name pe-postgresql-eastus2 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --vnet-name vnet-meeting-minutes-eastus2 \
+  --subnet snet-database \
+  --private-connection-resource-id $(az postgres flexible-server show --name psql-meeting-minutes-prod --query id -o tsv) \
+  --group-id postgresqlServer \
+  --connection-name psql-private-connection
 
-**Success indiccertificationr:** App opens in Teams, shows login page
+# Create database
+az postgres flexible-server db create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --server-name psql-meeting-minutes-prod \
+  --database-name meeting_minutes_production
+
+# Create read replicas
+az postgres flexible-server replica create \
+  --replica-name psql-meeting-minutes-replica-1 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --source-server psql-meeting-minutes-prod \
+  --location eastus2
+
+az postgres flexible-server replica create \
+  --replica-name psql-meeting-minutes-replica-westus2 \
+  --resource-group rg-meeting-minutes-westus2 \
+  --source-server psql-meeting-minutes-prod \
+  --location westus2
+```
+
+### Step 5: Redis Cache
+
+```bash
+# Create Redis Cache (Premium tier)
+az redis create \
+  --name redis-meeting-minutes-prod \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --location eastus2 \
+  --sku Premium \
+  --vm-size P2 \
+  --zones 1 2 3 \
+  --enable-non-ssl-port false \
+  --minimum-tls-version 1.2
+
+# Get connection string
+az redis list-keys \
+  --name redis-meeting-minutes-prod \
+  --resource-group rg-meeting-minutes-eastus2
+
+# Store in Key Vault
+az keyvault secret set \
+  --vault-name kv-meeting-minutes-prod \
+  --name redis-connection-string \
+  --value "<redis-connection-string>"
+```
+
+### Step 6: App Service Plans and Web Apps
+
+```bash
+# Create App Service Plan (East US 2)
+az appservice plan create \
+  --name plan-meeting-minutes-eastus2 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --location eastus2 \
+  --sku P3v3 \
+  --is-linux \
+  --number-of-workers 6 \
+  --zone-redundant
+
+# Create Web App
+az webapp create \
+  --name app-meeting-minutes-eastus2 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --plan plan-meeting-minutes-eastus2 \
+  --runtime "NODE:20-lts"
+
+# Enable managed identity
+az webapp identity assign \
+  --name app-meeting-minutes-eastus2 \
+  --resource-group rg-meeting-minutes-eastus2
+
+# Configure auto-scaling
+az monitor autoscale create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --resource app-meeting-minutes-eastus2 \
+  --resource-type Microsoft.Web/serverFarms \
+  --name autoscale-eastus2 \
+  --min-count 6 \
+  --max-count 60 \
+  --count 6
+
+az monitor autoscale rule create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --autoscale-name autoscale-eastus2 \
+  --condition "CpuPercentage > 70 avg 5m" \
+  --scale out 3
+
+az monitor autoscale rule create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --autoscale-name autoscale-eastus2 \
+  --condition "CpuPercentage < 30 avg 20m" \
+  --scale in 2
+
+# Repeat for West US 2 and West Europe
+```
+
+### Step 7: Application Configuration
+
+```bash
+# Configure environment variables
+az webapp config appsettings set \
+  --name app-meeting-minutes-eastus2 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --settings \
+    NODE_ENV=production \
+    DATABASE_URL="@Microsoft.KeyVault(SecretUri=https://kv-meeting-minutes-prod.vault.azure.net/secrets/database-url)" \
+    SESSION_SECRET="@Microsoft.KeyVault(SecretUri=https://kv-meeting-minutes-prod.vault.azure.net/secrets/session-secret)" \
+    REDIS_URL="@Microsoft.KeyVault(SecretUri=https://kv-meeting-minutes-prod.vault.azure.net/secrets/redis-connection-string)" \
+    STRIPE_SECRET_KEY="@Microsoft.KeyVault(SecretUri=https://kv-meeting-minutes-prod.vault.azure.net/secrets/stripe-secret-key)" \
+    AZURE_OPENAI_ENDPOINT="https://<resource-name>.openai.azure.com/" \
+    AZURE_OPENAI_API_KEY="@Microsoft.KeyVault(SecretUri=https://kv-meeting-minutes-prod.vault.azure.net/secrets/openai-api-key)" \
+    GRAPH_API_ENDPOINT="https://graph.microsoft.com" \
+    ENABLE_MULTI_TENANCY=true
+
+# Grant Key Vault access
+az keyvault set-policy \
+  --name kv-meeting-minutes-prod \
+  --object-id $(az webapp identity show --name app-meeting-minutes-eastus2 --resource-group rg-meeting-minutes-eastus2 --query principalId -o tsv) \
+  --secret-permissions get list
+```
+
+### Step 8: Azure Front Door Setup
+
+```bash
+# Create Front Door profile
+az afd profile create \
+  --profile-name fd-meeting-minutes \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --sku Premium_AzureFrontDoor
+
+# Create endpoint
+az afd endpoint create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --profile-name fd-meeting-minutes \
+  --endpoint-name app \
+  --enabled-state Enabled
+
+# Create origin group with health probes
+az afd origin-group create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --profile-name fd-meeting-minutes \
+  --origin-group-name backend-origins \
+  --probe-request-type GET \
+  --probe-protocol Https \
+  --probe-interval-in-seconds 30 \
+  --probe-path /api/health
+
+# Add origins (multi-region)
+az afd origin create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --profile-name fd-meeting-minutes \
+  --origin-group-name backend-origins \
+  --origin-name eastus2-origin \
+  --host-name app-meeting-minutes-eastus2.azurewebsites.net \
+  --priority 1 \
+  --weight 1000 \
+  --enabled-state Enabled
+
+az afd origin create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --profile-name fd-meeting-minutes \
+  --origin-group-name backend-origins \
+  --origin-name westus2-origin \
+  --host-name app-meeting-minutes-westus2.azurewebsites.net \
+  --priority 2 \
+  --weight 500 \
+  --enabled-state Enabled
+
+az afd origin create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --profile-name fd-meeting-minutes \
+  --origin-group-name backend-origins \
+  --origin-name westeurope-origin \
+  --host-name app-meeting-minutes-westeurope.azurewebsites.net \
+  --priority 3 \
+  --weight 300 \
+  --enabled-state Enabled
+
+# Add custom domain
+az afd custom-domain create \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --profile-name fd-meeting-minutes \
+  --custom-domain-name app-domain \
+  --host-name app.yourcompany.com \
+  --minimum-tls-version TLS12
+
+# Configure WAF
+az network front-door waf-policy create \
+  --name wafMeetingMinutes \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --sku Premium_AzureFrontDoor \
+  --mode Prevention
+
+az network front-door waf-policy managed-rules add \
+  --policy-name wafMeetingMinutes \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --type Microsoft_DefaultRuleSet \
+  --version 2.1
+```
+
+### Step 9: Database Schema Deployment
+
+```bash
+# Connect to database via jumpbox or Azure Cloud Shell
+export DATABASE_URL="postgresql://dbadmin:<password>@psql-meeting-minutes-prod.postgres.database.azure.com:5432/meeting_minutes_production?sslmode=require"
+
+# Run migrations
+npm run db:push
+
+# Verify schema
+psql $DATABASE_URL -c "\dt"
+```
+
+### Step 10: Application Deployment
+
+```bash
+# Build production bundle
+npm run build
+
+# Create deployment ZIP
+zip -r deployment.zip dist package.json package-lock.json -x "node_modules/*"
+
+# Deploy to all regions
+az webapp deployment source config-zip \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --name app-meeting-minutes-eastus2 \
+  --src deployment.zip
+
+az webapp deployment source config-zip \
+  --resource-group rg-meeting-minutes-westus2 \
+  --name app-meeting-minutes-westus2 \
+  --src deployment.zip
+
+az webapp deployment source config-zip \
+  --resource-group rg-meeting-minutes-westeurope \
+  --name app-meeting-minutes-westeurope \
+  --src deployment.zip
+```
 
 ---
 
-## 9. Post-Deployment Configuration
+## Monitoring and Observability
 
-### 9.1 Verify Application Health
-
-```bash
-# Test health endpoint
-curl https://your-domain.com/api/health
-
-# Expected response:
-{"status":"healthy","database":"connected","timestamp":"2025-11-06T..."}
-```
-
-### 9.2 Configure Teams Webhook Subscription
-
-**Automatic on first login:**
-- Webhook subscribed when admin first logs in
-- Check logs for: `[GraphWebhookService] Subscription created`
-
-**Manual subscription (if needed):**
-```http
-POST https://graph.microsoft.com/v1.0/subscriptions
-Content-Type: application/json
-Authorization: Bearer YOUR_TOKEN
-
-{
-  "changeType": "created",
-  "notificationUrl": "https://your-domain.com/api/webhooks/teams",
-  "resource": "communications/onlineMeetings",
-  "expirationDateTime": "2025-12-06T00:00:00Z",
-  "clientState": "YOUR_Standard_VALUE"
-}
-```
-
-### 9.3 Test End-to-End Workflow
-
-1. **Schedule Teams meeting:**
-   - Create meeting with 2-3 test users
-   - Add meeting description/agenda
-   
-2. **Conduct meeting:**
-   - Join meeting with test users
-   - Enable Teams recording
-   - Have 5-minute discussion
-   - End meeting
-
-3. **Wait for processing:**
-   - System should auto-detect completed meeting
-   - Check dashboard for "Processing" status
-   - Wait 2-3 minutes for AI generation
-
-4. **Review minutes:**
-   - Open meeting in app
-   - Verify minutes content
-   - Check action items extracted
-
-5. **Approve minutes:**
-   - Click "Approve"
-   - Verify email distribution
-   - Check SharePoint archival
-
-**Success indiccertificationrs:**
-- ✅ Meeting auto-captured
-- ✅ Minutes generated
-- ✅ Action items extracted
-- ✅ Email sent to attendees
-- ✅ Document uploaded to SharePoint
-
-### 9.4 Monitor Logs
-
-**Azure Monitor (Production):**
-```bash
-# Stream logs from Azure App Service
-az webapp log tail --name app-teams-minutes-prod --resource-group rg-teams-minutes
-```
-
-**Replit Console (Development):**
-- Click **Console** tab
-- Monitor real-time logs
-
-**Key log patterns to verify:**
-- `[GraphWebhookService] Received meeting notification`
-- `[MeetingOrchestrcertificationr] Processing meeting`
-- `[MinutesGenercertificationr] Generated minutes`
-- `[SharePointClient] Uploaded document`
-- `[EmailService] Sent distribution email`
-
----
-
-## 10. Troubleshooting
-
-### 10.1 Common Issues
-
-#### Issue: "Failed to authenticate with Azure AD"
-
-**Symptoms:** Login fails, shows error page
-
-**Solutions:**
-1. Verify redirect URI matches exactly (including trailing slash)
-2. Check client secret is correct and not expired
-3. Verify tenant ID is correct
-4. Check browser allows cookies from domain
-
-#### Issue: "Database connection failed"
-
-**Symptoms:** App crashes on startup, health check fails
-
-**Solutions:**
-1. Verify DATABASE_URL is correct
-2. Check Azure NSG rules allow traffic from App Service subnet to database subnet
-3. Verify database user has correct permissions
-4. Check private endpoint connection is established
-5. Verify database firewall rules allow App Service VNET
-
-#### Issue: "Azure OpenAI API error 401"
-
-**Symptoms:** Minutes generation fails
-
-**Solutions:**
-1. Verify API key is correct
-2. Check endpoint URL format: `https://resource.openai.azure.com/`
-3. Verify deployment name matches (case-sensitive)
-4. Check Azure OpenAI resource is in same subscription
-
-#### Issue: "SharePoint upload failed"
-
-**Symptoms:** Minutes approved but SharePoint URL is null
-
-**Solutions:**
-1. Verify Sites.Selected permission granted
-2. Check site URL is correct (case-sensitive)
-3. Verify library name exists
-4. Check folder structure created
-5. Verify app has write permission to site
-
-#### Issue: "Teams webhook not receiving events"
-
-**Symptoms:** Meetings not auto-captured
-
-**Solutions:**
-1. Check webhook subscription exists (Graph API)
-2. Verify notificationUrl is publicly accessible (not localhost)
-3. Check SSL certificate is valid
-4. Verify webhook endpoint responds to validation request
-5. Check subscription not expired (renews every 3 days)
-
-### 10.2 Diagnostic Commands
+### Application Insights Setup
 
 ```bash
-# Check database connectivity
-psql $DATABASE_URL -c "SELECT 1;"
+# Create Application Insights
+az monitor app-insights component create \
+  --app app-insights-meeting-minutes \
+  --location eastus2 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --application-type web
 
-# Test Azure OpenAI
-curl "https://YOUR_RESOURCE.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview" \
-  -H "api-key: YOUR_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"test"}]}'
+# Get instrumentation key
+INSTRUMENTATION_KEY=$(az monitor app-insights component show \
+  --app app-insights-meeting-minutes \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --query instrumentationKey -o tsv)
 
-# Test SharePoint access
-curl "https://graph.microsoft.com/v1.0/sites/SITE_ID" \
-  -H "Authorization: Bearer YOUR_TOKEN"
-
-# Check webhook subscription
-curl "https://graph.microsoft.com/v1.0/subscriptions" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+# Configure in Web App
+az webapp config appsettings set \
+  --name app-meeting-minutes-eastus2 \
+  --resource-group rg-meeting-minutes-eastus2 \
+  --settings APPLICATIONINSIGHTS_INSTRUMENTATIONKEY=$INSTRUMENTATION_KEY
 ```
 
-### 10.3 Getting Help
+### Critical Alerts
 
-**Documentation:**
-- Microsoft Graph API: https://docs.microsoft.com/graph/
-- Azure OpenAI: https://docs.microsoft.com/azure/cognitive-services/openai/
-- Teams Apps: https://docs.microsoft.com/microsoftteams/platform/
+```yaml
+SLA-Critical Alerts (P1):
+  - Availability < 99.9% over 5-minute window
+  - Error rate > 1% over 5 minutes
+  - P95 response time > 3 seconds
+  - Database connection failures
+  - Payment processing failures
 
-**Support Channels:**
-- Azure Support Portal
-- Microsoft 365 Admin Center (Help & Support)
-- Stack Overflow (tag: microsoft-graph)
+Performance Alerts (P2):
+  - CPU > 80% for 15 minutes
+  - Memory > 85% for 15 minutes
+  - Queue depth > 1000 jobs
+  - Cache hit rate < 80%
 
----
-
-## Appendix A: Environment Variable Reference
-
-### Required Variables
-
-```bash
-# Microsoft Graph API
-GRAPH_TENANT_ID=          # Azure AD tenant ID
-GRAPH_CLIENT_ID=          # App registration client ID
-GRAPH_CLIENT_Standard=      # App client secret
-
-# Azure OpenAI
-AZURE_OPENAI_ENDPOINT=    # https://resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=     # Azure OpenAI API key
-AZURE_OPENAI_DEPLOYMENT=  # Deployment name (e.g., gpt-4)
-
-# Database
-DATABASE_URL=             # PostgreSQL connection string
-
-# Session
-SESSION_Standard=           # Random 64-character string
-
-# SharePoint (optional)
-SHAREPOINT_SITE_URL=      # https://tenant.sharepoint.com/sites/...
-SHAREPOINT_LIBRARY=       # Library name (e.g., Minutes Archive)
-
-# Application
-NODE_ENV=                 # production | development
-PORT=                     # 5000 (default)
-```
-
-### Optional Variables
-
-```bash
-# Logging
-LOG_LEVEL=                # debug | info | warn | error
-ENABLE_DEBUG_LOGS=        # true | false
-
-# Performance
-MAX_CONCURRENT_JOBS=      # Default: 5
-JOB_RETRY_ATTEMPTS=       # Default: 3
-
-# Email
-EMAIL_FROM=               # Default: noreply@yourdomain.com
+Security Alerts (P1):
+  - Authentication failures > 10 per minute
+  - Privilege escalation attempts
+  - Suspicious data access patterns
+  - Certificate expiration < 14 days
 ```
 
 ---
 
-**Document Classification:** IBM Internal - Deployment Guide  
-**Version:** 1.0  
-**Last Updated:** November 2025  
-**Review Cycle:** Quarterly or after major platform updates
+## Security Hardening
+
+### HTTPS and TLS
+
+- Enforce TLS 1.2 minimum (preferably TLS 1.3)
+- HSTS headers with 1-year max-age
+- Disable weak ciphers and protocols
+- Automated certificate rotation via Azure Front Door
+
+### Network Security
+
+- No public IP addresses on backend resources
+- Private endpoints for all Azure services
+- NSG rules: deny-by-default, allow specific traffic
+- Azure Front Door: Only HTTPS traffic allowed
+
+### Data Encryption
+
+- **At Rest:** Transparent Data Encryption (TDE) for PostgreSQL
+- **In Transit:** TLS 1.2+ for all connections
+- **Secrets:** Azure Key Vault with RBAC
+- **Customer Data:** Optional customer-managed keys (Premium tier)
+
+---
+
+## Disaster Recovery
+
+### Backup Strategy
+
+**Database Backups:**
+- Automated daily backups (35-day retention)
+- Geo-redundant to paired region
+- Point-in-time restore tested monthly
+
+**Application Backups:**
+- Infrastructure as Code (Bicep/Terraform)
+- Configuration in Key Vault
+- CI/CD pipelines in source control
+
+### Failover Procedures
+
+**Regional Failover:**
+- Azure Front Door automatically routes traffic away from degraded region
+- Manual database replica promotion if needed
+- RTO: 10 minutes (automatic routing changes)
+- RPO: 5 seconds (database replication lag)
+
+**Full Disaster Recovery:**
+- Restore from geo-redundant backup to alternate region
+- Redeploy application via CI/CD
+- Update DNS to point to DR region
+- RTO: 4 hours, RPO: 1 hour
+
+---
+
+## SOC 2 Compliance Controls
+
+### Implemented Controls
+
+**CC6.1 - Logical and Physical Access Controls:**
+- Azure AD authentication with MFA
+- RBAC for all resources
+- Audit logging enabled
+
+**CC6.6 - Encryption:**
+- TLS 1.2+ for data in transit
+- TDE for data at rest
+- Key Vault for secrets management
+
+**CC7.2 - System Monitoring:**
+- Application Insights for performance
+- Security Center for threat detection
+- Automated alerts for anomalies
+
+**CC8.1 - Change Management:**
+- CI/CD pipelines with approvals
+- Infrastructure as Code
+- Rollback capability
+
+**CC9.1 - Risk Assessment:**
+- Regular penetration testing
+- Vulnerability scanning
+- Third-party security audits
+
+---
+
+**Document Control:**
+- Version: 1.0
+- Classification: Confidential - Deployment Documentation
+- Last Updated: November 2025
+- Next Review: February 2026

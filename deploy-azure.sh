@@ -111,8 +111,17 @@ echo ""
 # Check if logged in and cache account info
 echo -n "Checking Azure login status... "
 # Use Azure CLI's built-in query (JMESPath) - no jq needed!
-CURRENT_USER=$(az account show --query user.name -o tsv 2>/dev/null)
-if [ $? -eq 0 ] && [ -n "$CURRENT_USER" ]; then
+# Add 5-second timeout to prevent hanging
+CURRENT_USER=$(timeout 5 az account show --query user.name -o tsv 2>/dev/null)
+LOGIN_CHECK_STATUS=$?
+
+if [ $LOGIN_CHECK_STATUS -eq 124 ]; then
+    # Timeout occurred - treat as not logged in
+    echo -e "${YELLOW}TIMEOUT${NC} (treating as not logged in)"
+    LOGIN_CHECK_STATUS=1
+fi
+
+if [ $LOGIN_CHECK_STATUS -eq 0 ] && [ -n "$CURRENT_USER" ]; then
     echo -e "${GREEN}✓${NC} Logged in as: $CURRENT_USER"
     echo ""
     read -p "Continue with this account? (y/yes): " CONTINUE

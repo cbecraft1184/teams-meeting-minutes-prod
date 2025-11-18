@@ -9,6 +9,19 @@ import { Input } from "@/components/ui/input";
 import { FileText, Calendar, Archive, CheckCircle2, Settings, Search, AlertCircle } from "lucide-react";
 import type { MeetingWithMinutes } from "@shared/schema";
 
+type DashboardStats = {
+  totalMeetings: number;
+  pendingMinutes: number;
+  completedMeetings: number;
+  archivedMeetings: number;
+  actionItems: {
+    total: number;
+    pending: number;
+    inProgress: number;
+    completed: number;
+  };
+};
+
 export default function Dashboard() {
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -17,7 +30,7 @@ export default function Dashboard() {
     queryKey: ["/api/meetings"],
   });
 
-  const { data: stats, isLoading: statsLoading, isError: statsError } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useQuery<DashboardStats>({
     queryKey: ["/api/stats"],
   });
 

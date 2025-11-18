@@ -156,7 +156,7 @@ log_success "Found ($PYTHON_VERSION)"
 echo -n "Checking Bicep... "
 if ! az bicep version &> /dev/null; then
     log_warning "Not found, installing..."
-    az bicep install --allow-upgrade 2>&1 | grep -v "WARNING" || true
+    az bicep install 2>&1 | grep -v "WARNING" || true
 fi
 BICEP_VERSION=$(az bicep version 2>&1 | grep -o 'version [0-9.]*' | cut -d' ' -f2 || echo "unknown")
 log_success "Ready ($BICEP_VERSION)"

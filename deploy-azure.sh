@@ -108,44 +108,44 @@ fi
 
 echo ""
 
-# Check if logged in and cache account info
+# Check if logged in by inspecting filesystem (avoids hanging az account show)
+# NOTE: We do NOT use 'az account show' here because it hangs in Replit's container
+# environment when no credentials are cached. Instead, check ~/.azure/azureProfile.json
 echo -n "Checking Azure login status... "
-# Use Azure CLI's built-in query (JMESPath) - no jq needed!
-# Add 5-second timeout to prevent hanging
-CURRENT_USER=$(timeout 5 az account show --query user.name -o tsv 2>/dev/null)
-LOGIN_CHECK_STATUS=$?
-
-if [ $LOGIN_CHECK_STATUS -eq 124 ]; then
-    # Timeout occurred - treat as not logged in
-    echo -e "${YELLOW}TIMEOUT${NC} (treating as not logged in)"
-    LOGIN_CHECK_STATUS=1
-fi
-
-if [ $LOGIN_CHECK_STATUS -eq 0 ] && [ -n "$CURRENT_USER" ]; then
-    echo -e "${GREEN}✓${NC} Logged in as: $CURRENT_USER"
+if [ -f ~/.azure/azureProfile.json ] && [ -s ~/.azure/azureProfile.json ]; then
+    echo -e "${GREEN}✓${NC} Found cached credentials"
     echo ""
-    read -p "Continue with this account? (y/yes): " CONTINUE
-    CONTINUE=$(echo "$CONTINUE" | tr '[:upper:]' '[:lower:]')
-    if [[ "$CONTINUE" != "yes" && "$CONTINUE" != "y" ]]; then
-        echo "Run 'az logout' then run this script again"
-        exit 0
+    echo "══════════════════════════════════════════════════════════════════"
+    echo "STEP 1: Verify Login"
+    echo "══════════════════════════════════════════════════════════════════"
+    echo ""
+    read -p "Re-login with fresh credentials? (y/yes to re-login, Enter to use cached): " RELOGIN
+    RELOGIN=$(echo "$RELOGIN" | tr '[:upper:]' '[:lower:]')
+    
+    if [[ "$RELOGIN" == "yes" || "$RELOGIN" == "y" ]]; then
+        az logout 2>/dev/null
+        NEED_LOGIN=true
+    else
+        NEED_LOGIN=false
     fi
 else
     echo -e "${YELLOW}NOT LOGGED IN${NC}"
+    NEED_LOGIN=true
+fi
+
+if [ "$NEED_LOGIN" = true ]; then
     echo ""
     echo "══════════════════════════════════════════════════════════════════"
     echo "STEP 1: Login to Azure"
     echo "══════════════════════════════════════════════════════════════════"
     echo ""
-    echo "Running: az login --tenant $AZURE_TENANT"
-    echo ""
-    echo "A message will appear with a device code."
+    echo "A device code will appear below."
     echo "1. Open https://microsoft.com/devicelogin in your browser"
-    echo "2. Enter the code shown below"
-    echo "3. Sign in with your Azure credentials"
+    echo "2. Enter the code shown"
+    echo "3. Sign in with: ChrisBECRAFT@ABC123987.onmicrosoft.com"
     echo "4. Return here after you see 'You have signed in'"
     echo ""
-    read -p "Press Enter to continue..."
+    read -p "Press Enter to start login..."
     echo ""
     
     az login --tenant "$AZURE_TENANT" --use-device-code
@@ -154,6 +154,8 @@ else
         echo -e "${RED}Login failed. Please try again.${NC}"
         exit 1
     fi
+    echo ""
+    echo -e "${GREEN}✓${NC} Login successful!"
 fi
 
 echo ""

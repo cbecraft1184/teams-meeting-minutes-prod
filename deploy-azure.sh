@@ -48,6 +48,12 @@ if [ -z "$AZURE_TENANT" ]; then
     exit 1
 fi
 
+# Validate tenant format (basic check for domain pattern)
+if ! [[ "$AZURE_TENANT" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$ ]]; then
+    echo -e "${RED}Invalid tenant format. Expected format: yourtenant.onmicrosoft.com${NC}"
+    exit 1
+fi
+
 echo ""
 
 # Check required tools
@@ -68,36 +74,29 @@ fi
 AZ_VERSION=$(az version --query '"azure-cli"' -o tsv 2>/dev/null || echo "unknown")
 echo -e "${GREEN}✓${NC} (version $AZ_VERSION)"
 
-# Check perl
-echo -n "  perl... "
-if ! command -v perl &> /dev/null; then
-    echo -e "${RED}NOT FOUND${NC}"
-    echo ""
-    echo "perl is required but not found. This is unusual for Replit."
-    exit 1
+# Check optional tools (only needed for later phases, not infrastructure deployment)
+echo -n "  perl (for later phases)... "
+if command -v perl &> /dev/null; then
+    echo -e "${GREEN}✓${NC}"
+else
+    echo -e "${YELLOW}NOT FOUND${NC} (needed for Phase 4 code deployment)"
 fi
-echo -e "${GREEN}✓${NC}"
 
-# Check Node.js and npm
-echo -n "  Node.js... "
-if ! command -v node &> /dev/null; then
-    echo -e "${RED}NOT FOUND${NC}"
-    echo ""
-    echo "Node.js is required. Check Replit configuration."
-    exit 1
+echo -n "  Node.js (for later phases)... "
+if command -v node &> /dev/null; then
+    NODE_VERSION=$(node --version)
+    echo -e "${GREEN}✓${NC} ($NODE_VERSION)"
+else
+    echo -e "${YELLOW}NOT FOUND${NC} (needed for Phase 4 code deployment)"
 fi
-NODE_VERSION=$(node --version)
-echo -e "${GREEN}✓${NC} ($NODE_VERSION)"
 
-echo -n "  npm... "
-if ! command -v npm &> /dev/null; then
-    echo -e "${RED}NOT FOUND${NC}"
-    echo ""
-    echo "npm is required. Check Replit configuration."
-    exit 1
+echo -n "  npm (for later phases)... "
+if command -v npm &> /dev/null; then
+    NPM_VERSION=$(npm --version)
+    echo -e "${GREEN}✓${NC} (v$NPM_VERSION)"
+else
+    echo -e "${YELLOW}NOT FOUND${NC} (needed for Phase 4 code deployment)"
 fi
-NPM_VERSION=$(npm --version)
-echo -e "${GREEN}✓${NC} (v$NPM_VERSION)"
 
 # Check jq (optional but helpful)
 echo -n "  jq (optional)... "
@@ -109,14 +108,16 @@ fi
 
 echo ""
 
-# Check if logged in
+# Check if logged in and cache account info
 echo -n "Checking Azure login status... "
-if az account show &> /dev/null; then
-    CURRENT_USER=$(az account show --query user.name -o tsv)
+# Use Azure CLI's built-in query (JMESPath) - no jq needed!
+CURRENT_USER=$(az account show --query user.name -o tsv 2>/dev/null)
+if [ $? -eq 0 ] && [ -n "$CURRENT_USER" ]; then
     echo -e "${GREEN}✓${NC} Logged in as: $CURRENT_USER"
     echo ""
-    read -p "Continue with this account? (yes/no): " CONTINUE
-    if [ "$CONTINUE" != "yes" ]; then
+    read -p "Continue with this account? (y/yes): " CONTINUE
+    CONTINUE=$(echo "$CONTINUE" | tr '[:upper:]' '[:lower:]')
+    if [[ "$CONTINUE" != "yes" && "$CONTINUE" != "y" ]]; then
         echo "Run 'az logout' then run this script again"
         exit 0
     fi
@@ -138,7 +139,7 @@ else
     read -p "Press Enter to continue..."
     echo ""
     
-    az login --tenant "$AZURE_TENANT"
+    az login --tenant "$AZURE_TENANT" --use-device-code
     
     if [ $? -ne 0 ]; then
         echo -e "${RED}Login failed. Please try again.${NC}"
@@ -152,18 +153,50 @@ echo "STEP 2: Verify Subscription"
 echo "══════════════════════════════════════════════════════════════════"
 echo ""
 
-az account show --output table
+# Display subscription info using Azure CLI query
+echo "Name:   $(az account show --query name -o tsv)"
+echo "ID:     $(az account show --query id -o tsv)"
+echo "State:  $(az account show --query state -o tsv)"
+echo "Tenant: $(az account show --query tenantId -o tsv)"
 
 echo ""
-read -p "Is this the correct subscription? (yes/no): " CORRECT_SUB
+read -p "Is this the correct subscription? (y/yes): " CORRECT_SUB
+CORRECT_SUB=$(echo "$CORRECT_SUB" | tr '[:upper:]' '[:lower:]')
 
-if [ "$CORRECT_SUB" != "yes" ]; then
+if [[ "$CORRECT_SUB" != "yes" && "$CORRECT_SUB" != "y" ]]; then
     echo ""
     echo "Available subscriptions:"
     az account list --output table
     echo ""
     read -p "Enter subscription ID to use: " SUB_ID
     az account set --subscription "$SUB_ID"
+fi
+
+# Verify user has appropriate role (Contributor or Owner)
+echo ""
+echo -n "Checking subscription permissions... "
+
+# Use Azure CLI's built-in query - no external tools needed
+SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+USER_ID=$(az account show --query user.name -o tsv)
+
+# Check for Owner or Contributor role
+ROLE_CHECK=$(az role assignment list --assignee "$USER_ID" --scope "/subscriptions/$SUBSCRIPTION_ID" --query "[?roleDefinitionName=='Owner' || roleDefinitionName=='Contributor']" -o tsv 2>/dev/null)
+
+if [ -n "$ROLE_CHECK" ]; then
+    echo -e "${GREEN}✓${NC} (Contributor or Owner access confirmed)"
+else
+    echo -e "${YELLOW}WARNING${NC}"
+    echo ""
+    echo "Could not verify Contributor/Owner role on this subscription."
+    echo "Deployment may fail if you lack sufficient permissions."
+    echo ""
+    read -p "Continue anyway? (y/yes): " CONTINUE_ANYWAY
+    CONTINUE_ANYWAY=$(echo "$CONTINUE_ANYWAY" | tr '[:upper:]' '[:lower:]')
+    if [[ "$CONTINUE_ANYWAY" != "yes" && "$CONTINUE_ANYWAY" != "y" ]]; then
+        echo "Deployment cancelled. Please contact your Azure administrator for access."
+        exit 0
+    fi
 fi
 
 echo ""
@@ -183,9 +216,10 @@ echo ""
 echo -e "${YELLOW}Estimated time: 20-30 minutes${NC}"
 echo -e "${YELLOW}Estimated cost: ~$750-850/month${NC}"
 echo ""
-read -p "Continue with deployment? (yes/no): " DEPLOY
+read -p "Continue with deployment? (y/yes): " DEPLOY
+DEPLOY=$(echo "$DEPLOY" | tr '[:upper:]' '[:lower:]')
 
-if [ "$DEPLOY" != "yes" ]; then
+if [[ "$DEPLOY" != "yes" && "$DEPLOY" != "y" ]]; then
     echo "Deployment cancelled"
     exit 0
 fi

@@ -402,8 +402,8 @@ echo -e "${YELLOW}Estimated time: 20-30 minutes${NC}"
 echo -e "${YELLOW}Estimated cost: ~\$750-850/month${NC}"
 echo ""
 
-read -p "Proceed with deployment? (yes/no): " FINAL_CONFIRM
-if [[ ! "$FINAL_CONFIRM" =~ ^[Yy][Ee][Ss]$ ]]; then
+read -p "Proceed with deployment? (y/n): " FINAL_CONFIRM
+if [[ ! "$FINAL_CONFIRM" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     echo "Deployment cancelled."
     exit 0
 fi

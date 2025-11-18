@@ -6,6 +6,10 @@
 
 set -e
 
+# Use a fresh temp directory for Azure CLI config to avoid stale credentials
+# This prevents hangs caused by az logout in containerized environments
+export AZURE_CONFIG_DIR="$(mktemp -d -t azure-cli-XXXX)"
+
 # Find and add Azure CLI to PATH dynamically (Replit-specific)
 if [ -d /nix/store ]; then
     # Use a faster, more targeted search with maxdepth and timeout
@@ -108,16 +112,13 @@ fi
 
 echo ""
 
-# Always force fresh login to ensure valid credentials
-# NOTE: We do NOT use 'az account show' to check login status because it hangs in
-# Replit's container environment. Instead, we simply logout and re-login fresh.
+# Login to Azure
+# NOTE: We use a fresh AZURE_CONFIG_DIR (temp directory) set at script start,
+# so no need for az logout (which hangs in Replit due to blocked HTTP revocation calls)
 echo ""
 echo "══════════════════════════════════════════════════════════════════"
 echo "STEP 1: Login to Azure"
 echo "══════════════════════════════════════════════════════════════════"
-echo ""
-echo "Clearing any cached credentials..."
-az logout 2>/dev/null
 echo ""
 echo "A device code will appear below."
 echo "1. Open https://microsoft.com/devicelogin in your browser"
@@ -128,7 +129,7 @@ echo ""
 read -p "Press Enter to start login..."
 echo ""
 
-az login --tenant "$AZURE_TENANT" --use-device-code
+az login --tenant "$AZURE_TENANT" --use-device-code --allow-no-subscriptions --only-show-errors
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}Login failed. Please try again.${NC}"
@@ -143,11 +144,31 @@ echo "STEP 2: Verify Subscription"
 echo "══════════════════════════════════════════════════════════════════"
 echo ""
 
-# Display subscription info using Azure CLI query
-echo "Name:   $(az account show --query name -o tsv)"
-echo "ID:     $(az account show --query id -o tsv)"
-echo "State:  $(az account show --query state -o tsv)"
-echo "Tenant: $(az account show --query tenantId -o tsv)"
+# Cache account info (call az account show ONCE, parse JSON locally)
+echo -n "Retrieving account information... "
+ACCOUNT_JSON=$(az account show --output json 2>/dev/null)
+
+if [ $? -ne 0 ] || [ -z "$ACCOUNT_JSON" ]; then
+    echo -e "${RED}FAILED${NC}"
+    echo "Could not retrieve account information. Please try logging in again."
+    exit 1
+fi
+
+# Parse JSON using grep/sed (portable, no jq needed)
+SUB_NAME=$(echo "$ACCOUNT_JSON" | grep '"name":' | head -1 | sed 's/.*"name": *"\([^"]*\)".*/\1/')
+SUBSCRIPTION_ID=$(echo "$ACCOUNT_JSON" | grep '"id":' | head -1 | sed 's/.*"id": *"\([^"]*\)".*/\1/')
+SUB_STATE=$(echo "$ACCOUNT_JSON" | grep '"state":' | head -1 | sed 's/.*"state": *"\([^"]*\)".*/\1/')
+SUB_TENANT=$(echo "$ACCOUNT_JSON" | grep '"tenantId":' | head -1 | sed 's/.*"tenantId": *"\([^"]*\)".*/\1/')
+USER_ID=$(echo "$ACCOUNT_JSON" | grep '"name":' | tail -1 | sed 's/.*"name": *"\([^"]*\)".*/\1/')
+
+echo -e "${GREEN}✓${NC}"
+echo ""
+
+# Display subscription info
+echo "Name:   $SUB_NAME"
+echo "ID:     $SUBSCRIPTION_ID"
+echo "State:  $SUB_STATE"
+echo "Tenant: $SUB_TENANT"
 
 echo ""
 read -p "Is this the correct subscription? (y/yes): " CORRECT_SUB
@@ -160,15 +181,15 @@ if [[ "$CORRECT_SUB" != "yes" && "$CORRECT_SUB" != "y" ]]; then
     echo ""
     read -p "Enter subscription ID to use: " SUB_ID
     az account set --subscription "$SUB_ID"
+    # Re-cache after changing subscription
+    ACCOUNT_JSON=$(az account show --output json)
+    SUBSCRIPTION_ID=$(echo "$ACCOUNT_JSON" | grep -o '"id":[^,]*' | head -1 | cut -d'"' -f4)
+    USER_ID=$(echo "$ACCOUNT_JSON" | grep -o '"name":[^,]*' | tail -1 | cut -d'"' -f4)
 fi
 
 # Verify user has appropriate role (Contributor or Owner)
 echo ""
 echo -n "Checking subscription permissions... "
-
-# Use Azure CLI's built-in query - no external tools needed
-SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-USER_ID=$(az account show --query user.name -o tsv)
 
 # Check for Owner or Contributor role
 ROLE_CHECK=$(az role assignment list --assignee "$USER_ID" --scope "/subscriptions/$SUBSCRIPTION_ID" --query "[?roleDefinitionName=='Owner' || roleDefinitionName=='Contributor']" -o tsv 2>/dev/null)

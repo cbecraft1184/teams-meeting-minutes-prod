@@ -182,7 +182,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSystemTemplates(): Promise<MeetingTemplate[]> {
-    return await db.select().from(meetingTemplates).where(eq(meetingTemplates.isSystem, "true"));
+    return await db.select().from(meetingTemplates).where(eq(meetingTemplates.isSystem, true));
   }
 
   async createTemplate(insertTemplate: InsertMeetingTemplate): Promise<MeetingTemplate> {

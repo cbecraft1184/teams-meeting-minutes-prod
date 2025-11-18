@@ -8,12 +8,31 @@ This infrastructure-as-code deployment creates a production-ready Azure environm
 ### Required Tools
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) (v2.50+)
 - [Bicep](https://learn.microsoft.com/en-us/azure/azure-resource-manager/bicep/install) (included with Azure CLI)
+- **perl** (required for safe parameter substitution)
+  - Pre-installed on macOS
+  - Ubuntu/Debian: `sudo apt-get install perl`
+- **jq** (optional, recommended for output parsing)
+  - macOS: `brew install jq`
+  - Ubuntu/Debian: `sudo apt-get install jq`
+  - *Can proceed without jq, but output parsing will require manual Azure CLI commands*
 - Azure subscription with Owner or Contributor access
 - Microsoft 365 tenant for Teams integration
 
 ### Required Permissions
 - **Azure:** Contributor + User Access Administrator on subscription
 - **Microsoft 365:** Global Administrator or Application Administrator
+
+### Special Character Handling
+The deployment script (`deploy.sh`) supports all RFC 5322 compliant email addresses for admin notifications, including:
+- Standard addresses: `admin@example.com`
+- Plus-addressing: `admin+alerts@example.com`
+- Apostrophes: `o'connor@example.mil`
+- Special characters: `user$123@example.com`, `admin&ops@example.com`
+
+The script automatically:
+- Doubles apostrophes for Bicep syntax compliance (`o'connor` → `o''connor`)
+- Prevents Perl interpolation of special characters using `\Q...\E`
+- Creates `.bak` backup files for idempotent re-execution
 
 ## 🏗️ Architecture Overview
 

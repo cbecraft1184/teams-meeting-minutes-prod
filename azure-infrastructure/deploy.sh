@@ -169,10 +169,10 @@ if grep -q '<YOUR_ADMIN_EMAIL>' "$PARAM_FILE"; then
     read -p "Enter admin email for alerts: " ADMIN_EMAIL
     # For Bicep: double apostrophes for single-quote escaping (o'connor → o''connor)
     BICEP_EMAIL=$(printf '%s\n' "$ADMIN_EMAIL" | sed "s/'/''/g")
-    # Replace the entire parameter line to avoid quoting context issues
-    # This targets: param adminEmail = '<YOUR_ADMIN_EMAIL>'
-    # And replaces with: param adminEmail = 'escaped@example.com'
-    perl -i.bak -pe "s/param adminEmail = '<YOUR_ADMIN_EMAIL>'/param adminEmail = '${BICEP_EMAIL}'/" "$PARAM_FILE"
+    # Use \Q...\E to prevent Perl interpolation of special characters (@, $, etc)
+    # This replaces: param adminEmail = '<YOUR_ADMIN_EMAIL>'
+    # With: param adminEmail = 'admin@example.com'
+    perl -i.bak -pe 's/param adminEmail = '\''<YOUR_ADMIN_EMAIL>'\''/param adminEmail = '\''\Q'"$BICEP_EMAIL"'\E'\''/g' "$PARAM_FILE"
 fi
 
 # Final check for any remaining placeholders

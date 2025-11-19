@@ -1,8 +1,8 @@
-# NAVY ERP Meeting Minutes Demo Pilot
+# Commercial Meeting Minutes Demo Pilot
 
 ## Executive Summary
 
-**Purpose:** Demonstrate an AI-powered meeting minutes management system for Microsoft Teams to NAVY ERP stakeholders.
+**Purpose:** Demonstrate an AI-powered meeting minutes management system for Microsoft Teams to commercial enterprise stakeholders.
 
 **Scope:** Proof-of-concept pilot with up to 20 participants to validate:
 - Automatic capture of Teams meeting recordings and transcripts
@@ -10,7 +10,7 @@
 - Email distribution of approved minutes to attendees
 - SharePoint archival integration
 
-**Target Audience:** NAVY ERP team members evaluating automation capabilities for meeting documentation workflows.
+**Target Audience:** Commercial enterprise decision-makers and end-users evaluating automation capabilities for meeting documentation.
 
 **Environment:** Azure Commercial (single region) with demo data and limited integration scope.
 
@@ -26,8 +26,8 @@
 ## Pilot Scope & Constraints
 
 ### Participants
-- Maximum 20 NAVY ERP team members
-- Demo accounts provided
+- Maximum 20 commercial enterprise users
+- Demo accounts in customer's Microsoft 365 tenant
 - No production data
 
 ### Duration
@@ -40,11 +40,12 @@
 - Sample meeting data for testing
 
 ### Excluded from Demo
-- Production deployment
-- ATO/security authorization process
+- Production enterprise deployment
+- SOC 2 certification
 - Multi-region deployment
 - Auto-scaling for large user bases
-- Integration with production NAVY systems
+- Integration with production enterprise systems
+- Enterprise SLA agreements
 
 ---
 
@@ -61,7 +62,7 @@
 
 **Authentication:**
 - Azure AD integration
-- Participant accounts: NAVY ERP tenant users
+- Participant accounts: Customer tenant users
 
 **Security:**
 - Demo environment only
@@ -117,7 +118,7 @@
 ### Configuration
 - Environment: `demo`
 - Region: `eastus`
-- Naming prefix: `navy-erp-demo`
+- Naming prefix: `commercial-demo`
 - Admin email: Pilot coordinator email
 
 ---

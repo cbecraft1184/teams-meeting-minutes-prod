@@ -1,54 +1,264 @@
-# Enterprise Meeting Minutes Platform
+# NAVY ERP Meeting Minutes Demo Pilot
 
-## Overview
-This project is an autonomous, Microsoft-native solution for managing Microsoft Teams meeting minutes within Enterprise deployments. The system is designed with **auto-scaling capability to handle up to 300,000 concurrent users** (baseline deployment targets 10,000 users). It automatically captures completed Teams meetings via Microsoft Graph API webhooks, processes recordings and transcripts using AI, and distributes approved minutes to attendees. The system focuses on automated workflow for meeting minutes, operating independently of general AI tools like CapraGPT/DON-GPT, yet coexisting with them.
+## Executive Summary
 
-**Timeline:** 16-week commercial deployment + 16-month Enterprise certification (security authorization) for production deployment in Azure Commercial. The project follows a phased production rollout approach, beginning with commercial Azure environment deployment to establish operational baseline before transitioning to Azure Commercial for final Enterprise production deployment, emphasizing security, compliance, and integration with existing Enterprise infrastructure.
+**Purpose:** Demonstrate an AI-powered meeting minutes management system for Microsoft Teams to NAVY ERP stakeholders.
+
+**Scope:** Proof-of-concept pilot with up to 20 participants to validate:
+- Automatic capture of Teams meeting recordings and transcripts
+- AI-powered generation of meeting minutes using Azure OpenAI
+- Email distribution of approved minutes to attendees
+- SharePoint archival integration
+
+**Target Audience:** NAVY ERP team members evaluating automation capabilities for meeting documentation workflows.
+
+**Environment:** Azure Commercial (single region) with demo data and limited integration scope.
+
+**Success Criteria:**
+- Successful capture of 5+ demo meetings
+- AI-generated minutes requiring minimal manual editing
+- Participants can review, approve, and distribute minutes
+- SharePoint archival works correctly
+- Positive feedback from pilot participants
+
+---
+
+## Pilot Scope & Constraints
+
+### Participants
+- Maximum 20 NAVY ERP team members
+- Demo accounts provided
+- No production data
+
+### Duration
+- 4-6 week pilot period
+- Weekly check-ins for feedback
+
+### Data Boundaries
+- Demo meetings only (no sensitive/classified content)
+- Test SharePoint site (not production NAVY ERP SharePoint)
+- Sample meeting data for testing
+
+### Excluded from Demo
+- Production deployment
+- ATO/security authorization process
+- Multi-region deployment
+- Auto-scaling for large user bases
+- Integration with production NAVY systems
+
+---
+
+## Demo Architecture
+
+### Simplified Infrastructure (Azure Commercial)
+
+**Core Components:**
+- **Azure App Service**: Hosts the web application (single region: East US)
+- **PostgreSQL Database**: Stores meeting metadata, minutes, and user data
+- **Azure OpenAI**: GPT-4o for minute generation, Whisper for transcription
+- **Microsoft Graph API**: Captures Teams meetings via webhooks
+- **SharePoint Integration**: Archives approved minutes to demo SharePoint site
+
+**Authentication:**
+- Azure AD integration
+- Participant accounts: NAVY ERP tenant users
+
+**Security:**
+- Demo environment only
+- No classified data handling
+- Standard Azure security features
+
+---
+
+## Technical Implementation
+
+### Frontend
+- React + TypeScript
+- Wouter routing
+- Shadcn UI components
+- Tailwind CSS with Microsoft Fluent design
+
+### Backend
+- Node.js + Express
+- Drizzle ORM with PostgreSQL
+- Microsoft Graph API webhooks
+- Azure OpenAI integration
+
+### Data Model
+- Meetings (Teams meeting metadata)
+- Meeting Minutes (AI-generated content, approval status)
+- Action Items (extracted from minutes)
+
+### Key Features for Demo
+1. **Automatic Meeting Capture** - Webhook listens for completed Teams meetings
+2. **AI Minute Generation** - Azure OpenAI processes transcript → structured minutes
+3. **Review Workflow** - Participants review and approve/edit minutes
+4. **Email Distribution** - Approved minutes sent to attendees
+5. **SharePoint Archival** - Minutes saved to demo SharePoint library
+
+---
+
+## Demo Environment Setup
+
+### Prerequisites
+- Azure subscription (East US region)
+- Azure AD tenant access
+- Demo SharePoint site
+- 20 test user accounts
+
+### Deployment Steps
+1. Deploy infrastructure to Azure using provided Bicep templates
+2. Configure Azure AD app registration for Graph API
+3. Set up demo SharePoint site with proper permissions
+4. Configure Azure OpenAI models (GPT-4o, Whisper)
+5. Seed database with sample data
+6. Create test user accounts
+
+### Configuration
+- Environment: `demo`
+- Region: `eastus`
+- Naming prefix: `navy-erp-demo`
+- Admin email: Pilot coordinator email
+
+---
+
+## Demo Runbook
+
+### Pre-Demo Checklist
+- [ ] All 20 participant accounts created
+- [ ] Demo SharePoint site accessible
+- [ ] Azure OpenAI quota confirmed
+- [ ] Sample meetings scheduled
+- [ ] Application deployed and tested
+- [ ] Backup demo recording prepared
+
+### Demo Scenarios
+
+**Scenario 1: Automatic Capture (10 minutes)**
+- Schedule Teams meeting with 3-5 participants
+- Conduct mock meeting with agenda
+- End meeting, wait 2-3 minutes
+- Show automatic capture in dashboard
+
+**Scenario 2: AI Minute Generation (15 minutes)**
+- Display captured meeting
+- Trigger AI processing
+- Show generated minutes (attendees, agenda, decisions, action items)
+- Demonstrate editing capability
+
+**Scenario 3: Approval & Distribution (10 minutes)**
+- Review AI-generated minutes
+- Approve minutes
+- Show email sent to attendees
+- Verify SharePoint archival
+
+**Scenario 4: Action Item Tracking (10 minutes)**
+- Display extracted action items
+- Show assignment and due dates
+- Demonstrate tracking across meetings
+
+### Fallback Scripts
+If live demo fails:
+- Pre-recorded video walkthrough
+- Screenshots of each workflow step
+- Sample minutes documents
+
+---
+
+## Pilot Compliance & Security
+
+### Demo Environment Safeguards
+- Isolated from production systems
+- No classified or sensitive data
+- Standard Azure security (HTTPS, encryption at rest)
+- Access limited to pilot participants
+
+### Data Handling
+- Meeting recordings stored temporarily (auto-delete after 30 days)
+- Transcripts processed in Azure OpenAI (no data retention)
+- Generated minutes stored in demo database only
+- Participants acknowledge demo/test data only
+
+### Not Included in Demo
+- ATO (Authority to Operate) process
+- NIST 800-53 compliance validation
+- Classified data handling
+- Multi-level security clearances
+- Production NAVY network integration
+
+---
+
+## Next Steps & Evaluation
+
+### Pilot Feedback Collection
+- Weekly participant surveys
+- Post-demo questionnaire
+- One-on-one stakeholder interviews
+- Technical performance metrics
+
+### Evaluation Criteria
+- **Usability**: Can users navigate and use the system easily?
+- **Accuracy**: Do AI-generated minutes require minimal editing?
+- **Time Savings**: How much time saved vs. manual minute-taking?
+- **Integration**: Do Teams/SharePoint integrations work seamlessly?
+- **Reliability**: Does the system capture and process meetings consistently?
+
+### Production Considerations (if pilot succeeds)
+- ATO process for production NAVY deployment
+- Integration with production NAVY ERP SharePoint
+- Scale planning for wider NAVY organization
+- Classified data handling requirements
+- GCC High migration for production use
+- Multi-region deployment planning
+
+### Decision Points
+- **Week 2**: Initial feedback review
+- **Week 4**: Mid-pilot assessment
+- **Week 6**: Final evaluation and go/no-go for production planning
+
+---
 
 ## User Preferences
-I prefer simple language and clear, concise explanations.
-I want iterative development with frequent, small updates.
-Ask before making major architectural changes or introducing new dependencies.
-Do not make changes to files outside the explicitly specified project scope.
-Prioritize security and compliance, especially regarding Enterprise standards.
-Ensure all AI processing uses Azure OpenAI in Gov Cloud.
-All classification markings must follow Enterprise standards.
-I want the agent to assume the role of an expert architect/developer.
-I prefer to focus on high-level features and architectural decisions rather than granular implementation details.
 
-## System Architecture
+- Simple language and clear explanations
+- Iterative development with small updates
+- Focus on demo scenarios, not enterprise architecture
+- Prioritize working demo over production features
+- Ask before major changes
 
-### UI/UX Decisions
-The frontend uses React with TypeScript, Wouter for routing, Shadcn UI with Radix primitives for components, and Tailwind CSS following Microsoft Fluent design principles. It incorporates a dual UI theme system (Microsoft Teams + IBM Carbon look-and-feel) and a Enterprise-grade professional appearance with classification badges. The design emphasizes information clarity, accessibility (WCAG 2.1 AA compliant), responsiveness, and dark mode support.
+---
 
-### Technical Implementations
-The backend is built with Node.js and Express. Data storage is PostgreSQL (Azure Database for PostgreSQL or Replit-hosted) with Drizzle ORM. Microsoft Graph API is used for Teams meeting capture, SharePoint integration for document archival, and Teams webhooks for real-time events. AI processing is handled by Azure OpenAI (Gov Cloud deployment). Document generation supports DOCX and PDF export.
+## Technology Stack
 
-### Feature Specifications
-Key features include:
-- **Automatic Meeting Capture**: Webhook-based integration with Microsoft Graph API.
-- **AI-Powered Minutes**: Transcription and minute generation using Azure OpenAI.
-- **Approval Workflow**: States for pending review, approved, and rejected.
-- **Email Distribution**: Approved minutes sent to attendees with attachments.
-- **Classification Support**: Standard, Enhanced, Premium levels with proper marking and access control.
-- **SharePoint Archival**: Automatic archival with metadata to Enterprise SharePoint.
-- **Action Item Tracking**: Automatic extraction and management.
-- **Meeting Templates**: Pre-configured templates for various meeting types.
-- **Enterprise Compliance**: Adherence to security classifications, audit trails, and formatting standards.
+### Frontend
+- React 18 + TypeScript
+- Wouter (routing)
+- Shadcn UI + Radix primitives
+- Tailwind CSS
+- TanStack Query (data fetching)
 
-### System Design Choices
-- **Access Control**: Azure AD group-based multi-level access control with auto-scaling capability to support up to 300,000 concurrent users, utilizing Clearance-Level and Role groups. Implements a fail-closed security model with performance caching (session and database cache with 15-minute TTL).
-- **Data Model**: Includes `Meeting`, `Meeting Minutes`, and `Action Items` entities with clear relationships and fields for classification, status, and processing.
-- **Microsoft Teams Integration**: Uses Graph API for webhooks, access to recordings/transcripts, and attendee info.
-- **SharePoint Integration**: Authenticated via OAuth with Sites.Selected permission, uses correct Graph API paths, archives minutes with metadata, and supports graceful degradation.
-- **Azure OpenAI Integration**: Deployed within Azure Commercial, used for summarization, extraction, and detection tasks, ensuring data remains within the Gov Cloud boundary.
-- **Deployment Options**: Azure Commercial using Azure App Service Environment (ASEv3) and Azure Database for PostgreSQL (production) / Replit (dev/testing).
+### Backend
+- Node.js + Express
+- PostgreSQL with Drizzle ORM
+- Microsoft Graph API
+- Azure OpenAI (GPT-4o, Whisper)
 
-## External Dependencies
-- **Microsoft Teams**: For scheduling and conducting meetings.
-- **Microsoft Graph API**: For capturing meeting events, accessing recordings/transcripts, retrieving attendee information, and email distribution.
-- **Azure AD**: For authentication (SSO) and group-based access control.
-- **SharePoint**: For document storage and archival, specifically Enterprise instances.
-- **Azure OpenAI Service**: For AI-powered minute generation and processing (deployed in Azure Commercial for production).
-- **PostgreSQL**: Database for storing application data (Azure Database for PostgreSQL for production, Replit-hosted for dev).
-- **Azure Commercial Infrastructure**: Azure App Service Environment (ASEv3), Azure Database for PostgreSQL, Azure Key Vault, Azure Front Door for production hosting and secure infrastructure (Commercial Cloud deployment only).
+### Infrastructure (Demo)
+- Azure App Service (East US)
+- Azure Database for PostgreSQL
+- Azure OpenAI Service
+- Application Insights (monitoring)
+
+---
+
+## Demo Pilot Timeline
+
+**Week 1:** Infrastructure deployment, participant onboarding  
+**Week 2-3:** Active demo usage, scenario testing  
+**Week 4:** Mid-pilot review, adjustments  
+**Week 5-6:** Final testing, feedback collection  
+**Week 7:** Evaluation and next steps decision
+
+---
+
+**This is a demonstration pilot to prove the concept. Production deployment (if approved) would follow a separate planning and authorization process.**

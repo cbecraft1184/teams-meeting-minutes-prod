@@ -39,11 +39,43 @@
       "scopes": ["personal"]
     },
     {
-      "entityId": "archive",
+      "entityId": "search",
       "name": "Archive",
-      "contentUrl": "{{TAB_ENDPOINT}}/archive",
-      "websiteUrl": "{{TAB_ENDPOINT}}/archive",
+      "contentUrl": "{{TAB_ENDPOINT}}/search",
+      "websiteUrl": "{{TAB_ENDPOINT}}/search",
       "scopes": ["personal"]
+    }
+  ],
+  "bots": [
+    {
+      "botId": "{{MICROSOFT_APP_ID}}",
+      "scopes": ["personal", "team", "groupchat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "supportsCalling": false,
+      "supportsVideo": false
+    }
+  ],
+  "composeExtensions": [
+    {
+      "botId": "{{MICROSOFT_APP_ID}}",
+      "commands": [
+        {
+          "id": "searchMinutes",
+          "type": "query",
+          "title": "Search Meeting Minutes",
+          "description": "Search approved meeting minutes archive",
+          "initialRun": false,
+          "parameters": [
+            {
+              "name": "searchQuery",
+              "title": "Search",
+              "description": "Search meeting titles and content",
+              "inputType": "text"
+            }
+          ]
+        }
+      ]
     }
   ],
   "permissions": [

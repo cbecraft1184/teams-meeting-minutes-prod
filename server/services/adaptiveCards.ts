@@ -15,7 +15,7 @@ export function createMeetingSummaryCard(
         items: [
           {
             type: "TextBlock",
-            text: "📋 Meeting Summary",
+            text: "Meeting Summary",
             weight: "Bolder",
             size: "Large",
             color: "Accent"
@@ -97,7 +97,7 @@ export function createMeetingSummaryCard(
               items: [
                 {
                   type: "TextBlock",
-                  text: "☑️",
+                  text: "•",
                   size: "Small"
                 }
               ]
@@ -168,17 +168,17 @@ export function createMeetingProcessingCard(
 ): any {
   const statusConfig = {
     processing: {
-      emoji: "⏳",
+      emoji: "[Processing]",
       color: "Accent",
       title: "Processing Meeting"
     },
     completed: {
-      emoji: "✅",
+      emoji: "[Complete]",
       color: "Good",
       title: "Meeting Processed"
     },
     failed: {
-      emoji: "⚠️",
+      emoji: "[Failed]",
       color: "Attention",
       title: "Processing Failed"
     }

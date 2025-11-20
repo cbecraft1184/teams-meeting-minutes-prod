@@ -15,33 +15,47 @@ import { teamsConversationReferences, meetings, meetingMinutes } from '@shared/s
 import { eq, ilike, desc, and } from 'drizzle-orm';
 
 export class TeamsBotAdapter {
-  private adapter: BotFrameworkAdapter;
-  private bot: TeamsMeetingBot;
+  private adapter: BotFrameworkAdapter | null = null;
+  private bot: TeamsMeetingBot | null = null;
+  private isEnabled: boolean = false;
 
   constructor() {
     const appId = process.env.MICROSOFT_APP_ID;
     const appPassword = process.env.MICROSOFT_APP_PASSWORD;
 
     if (!appId || !appPassword) {
-      console.warn('⚠️  [Teams Bot] MICROSOFT_APP_ID or MICROSOFT_APP_PASSWORD not set - bot disabled');
+      console.warn('[Teams Bot] MICROSOFT_APP_ID or MICROSOFT_APP_PASSWORD not set - Teams bot features disabled');
+      return;
     }
 
-    this.adapter = new BotFrameworkAdapter({
-      appId,
-      appPassword,
-    });
+    try {
+      this.adapter = new BotFrameworkAdapter({
+        appId,
+        appPassword,
+      });
 
-    this.adapter.onTurnError = async (context, error) => {
-      console.error(`\n [Bot onTurnError] unhandled error: ${error}`);
-      await context.sendActivity('The bot encountered an error.');
-    };
+      this.adapter.onTurnError = async (context, error) => {
+        console.error(`\n [Bot onTurnError] unhandled error: ${error}`);
+        await context.sendActivity('The bot encountered an error.');
+      };
 
-    this.bot = new TeamsMeetingBot();
+      this.bot = new TeamsMeetingBot();
+      this.isEnabled = true;
+      console.log('[Teams Bot] Initialized successfully');
+    } catch (error) {
+      console.error('[Teams Bot] Initialization failed:', error);
+      this.isEnabled = false;
+    }
   }
 
   async processActivity(req: any, res: any) {
+    if (!this.adapter || !this.bot) {
+      res.status(503).send('Teams bot not configured');
+      return;
+    }
+
     await this.adapter.process(req, res, async (context) => {
-      await this.bot.run(context);
+      await this.bot!.run(context);
     });
   }
 
@@ -49,6 +63,11 @@ export class TeamsBotAdapter {
     conversationReference: ConversationReference,
     messageOrActivity: string | Partial<Activity>
   ): Promise<void> {
+    if (!this.adapter || !this.isEnabled) {
+      console.warn('[Teams Bot] Skipping proactive message - bot not configured');
+      return;
+    }
+
     await this.adapter.continueConversationAsync(
       process.env.MICROSOFT_APP_ID!,
       conversationReference,
@@ -66,6 +85,11 @@ export class TeamsBotAdapter {
     conversationReference: ConversationReference,
     cardPayload: any
   ): Promise<void> {
+    if (!this.isEnabled) {
+      console.warn('[Teams Bot] Skipping Adaptive Card - bot not configured');
+      return;
+    }
+
     const card = CardFactory.adaptiveCard(cardPayload);
     await this.sendProactiveMessage(conversationReference, {
       attachments: [card],
@@ -83,7 +107,7 @@ class TeamsMeetingBot extends TeamsActivityHandler {
       for (const member of added) {
         if (member.id !== context.activity.recipient.id) {
           await context.sendActivity(
-            '👋 Welcome! I\'m the Meeting Minutes bot. I automatically capture Teams meetings and generate AI-powered minutes.'
+            'Welcome! I am the Meeting Minutes bot. I automatically capture Teams meetings and generate AI-powered minutes.'
           );
         }
       }
@@ -108,7 +132,7 @@ class TeamsMeetingBot extends TeamsActivityHandler {
       if (context.activity.action === 'add') {
         await this.saveConversationReference(context);
         await context.sendActivity(
-          'Thanks for installing Meeting Minutes! I\'ll automatically post AI-generated summaries to this channel when meetings are processed.'
+          'Meeting Minutes installed successfully. I will automatically post AI-generated summaries to this channel when meetings are processed.'
         );
       }
       await next();
@@ -119,7 +143,29 @@ class TeamsMeetingBot extends TeamsActivityHandler {
     context: TurnContext,
     query: MessagingExtensionQuery
   ): Promise<MessagingExtensionResponse> {
-    const searchQuery = query.parameters?.[0]?.value || '';
+    const searchQuery = query.parameters?.[0]?.value?.trim() || '';
+
+    if (!searchQuery || searchQuery.length < 2) {
+      return {
+        composeExtension: {
+          type: 'result',
+          attachmentLayout: 'list',
+          attachments: [],
+          text: 'Please enter at least 2 characters to search',
+        },
+      };
+    }
+
+    if (searchQuery.length > 100) {
+      return {
+        composeExtension: {
+          type: 'result',
+          attachmentLayout: 'list',
+          attachments: [],
+          text: 'Search query too long (max 100 characters)',
+        },
+      };
+    }
 
     try {
       const results = await db
@@ -132,11 +178,11 @@ class TeamsMeetingBot extends TeamsActivityHandler {
         .where(
           and(
             eq(meetingMinutes.approvalStatus, 'approved'),
-            ilike(meetings.title, `%${searchQuery}%`)
+            ilike(meetings.title, `%${searchQuery.substring(0, 100)}%`)
           )
         )
         .orderBy(desc(meetings.scheduledAt))
-        .limit(10);
+        .limit(8);
 
       const attachments = results
         .filter(r => r.minutes)

@@ -5,20 +5,30 @@ import {
   CardFactory,
   ConversationReference,
   Activity,
-  MessageFactory
+  MessageFactory,
+  MessagingExtensionQuery,
+  MessagingExtensionResponse,
+  CardAction
 } from 'botbuilder';
 import { db } from '../db';
-import { teamsConversationReferences } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { teamsConversationReferences, meetings, meetingMinutes } from '@shared/schema';
+import { eq, ilike, desc, and } from 'drizzle-orm';
 
 export class TeamsBotAdapter {
   private adapter: BotFrameworkAdapter;
   private bot: TeamsMeetingBot;
 
   constructor() {
+    const appId = process.env.MICROSOFT_APP_ID;
+    const appPassword = process.env.MICROSOFT_APP_PASSWORD;
+
+    if (!appId || !appPassword) {
+      console.warn('⚠️  [Teams Bot] MICROSOFT_APP_ID or MICROSOFT_APP_PASSWORD not set - bot disabled');
+    }
+
     this.adapter = new BotFrameworkAdapter({
-      appId: process.env.MICROSOFT_APP_ID,
-      appPassword: process.env.MICROSOFT_APP_PASSWORD,
+      appId,
+      appPassword,
     });
 
     this.adapter.onTurnError = async (context, error) => {
@@ -103,6 +113,107 @@ class TeamsMeetingBot extends TeamsActivityHandler {
       }
       await next();
     });
+  }
+
+  async handleTeamsMessagingExtensionQuery(
+    context: TurnContext,
+    query: MessagingExtensionQuery
+  ): Promise<MessagingExtensionResponse> {
+    const searchQuery = query.parameters?.[0]?.value || '';
+
+    try {
+      const results = await db
+        .select({
+          meeting: meetings,
+          minutes: meetingMinutes,
+        })
+        .from(meetings)
+        .leftJoin(meetingMinutes, eq(meetings.id, meetingMinutes.meetingId))
+        .where(
+          and(
+            eq(meetingMinutes.approvalStatus, 'approved'),
+            ilike(meetings.title, `%${searchQuery}%`)
+          )
+        )
+        .orderBy(desc(meetings.scheduledAt))
+        .limit(10);
+
+      const attachments = results
+        .filter(r => r.minutes)
+        .map(({ meeting, minutes }) => {
+          const previewCard = CardFactory.heroCard(
+            meeting.title,
+            minutes!.summary.substring(0, 150) + '...',
+            [],
+            [],
+            {
+              subtitle: new Date(meeting.scheduledAt).toLocaleDateString(),
+              text: `${minutes!.attendeesPresent.length} attendees • ${meeting.duration}`,
+            }
+          );
+
+          const detailCard = CardFactory.adaptiveCard({
+            type: 'AdaptiveCard',
+            version: '1.4',
+            body: [
+              {
+                type: 'TextBlock',
+                text: meeting.title,
+                weight: 'Bolder',
+                size: 'Large',
+              },
+              {
+                type: 'FactSet',
+                facts: [
+                  { title: 'Date', value: new Date(meeting.scheduledAt).toLocaleString() },
+                  { title: 'Duration', value: meeting.duration },
+                  { title: 'Attendees', value: minutes!.attendeesPresent.join(', ') },
+                ],
+              },
+              {
+                type: 'TextBlock',
+                text: minutes!.summary,
+                wrap: true,
+              },
+            ],
+            actions: minutes!.docxUrl || minutes!.pdfUrl ? [
+              ...(minutes!.docxUrl ? [{
+                type: 'Action.OpenUrl',
+                title: 'View DOCX',
+                url: minutes!.docxUrl,
+              }] : []),
+              ...(minutes!.pdfUrl ? [{
+                type: 'Action.OpenUrl',
+                title: 'View PDF',
+                url: minutes!.pdfUrl,
+              }] : []),
+            ] : undefined,
+          });
+
+          return {
+            contentType: 'application/vnd.microsoft.card.adaptive',
+            content: detailCard.content,
+            preview: previewCard,
+          };
+        });
+
+      return {
+        composeExtension: {
+          type: 'result',
+          attachmentLayout: 'list',
+          attachments,
+        },
+      };
+    } catch (error) {
+      console.error('[Message Extension] Search error:', error);
+      return {
+        composeExtension: {
+          type: 'result',
+          attachmentLayout: 'list',
+          attachments: [],
+        },
+      };
+    }
   }
 
   private async saveConversationReference(context: TurnContext): Promise<void> {

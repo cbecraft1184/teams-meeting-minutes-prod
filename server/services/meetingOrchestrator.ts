@@ -3,6 +3,7 @@ import { meetings, meetingMinutes } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { enqueueJob, completeJob, failJob } from "./durableQueue";
 import type { Job } from "@shared/schema";
+import { teamsProactiveMessaging } from "./teamsProactiveMessaging";
 
 /**
  * Meeting Lifecycle Orchestrator
@@ -147,6 +148,21 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
       .where(eq(meetingMinutes.id, minutes.id));
 
     console.log(`[Orchestrator] Minutes generation complete for meeting: ${meetingId}`);
+
+    // Send Teams Adaptive Card notification if minutes are approved
+    const updatedMinutes = await db.query.meetingMinutes.findFirst({
+      where: (m, { eq }) => eq(m.id, minutes.id),
+    });
+
+    if (updatedMinutes && updatedMinutes.approvalStatus === 'approved') {
+      const meeting = await db.query.meetings.findFirst({
+        where: (m, { eq }) => eq(m.id, meetingId),
+      });
+
+      if (meeting) {
+        await teamsProactiveMessaging.notifyMeetingProcessed(meeting, updatedMinutes);
+      }
+    }
   } catch (error: any) {
     // Rollback: Mark minutes generation as failed
     await db.update(meetingMinutes)

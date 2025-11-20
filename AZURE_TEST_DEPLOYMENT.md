@@ -131,55 +131,20 @@ MANAGED_IDENTITY_CLIENT_ID=<id>
 # Then: Grant admin consent for <tenant>
 ```
 
-### Step 8: Store Secrets in Key Vault
+### Step 8: ~~Store Secrets in Key Vault~~ (SKIPPED)
 
-```bash
-# Use Azure Cloud Shell
+**DEPLOYMENT DECISION:** Using App Service application settings instead of Key Vault for demo pilots.
 
-# Set variables from deployment outputs
-VAULT_NAME="<KEY_VAULT_NAME>"
+**Why:**
+- ✅ Simpler deployment with fewer failure points
+- ✅ Azure encrypts app settings at rest (adequate security for demo)
+- ✅ Standard pattern used by most Azure applications
+- ✅ Aligns with "zero tolerance for errors" requirement
+- 📋 Key Vault integration can be added later for production
 
-# Store Microsoft Graph secrets
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "GRAPH-TENANT-ID" \
-  --value "<your-tenant-id>"
+**This step is skipped** - all secrets will be configured as App Service application settings in Step 10.
 
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "GRAPH-CLIENT-ID" \
-  --value "<your-client-id>"
-
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "GRAPH-CLIENT-SECRET" \
-  --value "<your-client-secret>"
-
-# Store Azure OpenAI secrets (if using separate test deployment)
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "AZURE-OPENAI-ENDPOINT" \
-  --value "<openai-endpoint>"
-
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "AZURE-OPENAI-API-KEY" \
-  --value "<openai-key>"
-
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "AZURE-OPENAI-DEPLOYMENT" \
-  --value "gpt-4o"
-
-# Store SharePoint configuration
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "SHAREPOINT-SITE-URL" \
-  --value "https://<tenant>.sharepoint.com/sites/TeamsMeetingMinutes"
-
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "SHAREPOINT-LIBRARY" \
-  --value "Meeting Minutes"
-
-# Generate session secret
-SESSION_SECRET=$(openssl rand -base64 32)
-az keyvault secret set --vault-name $VAULT_NAME \
-  --name "SESSION-SECRET" \
-  --value "$SESSION_SECRET"
-```
+**Note:** Key Vault infrastructure is still provisioned (for future use), but the application will not retrieve secrets from it during the demo pilot.
 
 ### Step 9: Configure Webhook Public Endpoint
 
@@ -225,26 +190,132 @@ az webapp config ssl bind \
 WEBHOOK_URL="https://meetings.yourdomain.com/webhooks/graph/notifications"
 ```
 
-### Step 10: Configure App Service Environment Variables
+### Step 10: Configure App Service Application Settings
+
+**CRITICAL:** All configuration (including secrets) stored as App Service application settings.
+
+Azure encrypts these at rest and controls access via RBAC.
 
 ```bash
-# Configure application settings
-# CRITICAL: All non-secret configuration must be set here
+# First, set your App Service name and gather values
+APP_NAME="<APP_SERVICE_NAME>"
+
+# Get database connection string from deployment outputs
+DATABASE_URL="<from-bicep-outputs>"
+
+# Get App Service hostname for webhook URL
+APP_HOSTNAME=$(az webapp show --name $APP_NAME \
+  --resource-group rg-teams-minutes-test \
+  --query "defaultHostName" -o tsv)
+
+# Generate session secret (one-time)
+SESSION_SECRET=$(openssl rand -base64 32)
+
+# Generate webhook validation token (for Microsoft Graph)
+WEBHOOK_TOKEN=$(openssl rand -hex 32)
+
+# Set YOUR values for these variables:
+TENANT_ID="<your-azure-ad-tenant-id>"
+CLIENT_ID="<your-app-registration-client-id>"
+CLIENT_SECRET="<your-app-registration-client-secret>"
+OPENAI_ENDPOINT="<your-azure-openai-endpoint>"
+OPENAI_KEY="<your-azure-openai-api-key>"
+SHAREPOINT_SITE="https://<tenant>.sharepoint.com/sites/TeamsMeetingMinutes"
+
+# Configure ALL application settings (secrets + configuration)
 az webapp config appsettings set --name $APP_NAME \
   --resource-group rg-teams-minutes-test \
   --settings \
-    KEY_VAULT_NAME="$VAULT_NAME" \
     NODE_ENV="production" \
+    PORT="8080" \
+    DATABASE_URL="$DATABASE_URL" \
+    SESSION_SECRET="$SESSION_SECRET" \
+    \
+    GRAPH_TENANT_ID_PROD="$TENANT_ID" \
+    GRAPH_CLIENT_ID_PROD="$CLIENT_ID" \
+    GRAPH_CLIENT_SECRET_PROD="$CLIENT_SECRET" \
+    \
+    AZURE_OPENAI_ENDPOINT_PROD="$OPENAI_ENDPOINT" \
+    AZURE_OPENAI_API_KEY_PROD="$OPENAI_KEY" \
+    AZURE_OPENAI_DEPLOYMENT_PROD="gpt-4o" \
+    AZURE_OPENAI_API_VERSION_PROD="2024-02-15-preview" \
+    \
+    SHAREPOINT_SITE_URL="$SHAREPOINT_SITE" \
+    SHAREPOINT_LIBRARY="Meeting Minutes" \
+    \
     USE_MOCK_SERVICES="false" \
     USE_MOCK_GRAPH="false" \
     USE_MOCK_AI="false" \
     USE_MOCK_SHAREPOINT="false" \
+    \
+    ENABLE_GRAPH_WEBHOOKS="true" \
+    ENABLE_AZURE_OPENAI="true" \
+    ENABLE_SHAREPOINT_ARCHIVAL="true" \
+    ENABLE_EMAIL_DISTRIBUTION="false" \
+    ENABLE_AZURE_AD_SYNC="true" \
+    ENABLE_AUDIT_LOGGING="true" \
+    ENABLE_ROI_TRACKING="true" \
+    \
     WEBHOOK_BASE_URL="https://$APP_HOSTNAME" \
-    PORT="8080"
-
-# Note: Secrets (GRAPH_CLIENT_SECRET, etc.) are retrieved from Key Vault at runtime
-# App Service Managed Identity handles authentication to Key Vault automatically
+    WEBHOOK_VALIDATION_TOKEN="$WEBHOOK_TOKEN" \
+    WEBHOOK_RENEWAL_INTERVAL="24" \
+    \
+    GROUP_SYNC_INTERVAL="15" \
+    GROUP_SYNC_USE_DELTA="true" \
+    GROUP_CACHE_TTL="15" \
+    \
+    BASE_URL="https://$APP_HOSTNAME"
 ```
+
+**Configuration Groups Explained:**
+
+1. **Environment & Core**
+   - `NODE_ENV=production` - Enables production mode
+   - `PORT=8080` - App Service port (required)
+   - `DATABASE_URL` - PostgreSQL connection string
+   - `SESSION_SECRET` - Secure session encryption key
+
+2. **Microsoft Graph (Production suffix _PROD)**
+   - `GRAPH_TENANT_ID_PROD` - Your Azure AD tenant ID
+   - `GRAPH_CLIENT_ID_PROD` - App registration client ID
+   - `GRAPH_CLIENT_SECRET_PROD` - App registration secret
+
+3. **Azure OpenAI (Production suffix _PROD)**
+   - `AZURE_OPENAI_ENDPOINT_PROD` - OpenAI endpoint URL
+   - `AZURE_OPENAI_API_KEY_PROD` - OpenAI API key
+   - `AZURE_OPENAI_DEPLOYMENT_PROD` - Model deployment name (gpt-4o)
+
+4. **SharePoint Archival**
+   - `SHAREPOINT_SITE_URL` - SharePoint site for document storage
+   - `SHAREPOINT_LIBRARY` - Document library name
+
+5. **Mock Service Flags** (all false for production)
+   - Disables development mock services
+
+6. **Feature Flags**
+   - `ENABLE_GRAPH_WEBHOOKS=true` - Enable meeting capture
+   - `ENABLE_AZURE_OPENAI=true` - Enable AI minutes generation
+   - `ENABLE_SHAREPOINT_ARCHIVAL=true` - Enable document archival
+   - `ENABLE_EMAIL_DISTRIBUTION=false` - Disabled (optional feature)
+   - `ENABLE_AZURE_AD_SYNC=true` - Enable group membership sync
+   - `ENABLE_AUDIT_LOGGING=true` - Enable audit trail
+   - `ENABLE_ROI_TRACKING=true` - Enable usage metrics
+
+7. **Webhook Configuration**
+   - `WEBHOOK_BASE_URL` - Public webhook endpoint
+   - `WEBHOOK_VALIDATION_TOKEN` - Secret for webhook validation
+   - `WEBHOOK_RENEWAL_INTERVAL=24` - Renew subscriptions every 24h
+
+8. **Azure AD Group Sync**
+   - `GROUP_SYNC_INTERVAL=15` - Sync every 15 minutes
+   - `GROUP_SYNC_USE_DELTA=true` - Use delta queries (efficient)
+   - `GROUP_CACHE_TTL=15` - Cache TTL in minutes
+
+**Security Notes:**
+- ✅ App Service encrypts all settings at rest
+- ✅ Settings only accessible via Azure RBAC
+- ✅ Secrets not visible in logs or diagnostics
+- ✅ Equivalent security to Key Vault for demo scope
 
 ### Step 11: Deploy Application Code
 
@@ -259,7 +330,12 @@ npm install
 # This runs: vite build (frontend) + esbuild server/index.ts (backend)
 npm run build
 
-# Create deployment package (DO NOT include node_modules - App Service will install)
+# Verify build output
+ls -lh dist/
+# Should see: index.js (bundled server), assets/ (frontend static files)
+
+# Create deployment package
+# CRITICAL: Include all runtime dependencies
 zip -r deploy.zip \
   dist/ \
   package.json \
@@ -267,22 +343,40 @@ zip -r deploy.zip \
   drizzle/ \
   shared/
 
+# Verify package contents
+unzip -l deploy.zip | head -20
+
 # Deploy to App Service
 az webapp deployment source config-zip \
   --name $APP_NAME \
   --resource-group rg-teams-minutes-test \
   --src deploy.zip
 
-# App Service will automatically run: npm install --production
-# Then start the app with: node dist/index.js
+# App Service will automatically:
+# 1. Extract deploy.zip
+# 2. Run: npm install --production
+# 3. Start: node dist/index.js
 ```
 
 **Expected Deployment Time:** 5-10 minutes
 
-**NOTE:** After deployment, App Service will:
-1. Extract the zip file
-2. Run `npm install --production` to install dependencies
-3. Start the application with `node dist/index.js`
+**Build Output Structure:**
+```
+dist/
+  index.js          - Bundled Node.js server (ESM format)
+  assets/           - Frontend static files (HTML, CSS, JS, images)
+    index-*.js      - Frontend JavaScript bundle
+    index-*.css     - Frontend CSS bundle
+```
+
+**What Gets Deployed:**
+- ✅ `dist/` - Compiled application
+- ✅ `package.json` + `package-lock.json` - Dependency manifests
+- ✅ `drizzle/` - Database migrations (if needed)
+- ✅ `shared/` - Shared TypeScript types
+- ❌ `node_modules/` - Excluded (App Service installs)
+- ❌ `server/` - Excluded (compiled into dist/index.js)
+- ❌ `client/` - Excluded (compiled into dist/assets/)
 
 ---
 
@@ -304,58 +398,69 @@ az webapp log tail --name $APP_NAME \
 # Look for:
 # ✅ "Worker lock acquired - this instance is the ACTIVE worker"
 # ✅ "Configuration valid for PRODUCTION MODE"
-# ❌ Any errors about Key Vault access
+# ✅ "Configured secrets: GRAPH_TENANT_ID_PROD, GRAPH_CLIENT_ID_PROD, ..."
+# ❌ Any configuration validation errors
 ```
 
 **Success Criteria:**
 - [ ] Application starts without errors
 - [ ] Health endpoint responds with 200 OK
-- [ ] Key Vault secrets retrieved successfully
+- [ ] Configuration validation passes (all required settings loaded)
+- [ ] Database connection established
 - [ ] No authentication errors in logs
 
 ---
 
-### Test 2: Key Vault Integration
+### Test 2: Configuration Validation
 
-**Objective:** Verify Managed Identity can retrieve secrets from Key Vault
+**Objective:** Verify all App Service settings loaded correctly
 
 ```bash
-# Check App Service logs for Key Vault initialization
+# Check App Service logs for configuration validation
 az webapp log tail --name $APP_NAME \
-  --resource-group rg-teams-minutes-test | grep "KeyVault"
+  --resource-group rg-teams-minutes-test | grep -i "config"
 
 # Expected logs:
-# ✅ "[KeyVault] Initializing Azure Key Vault client..."
-# ✅ "[KeyVault] Successfully retrieved secret: GRAPH-TENANT-ID"
-# ✅ "[KeyVault] Successfully retrieved secret: GRAPH-CLIENT-ID"
-# ✅ "[KeyVault] Cache populated with X secrets"
+# ✅ "================================================="
+# ✅ "Configuration Validation Results"
+# ✅ "Environment: production"
+# ✅ "Mock Services: Disabled"
+# ✅ "✓ Configured secrets: [list of all secrets]"
+# ✅ "Configuration valid for PRODUCTION MODE"
 
 # Should NOT see:
-# ❌ "KEY_VAULT_NAME not set - using environment variables only"
-# ❌ "DefaultAzureCredential authentication failed"
-# ❌ "Access denied to Key Vault"
+# ❌ "Missing required secrets - application may not function correctly"
+# ❌ "USE_MOCK_SERVICES enabled in production"
+# ❌ "Configuration validation FAILED"
 ```
 
 **Test Procedure:**
-1. Restart App Service to force fresh secret retrieval
-2. Monitor logs for Key Vault initialization
-3. Verify all required secrets are retrieved
-4. Check 15-minute cache is working (no repeated fetches)
+1. Restart App Service to force fresh configuration load
+2. Monitor logs for configuration validation
+3. Verify all required settings are loaded from App Service
+4. Confirm production mode enabled
 
 **Success Criteria:**
-- [ ] Managed Identity authenticates successfully
-- [ ] All secrets retrieved from Key Vault
-- [ ] Secrets cached for 15 minutes
-- [ ] No fallback to environment variables
+- [ ] All required settings loaded successfully
+- [ ] No missing required secrets errors
+- [ ] Production mode confirmed (NODE_ENV=production)
+- [ ] Mock services disabled
+- [ ] Database connection established
 
 **Troubleshooting:**
-If Key Vault access fails:
+If configuration validation fails:
 ```bash
-# Verify RBAC assignment
-az role assignment list --assignee $MANAGED_IDENTITY_CLIENT_ID \
-  --scope /subscriptions/<sub-id>/resourceGroups/rg-teams-minutes-test/providers/Microsoft.KeyVault/vaults/$VAULT_NAME
+# Check App Service settings are actually set
+az webapp config appsettings list --name $APP_NAME \
+  --resource-group rg-teams-minutes-test \
+  --query "[?name=='GRAPH_TENANT_ID_PROD']"
 
-# Should show: Key Vault Secrets User role
+# Should return the setting value (Azure masks secrets in output)
+
+# Check for typos in setting names
+az webapp config appsettings list --name $APP_NAME \
+  --resource-group rg-teams-minutes-test \
+  --query "[].name" | grep -i graph
 ```
 
 ---
@@ -476,9 +581,44 @@ az webapp log tail --name $APP_NAME \
 # ✅ "Webhook subscription created: <subscription-id>"
 ```
 
-#### Part B: Validation Callback Test
+#### Part B: Manual Webhook Subscription
 
-**Microsoft Graph sends a validation request when you subscribe:**
+**IMPORTANT:** Webhook subscriptions must be created through the application UI or API.
+
+**Option 1: Using Admin UI (Recommended)**
+
+1. Navigate to: `https://<APP_SERVICE_URL>/admin/webhooks`
+2. Click "Create Subscription"
+3. Select resource type: "Online Meetings"
+4. System will automatically register with Microsoft Graph
+
+**Option 2: Using API (Advanced)**
+
+```bash
+# Get auth token (requires admin login)
+TOKEN="<your-bearer-token>"
+
+# Create webhook subscription
+curl -X POST https://<APP_SERVICE_URL>/api/admin/webhooks/subscribe \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resource": "/communications/onlineMeetings",
+    "changeType": "created,updated"
+  }'
+
+# Expected response:
+# {
+#   "id": "<subscription-id>",
+#   "resource": "/communications/onlineMeetings",
+#   "notificationUrl": "https://<app>/webhooks/graph/notifications",
+#   "expirationDateTime": "..."
+# }
+```
+
+**Validation Callback Test:**
+
+Microsoft Graph immediately sends a validation request:
 
 ```bash
 # Monitor for validation callback
@@ -487,14 +627,15 @@ az webapp log tail --name $APP_NAME \
 
 # Expected:
 # ✅ "POST /webhooks/graph/notifications?validationToken=..." (PUBLIC endpoint)
-# ✅ "Webhook validation successful"
+# ✅ "Webhook validation successful - responding with token"
 # ❌ Should NOT see: "Authentication required" or 401 errors
 ```
 
 **Success Criteria:**
+- [ ] Subscription created successfully
 - [ ] Validation request received at `/webhooks/graph/notifications`
-- [ ] No authentication errors (endpoint is public)
-- [ ] Webhook subscription confirmed active
+- [ ] No authentication errors (webhook endpoint is public)
+- [ ] Subscription confirmed active (check Graph API or database)
 
 #### Part C: Live Notification Test
 
@@ -724,19 +865,69 @@ az group delete --name rg-teams-minutes-test --yes
 # Key Vault is NOT immediately deleted - it enters soft-delete state
 # You have 90 days to recover it OR you must purge it to reuse the name
 
+# Check if Key Vault has purge protection enabled
+az keyvault show --name $VAULT_NAME \
+  --query "properties.enablePurgeProtection"
+
+# If purge protection is ENABLED, you CANNOT purge the vault
+# You must wait 90 days for automatic deletion
+# If purge protection is DISABLED, you can purge immediately
+
 # To recover deleted Key Vault (within 90 days)
 az keyvault recover --name $VAULT_NAME
 
-# To permanently purge Key Vault (allows name reuse)
+# To permanently purge Key Vault (ONLY if purge protection disabled)
 az keyvault purge --name $VAULT_NAME
 
 # NOTE: You cannot create a new Key Vault with the same name
 # until the old one is purged or recovered
+
+# IMPORTANT: If using Key Vault in production, ALWAYS enable purge protection
+# This prevents accidental permanent deletion of secrets
 ```
 
 **Option 4: Scale to Zero (keep infrastructure, stop billing)**
+
+**CRITICAL: Drain job queue before scaling down to prevent data loss**
+
 ```bash
-# Stop App Service (keeps all data)
+# Step 1: Check job queue status
+az postgres flexible-server execute --name <db-server> \
+  --admin-user <admin> \
+  --admin-password <password> \
+  --database-name meeting_minutes \
+  --query-string "SELECT status, COUNT(*) FROM job_queue GROUP BY status;"
+
+# Expected output:
+# status      | count
+# ------------|------
+# pending     | X
+# processing  | Y
+# completed   | Z
+
+# Step 2: Wait for pending/processing jobs to complete
+# Monitor until pending + processing = 0
+# This may take 10-30 minutes depending on queue depth
+
+# Step 3: Disable webhook renewals (prevent new jobs)
+az webapp config appsettings set --name $APP_NAME \
+  --resource-group rg-teams-minutes-test \
+  --settings ENABLE_GRAPH_WEBHOOKS="false"
+
+# Step 4: Restart to apply setting
+az webapp restart --name $APP_NAME \
+  --resource-group rg-teams-minutes-test
+
+# Step 5: Verify queue is empty
+az postgres flexible-server execute --name <db-server> \
+  --admin-user <admin> \
+  --admin-password <password> \
+  --database-name meeting_minutes \
+  --query-string "SELECT COUNT(*) FROM job_queue WHERE status IN ('pending', 'processing');"
+
+# Should return: 0
+
+# Step 6: Stop App Service (keeps all data)
 az webapp stop --name $APP_NAME \
   --resource-group rg-teams-minutes-test
 
@@ -745,10 +936,20 @@ az appservice plan update --name <plan-name> \
   --resource-group rg-teams-minutes-test \
   --number-of-workers 0
 
-# To resume: Start App Service or scale back up
+# To resume:
 az webapp start --name $APP_NAME \
   --resource-group rg-teams-minutes-test
+
+# Re-enable webhooks
+az webapp config appsettings set --name $APP_NAME \
+  --resource-group rg-teams-minutes-test \
+  --settings ENABLE_GRAPH_WEBHOOKS="true"
 ```
+
+**Why Queue Draining is Critical:**
+- Jobs in `processing` state may be lost if instance shuts down mid-execution
+- Webhook notifications may be lost if received during shutdown
+- Background tasks (AI generation, SharePoint upload) may fail partially
 
 ### Data Retention Policy
 

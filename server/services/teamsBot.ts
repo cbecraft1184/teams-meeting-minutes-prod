@@ -281,6 +281,10 @@ class TeamsMeetingBot extends TeamsActivityHandler {
       });
 
       if (!existing) {
+        // Calculate expiration: 90 days from now (TTL for conversation references)
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 90);
+        
         await db.insert(teamsConversationReferences).values({
           conversationId,
           serviceUrl,
@@ -291,6 +295,7 @@ class TeamsMeetingBot extends TeamsActivityHandler {
           teamName,
           channelName,
           conversationReference: reference as any,
+          expiresAt,
         });
         
         console.log(`Saved conversation reference for ${conversationType}: ${teamName || conversationId}`);

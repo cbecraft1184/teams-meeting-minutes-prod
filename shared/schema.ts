@@ -1,5 +1,5 @@
 import { sql, relations } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, jsonb, integer, pgEnum, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb, integer, pgEnum, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -210,10 +210,17 @@ export const graphWebhookSubscriptions = pgTable("graph_webhook_subscriptions", 
   failureCount: integer("failure_count").default(0), // Number of consecutive failures
   
   // Metadata
-  tenantId: text("tenant_id"), // Azure AD tenant (for multi-tenant scenarios)
+  tenantId: text("tenant_id").notNull(), // Azure AD tenant (REQUIRED for multi-tenant isolation)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Index for tenant-scoped subscription management (CRITICAL for multi-tenant isolation)
+  tenantIdx: index("webhook_tenant_idx").on(table.tenantId),
+  // Index for expiration monitoring and renewal jobs
+  expirationIdx: index("webhook_expiration_idx").on(table.expirationDateTime),
+  // Index for subscription lookup by Graph API ID
+  subscriptionIdIdx: index("webhook_subscription_id_idx").on(table.subscriptionId),
+}));
 
 // User Group Cache schema (Azure AD group membership with TTL)
 export const userGroupCache = pgTable("user_group_cache", {
@@ -253,10 +260,21 @@ export const teamsConversationReferences = pgTable("teams_conversation_reference
   // Association with meetings
   meetingId: varchar("meeting_id").references(() => meetings.id, { onDelete: "cascade" }),
   
+  // TTL for automatic cleanup (conversation references expire after 90 days)
+  // Database default: NOW() + 90 days
+  expiresAt: timestamp("expires_at").notNull().default(sql`NOW() + INTERVAL '90 days'`),
+  
   // Metadata
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  // Composite index for tenant-scoped queries (CRITICAL for multi-tenant isolation)
+  tenantConversationIdx: index("tenant_conversation_idx").on(table.tenantId, table.conversationId),
+  // Index for TTL-based cleanup queries
+  expiresAtIdx: index("expires_at_idx").on(table.expiresAt),
+  // Index for meeting association lookups
+  meetingIdIdx: index("meeting_id_idx").on(table.meetingId),
+}));
 
 // Durable Job Queue schema (PostgreSQL-backed for crash recovery)
 export const jobQueue = pgTable("job_queue", {

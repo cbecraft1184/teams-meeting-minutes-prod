@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { validateAndLogConfig } from "./services/configValidator";
 import { startJobWorker, stopJobWorker } from "./services/jobWorker";
 import { initializeKeyVaultClient } from "./services/azureKeyVault";
+import { initializeCleanupScheduler, stopCleanupScheduler } from "./services/databaseCleanup";
 
 const app = express();
 
@@ -92,16 +93,21 @@ app.use((req, res, next) => {
     
     // Start durable job worker after server is running
     startJobWorker().catch(console.error);
+    
+    // Initialize database cleanup scheduler (runs daily)
+    initializeCleanupScheduler();
   });
 
   // Graceful shutdown
   process.on('SIGTERM', () => {
-    log('SIGTERM received, stopping job worker...');
+    log('SIGTERM received, shutting down...');
     stopJobWorker();
+    stopCleanupScheduler();
   });
 
   process.on('SIGINT', () => {
-    log('SIGINT received, stopping job worker...');
+    log('SIGINT received, shutting down...');
     stopJobWorker();
+    stopCleanupScheduler();
   });
 })();

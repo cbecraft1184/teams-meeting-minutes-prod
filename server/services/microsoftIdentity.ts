@@ -98,17 +98,18 @@ function getMsalClient(): ConfidentialClientApplication | null {
     },
     system: {
       loggerOptions: {
-        logLevel: config.isProduction ? 2 : 3, // Error in prod, Info in dev
+        logLevel: 1, // Error only - never log tokens/PII
         loggerCallback(logLevel, message) {
           if (logLevel === 1) {
-            console.error('MSAL Error:', message);
-          } else if (logLevel === 2) {
-            console.warn('MSAL Warning:', message);
-          } else if (logLevel === 3 && !config.isProduction) {
-            console.log('MSAL Info:', message);
+            // Sanitize error messages to remove potential tokens
+            const sanitized = message.replace(/access[_-]?token[=:]?\s*[^\s&]+/gi, 'access_token=[REDACTED]')
+                                     .replace(/refresh[_-]?token[=:]?\s*[^\s&]+/gi, 'refresh_token=[REDACTED]')
+                                     .replace(/id[_-]?token[=:]?\s*[^\s&]+/gi, 'id_token=[REDACTED]')
+                                     .replace(/client[_-]?secret[=:]?\s*[^\s&]+/gi, 'client_secret=[REDACTED]');
+            console.error('[MSAL] Authentication error:', sanitized);
           }
         },
-        piiLoggingEnabled: !config.isProduction,
+        piiLoggingEnabled: false, // SECURITY: Never log PII/tokens in any environment
       },
     },
   };
@@ -154,7 +155,7 @@ export async function acquireTokenByCode(
 
     return response;
   } catch (error) {
-    console.error('Error acquiring token by code:', error);
+    console.error('[Auth] Failed to acquire token by code:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -199,7 +200,7 @@ export async function acquireTokenByClientCredentials(
 
     return null;
   } catch (error) {
-    console.error('Error acquiring token by client credentials:', error);
+    console.error('[Auth] Failed to acquire token by client credentials:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -232,7 +233,7 @@ export async function acquireTokenOnBehalfOf(
 
     return null;
   } catch (error) {
-    console.error('Error acquiring token on behalf of user:', error);
+    console.error('[Auth] Failed to acquire token on behalf of user:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -273,7 +274,7 @@ export async function acquireTokenByRefreshToken(
 
     return response;
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    console.error('[Auth] Failed to refresh token:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -329,7 +330,7 @@ export function getAuthCodeUrl(
     const authCodeUrl = `https://login.microsoftonline.com/${config.graph.tenantId}/oauth2/v2.0/authorize?client_id=${config.graph.clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&state=${authCodeUrlParameters.state}`;
     return authCodeUrl;
   } catch (error) {
-    console.error('Error generating auth code URL:', error);
+    console.error('[Auth] Failed to generate auth code URL:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }
@@ -421,7 +422,7 @@ function decodeTokenUnsafe(token: string): any {
     const decoded = Buffer.from(payload, 'base64').toString('utf-8');
     return JSON.parse(decoded);
   } catch (error) {
-    console.error('Error decoding token:', error);
+    console.error('[Auth] Failed to decode token:', error instanceof Error ? error.message : 'Unknown error');
     return null;
   }
 }

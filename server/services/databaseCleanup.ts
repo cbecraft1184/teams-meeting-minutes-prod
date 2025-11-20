@@ -9,7 +9,7 @@
  */
 
 import { db } from '../db';
-import { teamsConversationReferences, userGroupCache, jobQueue } from '@shared/schema';
+import { teamsConversationReferences, userGroupCache, jobQueue, sentMessages } from '@shared/schema';
 import { lt, and, eq } from 'drizzle-orm';
 
 /**
@@ -99,19 +99,47 @@ export async function cleanupOldJobs(): Promise<number> {
 }
 
 /**
+ * Clean up old sent messages
+ * Removes message delivery records older than 30 days
+ * Reduces audit table size while maintaining recent delivery history
+ */
+export async function cleanupOldSentMessages(): Promise<number> {
+  try {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    const result = await db
+      .delete(sentMessages)
+      .where(lt(sentMessages.createdAt, thirtyDaysAgo))
+      .returning({ id: sentMessages.id });
+    
+    const deletedCount = result.length;
+    
+    if (deletedCount > 0) {
+      console.log(`[Cleanup] Purged ${deletedCount} old sent message records (>30 days)`);
+    }
+    
+    return deletedCount;
+  } catch (error) {
+    console.error('[Cleanup] Failed to clean old sent messages:', error instanceof Error ? error.message : 'Unknown error');
+    return 0;
+  }
+}
+
+/**
  * Run all cleanup tasks
  * Call this periodically (e.g., daily cron job)
  */
 export async function runAllCleanupTasks(): Promise<void> {
   console.log('[Cleanup] Starting database cleanup tasks...');
   
-  const [conversationRefsDeleted, userGroupCacheDeleted, jobsDeleted] = await Promise.all([
+  const [conversationRefsDeleted, userGroupCacheDeleted, jobsDeleted, messagesDeleted] = await Promise.all([
     cleanupExpiredConversationReferences(),
     cleanupExpiredUserGroupCache(),
     cleanupOldJobs(),
+    cleanupOldSentMessages(),
   ]);
   
-  const totalDeleted = conversationRefsDeleted + userGroupCacheDeleted + jobsDeleted;
+  const totalDeleted = conversationRefsDeleted + userGroupCacheDeleted + jobsDeleted + messagesDeleted;
   
   console.log(`[Cleanup] Completed. Total records purged: ${totalDeleted}`);
 }

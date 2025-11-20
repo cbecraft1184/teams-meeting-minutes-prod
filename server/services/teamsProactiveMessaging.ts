@@ -3,7 +3,7 @@ import { teamsConversationReferences, actionItems, sentMessages } from '@shared/
 import { teamsBotAdapter } from './teamsBot';
 import { createMeetingSummaryCard, createMeetingProcessingCard } from './adaptiveCards';
 import { Meeting, MeetingMinutes } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 /**
  * Teams Proactive Messaging Service with Idempotency
@@ -17,6 +17,7 @@ import { eq, and } from 'drizzle-orm';
 export class TeamsProactiveMessagingService {
   /**
    * Send Adaptive Card with idempotency protection
+   * Prevents duplicate sends via database-level concurrency control
    * @returns {success: boolean, alreadySent: boolean}
    */
   private async sendWithIdempotency(
@@ -28,34 +29,91 @@ export class TeamsProactiveMessagingService {
     // Generate idempotency key (unique per meeting + recipient + type)
     const idempotencyKey = `${meetingId}:${conversationId}:${messageType}`;
     
-    // Check if already sent successfully
-    const existing = await db.query.sentMessages.findFirst({
-      where: and(
-        eq(sentMessages.idempotencyKey, idempotencyKey),
-        eq(sentMessages.status, 'sent')
-      ),
-    });
-    
-    if (existing) {
-      console.log(`[Teams Proactive] Message already sent: ${idempotencyKey}`);
-      return { success: true, alreadySent: true };
-    }
-    
-    // Record attempt
-    await db.insert(sentMessages).values({
-      idempotencyKey,
-      meetingId,
-      conversationId,
-      messageType,
-      status: 'pending',
-      attemptCount: 1,
-    }).onConflictDoUpdate({
-      target: sentMessages.idempotencyKey,
-      set: {
-        attemptCount: sql`${sentMessages.attemptCount} + 1`,
-        updatedAt: new Date(),
+    // CRITICAL: Use SELECT FOR UPDATE to lock row and prevent concurrent sends
+    // This ensures only ONE worker can attempt to send this message
+    const result = await db.transaction(async (tx) => {
+      // Try to insert new record (fails if already exists)
+      const inserted = await tx.insert(sentMessages).values({
+        idempotencyKey,
+        meetingId,
+        conversationId,
+        messageType,
+        status: 'pending',
+        attemptCount: 1,
+      }).onConflictDoNothing().returning();
+      
+      // If insert succeeded, we're the first attempt - proceed to send
+      if (inserted.length > 0) {
+        return { shouldSend: true, alreadySent: false };
       }
+      
+      // If insert failed, row already exists - lock it and check status
+      const locked = await tx
+        .select()
+        .from(sentMessages)
+        .where(eq(sentMessages.idempotencyKey, idempotencyKey))
+        .for('update') // CRITICAL: Locks row until transaction commits
+        .limit(1);
+      
+      if (locked.length === 0) {
+        throw new Error(`Concurrency issue: row disappeared after conflict`);
+      }
+      
+      const existing = locked[0];
+      
+      // Already sent successfully - don't resend
+      if (existing.status === 'sent') {
+        return { shouldSend: false, alreadySent: true };
+      }
+      
+      // Another worker is currently sending - don't duplicate
+      // WATCHDOG: If pending for >5 minutes, assume crash and allow retry
+      if (existing.status === 'pending') {
+        const pendingDuration = Date.now() - existing.updatedAt.getTime();
+        const PENDING_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+        
+        if (pendingDuration < PENDING_TIMEOUT_MS) {
+          // Still fresh, another worker is actively sending
+          return { shouldSend: false, alreadySent: false };
+        }
+        
+        // Stale pending (likely crash) - promote to retry
+        console.warn(`[Teams Proactive] Stale pending detected (${Math.round(pendingDuration/1000)}s), assuming crash and retrying: ${idempotencyKey}`);
+        await tx.update(sentMessages)
+          .set({
+            status: 'pending', // Keep as pending (we're about to send)
+            attemptCount: existing.attemptCount + 1,
+            lastError: 'Previous attempt timed out (likely crash)',
+            updatedAt: new Date(),
+          })
+          .where(eq(sentMessages.idempotencyKey, idempotencyKey));
+        
+        return { shouldSend: true, alreadySent: false };
+      }
+      
+      // Status is 'failed' - atomically transition to 'pending' for retry
+      // This prevents concurrent workers from both retrying
+      await tx.update(sentMessages)
+        .set({
+          status: 'pending', // CRITICAL: Prevents other workers from retrying
+          attemptCount: existing.attemptCount + 1,
+          lastError: null, // Clear previous error
+          updatedAt: new Date(),
+        })
+        .where(eq(sentMessages.idempotencyKey, idempotencyKey));
+      
+      return { shouldSend: true, alreadySent: false };
     });
+    
+    // If transaction determined we shouldn't send, short-circuit
+    if (!result.shouldSend) {
+      if (result.alreadySent) {
+        console.log(`[Teams Proactive] Message already sent: ${idempotencyKey}`);
+      } else {
+        console.log(`[Teams Proactive] Message send in progress (concurrent worker): ${idempotencyKey}`);
+      }
+      return { success: true, alreadySent: result.alreadySent };
+    }
     
     try {
       // Get conversation reference

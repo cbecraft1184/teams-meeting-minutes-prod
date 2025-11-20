@@ -11,6 +11,7 @@ import { accessControlService } from "./services/accessControl";
 import { registerWebhookRoutes, registerAdminWebhookRoutes } from "./routes/webhooks";
 import { uploadToSharePoint } from "./services/sharepointClient";
 import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
+import { teamsBotAdapter } from "./services/teamsBot";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -34,10 +35,22 @@ export function registerRoutes(app: Express): Server {
 
   // ========== AUTHENTICATED ENDPOINTS (REQUIRE USER AUTH) ==========
   
-  // Apply authentication middleware to ALL /api/* routes
+  // Apply authentication middleware to ALL /api/* routes EXCEPT bot endpoint
   // In mock mode: Uses config/mockUsers.json
   // In production: Validates Azure AD JWT tokens
-  app.use("/api/*", authenticateUser);
+  app.use("/api/*", (req, res, next) => {
+    if (req.path === "/api/teams/messages") {
+      return next();
+    }
+    return authenticateUser(req, res, next);
+  });
+
+  // Teams Bot Framework endpoint
+  // PUBLIC endpoint - Bot Framework validates with appId/appPassword
+  // Security: JWT validation by Bot Framework SDK
+  app.post("/api/teams/messages", async (req, res) => {
+    await teamsBotAdapter.processActivity(req, res);
+  });
   
   // Register admin webhook subscription management endpoints
   // These are AUTHENTICATED endpoints at /api/admin/webhooks/*

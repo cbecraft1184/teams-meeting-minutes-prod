@@ -231,12 +231,39 @@ export const userGroupCache = pgTable("user_group_cache", {
   expiresAt: timestamp("expires_at").notNull(), // When cache expires (fetchedAt + 15min)
 });
 
+// Teams Bot Conversation References schema (for proactive messaging)
+export const teamsConversationReferences = pgTable("teams_conversation_references", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Teams identifiers
+  conversationId: text("conversation_id").notNull(), // Teams conversation/channel ID
+  serviceUrl: text("service_url").notNull(), // Bot Service URL
+  tenantId: text("tenant_id").notNull(), // Azure AD tenant ID
+  channelId: text("channel_id").notNull(), // Always 'msteams'
+  
+  // Conversation type
+  conversationType: text("conversation_type").notNull(), // personal, groupChat, channel
+  teamId: text("team_id"), // Team ID (if channel conversation)
+  teamName: text("team_name"), // Team name
+  channelName: text("channel_name"), // Channel name (if channel conversation)
+  
+  // Full conversation reference (Bot Framework format)
+  conversationReference: jsonb("conversation_reference").notNull().$type<Record<string, any>>(),
+  
+  // Association with meetings
+  meetingId: varchar("meeting_id").references(() => meetings.id, { onDelete: "cascade" }),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Durable Job Queue schema (PostgreSQL-backed for crash recovery)
 export const jobQueue = pgTable("job_queue", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Job identification
-  jobType: text("job_type").notNull(), // enrich_meeting, generate_minutes, send_email, upload_sharepoint
+  jobType: text("job_type").notNull(), // enrich_meeting, generate_minutes, send_email, upload_sharepoint, post_teams_summary
   idempotencyKey: text("idempotency_key").notNull().unique(), // Prevents duplicate processing (e.g., "enrich:meeting-123")
   
   // Job payload
@@ -305,6 +332,12 @@ export const insertJobSchema = createInsertSchema(jobQueue).omit({
   updatedAt: true,
 });
 
+export const insertTeamsConversationReferenceSchema = createInsertSchema(teamsConversationReferences).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -322,6 +355,9 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type GraphWebhookSubscription = typeof graphWebhookSubscriptions.$inferSelect;
+
+export type TeamsConversationReference = typeof teamsConversationReferences.$inferSelect;
+export type InsertTeamsConversationReference = z.infer<typeof insertTeamsConversationReferenceSchema>;
 export type InsertGraphWebhookSubscription = z.infer<typeof insertGraphWebhookSubscriptionSchema>;
 
 export type UserGroupCache = typeof userGroupCache.$inferSelect;

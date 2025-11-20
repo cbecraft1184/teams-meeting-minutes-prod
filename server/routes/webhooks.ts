@@ -26,23 +26,28 @@ const notificationQueue: WebhookNotification[] = [];
 let isProcessing = false;
 
 /**
- * Register webhook routes
+ * Register PUBLIC webhook routes
  * 
- * NOTE: Webhook validation/notification endpoints MUST be public (Microsoft calls them)
- * Admin endpoints are registered separately and require authentication
+ * CRITICAL: These endpoints MUST be public - Microsoft Graph API calls them directly
+ * They are registered OUTSIDE /api/* pattern to avoid user authentication middleware
+ * Security is provided by clientState validation (shared secret with Microsoft)
  */
 export function registerWebhookRoutes(router: Router): void {
-  // Public webhook endpoints (for Microsoft Graph to call)
-  router.post('/api/webhooks/teams/meetings', handleTeamsMeetingWebhook);
-  router.get('/api/webhooks/teams/meetings', handleValidationChallenge);
+  // PUBLIC endpoints - NO authentication required (Microsoft Graph callbacks)
+  // Using /webhooks/* instead of /api/webhooks/* to avoid auth middleware
+  router.post('/webhooks/graph/teams/meetings', handleTeamsMeetingWebhook);
+  router.get('/webhooks/graph/teams/meetings', handleValidationChallenge);
 }
 
 /**
- * Register admin webhook routes (requires authentication)
- * These should be registered AFTER authentication middleware
+ * Register AUTHENTICATED admin webhook routes
+ * 
+ * These are for subscription management (create/list/delete subscriptions)
+ * Must be called AFTER authentication middleware in routes.ts
+ * Only authenticated admin users can manage webhook subscriptions
  */
 export function registerAdminWebhookRoutes(router: Router): void {
-  // Admin endpoints for subscription management (authenticated)
+  // AUTHENTICATED endpoints for subscription management (admin only)
   router.post('/api/admin/webhooks/subscriptions', createSubscription);
   router.get('/api/admin/webhooks/subscriptions', listSubscriptions);
   router.delete('/api/admin/webhooks/subscriptions/:id', deleteSubscription);
@@ -250,12 +255,12 @@ async function upsertMeetingFromGraph(onlineMeetingId: string, resourceData: any
       scheduledAt: resourceData?.startDateTime ? new Date(resourceData.startDateTime) : new Date(),
       duration: calculateDuration(resourceData?.startDateTime, resourceData?.endDateTime),
       attendees: extractAttendees(resourceData),
-      status: determineStatus(resourceData),
-      classificationLevel: 'UNCLASSIFIED', // Default, can be updated later
+      status: determineStatus(resourceData) as "scheduled" | "in_progress" | "completed" | "archived",
+      classificationLevel: 'UNCLASSIFIED' as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
       onlineMeetingId,
       organizerAadId: resourceData?.organizer?.emailAddress?.address || null,
       teamsJoinLink: resourceData?.joinUrl || null,
-      graphSyncStatus: 'synced',
+      graphSyncStatus: 'synced' as "synced" | "pending" | "enriched" | "failed" | "archived",
     };
 
     // Check if meeting already exists
@@ -267,7 +272,7 @@ async function upsertMeetingFromGraph(onlineMeetingId: string, resourceData: any
 
     if (existingMeeting) {
       // Update existing meeting
-      const updatedStatus = existingMeeting.status === 'archived' ? 'archived' : meetingData.status;
+      const updatedStatus = (existingMeeting.status === 'archived' ? 'archived' : meetingData.status) as "scheduled" | "in_progress" | "completed" | "archived";
       
       await db
         .update(meetings)

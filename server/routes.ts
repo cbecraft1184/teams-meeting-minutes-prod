@@ -15,7 +15,9 @@ import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   
-  // Health check - public endpoint (no auth required)
+  // ========== PUBLIC ENDPOINTS (NO AUTHENTICATION) ==========
+  
+  // Health check endpoint
   app.get("/health", (_req, res) => {
     res.json({
       status: "healthy",
@@ -24,15 +26,22 @@ export function registerRoutes(app: Express): Server {
     });
   });
 
-  // Register public webhook routes (Microsoft Graph callbacks - no auth)
+  // CRITICAL: Register Microsoft Graph webhook callbacks FIRST
+  // These are PUBLIC endpoints at /webhooks/* (NOT /api/*)
+  // Microsoft Graph API calls these directly - NO user authentication
+  // Security: clientState validation (shared secret)
   registerWebhookRoutes(app);
 
-  // Apply authentication middleware to all /api/* routes
+  // ========== AUTHENTICATED ENDPOINTS (REQUIRE USER AUTH) ==========
+  
+  // Apply authentication middleware to ALL /api/* routes
   // In mock mode: Uses config/mockUsers.json
-  // In real mode: Validates Azure AD JWT tokens from Teams SSO
+  // In production: Validates Azure AD JWT tokens
   app.use("/api/*", authenticateUser);
   
-  // Register admin webhook routes AFTER authentication middleware
+  // Register admin webhook subscription management endpoints
+  // These are AUTHENTICATED endpoints at /api/admin/webhooks/*
+  // Only authenticated admins can create/delete webhook subscriptions
   registerAdminWebhookRoutes(app);
 
   // ========== MEETINGS API ==========

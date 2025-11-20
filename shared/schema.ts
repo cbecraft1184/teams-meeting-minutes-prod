@@ -276,7 +276,43 @@ export const teamsConversationReferences = pgTable("teams_conversation_reference
   meetingIdIdx: index("meeting_id_idx").on(table.meetingId),
 }));
 
+// ==================================================
+// Proactive Message Tracking (Idempotency & Delivery)
+// ==================================================
+
+export const sentMessages = pgTable("sent_messages", {
+  id: varchar("id").primaryKey().$defaultFn(() => nanoid()),
+  
+  // Idempotency key: unique per meeting + recipient + message type
+  idempotencyKey: varchar("idempotency_key", { length: 255 }).notNull().unique(),
+  
+  // Message metadata
+  meetingId: varchar("meeting_id").notNull().references(() => meetings.id, { onDelete: "cascade" }),
+  conversationId: varchar("conversation_id", { length: 255 }).notNull(),
+  messageType: varchar("message_type", { length: 50 }).notNull(), // "summary", "status", "processing"
+  
+  // Delivery status
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // "pending", "sent", "failed"
+  sentAt: timestamp("sent_at"),
+  lastError: text("last_error"),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  // Index for cleanup queries (messages older than 30 days)
+  meetingIdIdx: index("sent_messages_meeting_id_idx").on(table.meetingId),
+  conversationIdIdx: index("sent_messages_conversation_id_idx").on(table.conversationId),
+}));
+
+export type SentMessage = typeof sentMessages.$inferSelect;
+export type InsertSentMessage = typeof sentMessages.$inferInsert;
+
+// ==================================================
 // Durable Job Queue schema (PostgreSQL-backed for crash recovery)
+// ==================================================
+
 export const jobQueue = pgTable("job_queue", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   

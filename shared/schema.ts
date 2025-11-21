@@ -2,6 +2,7 @@ import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, jsonb, integer, pgEnum, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { nanoid } from "nanoid";
 
 // Postgres ENUMs for data integrity and type safety
 export const classificationLevelEnum = pgEnum("classification_level", [
@@ -291,8 +292,8 @@ export const sentMessages = pgTable("sent_messages", {
   conversationId: varchar("conversation_id", { length: 255 }).notNull(),
   messageType: varchar("message_type", { length: 50 }).notNull(), // "summary", "status", "processing"
   
-  // Delivery status
-  status: varchar("status", { length: 20 }).notNull().default("pending"), // "pending", "sent", "failed"
+  // Delivery status (outbox pattern: "staged" → "sent")
+  status: varchar("status", { length: 20 }).notNull().default("staged"), // "staged", "sent", "failed"
   sentAt: timestamp("sent_at"),
   lastError: text("last_error"),
   attemptCount: integer("attempt_count").notNull().default(0),
@@ -308,6 +309,33 @@ export const sentMessages = pgTable("sent_messages", {
 
 export type SentMessage = typeof sentMessages.$inferSelect;
 export type InsertSentMessage = typeof sentMessages.$inferInsert;
+
+// Transactional Outbox for exactly-once delivery
+// Messages staged here are atomically committed with sentMessages status
+export const messageOutbox = pgTable("message_outbox", {
+  id: varchar("id").primaryKey().$defaultFn(() => nanoid()),
+  
+  // Reference to sent_messages tracking record
+  sentMessageId: varchar("sent_message_id").notNull().references(() => sentMessages.id, { onDelete: "cascade" }),
+  
+  // Payload for Bot Framework send
+  cardPayload: jsonb("card_payload").notNull().$type<any>(), // Adaptive Card JSON
+  conversationReference: jsonb("conversation_reference").notNull().$type<any>(), // Bot Framework conversation reference
+  
+  // Delivery tracking
+  attemptCount: integer("attempt_count").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  lastError: text("last_error"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Index for outbox processor (fetch unsent messages)
+  sentMessageIdIdx: index("message_outbox_sent_message_id_idx").on(table.sentMessageId),
+}));
+
+export type MessageOutbox = typeof messageOutbox.$inferSelect;
+export type InsertMessageOutbox = typeof messageOutbox.$inferInsert;
 
 // ==================================================
 // Durable Job Queue schema (PostgreSQL-backed for crash recovery)

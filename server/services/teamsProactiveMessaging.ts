@@ -1,5 +1,5 @@
 import { db } from '../db';
-import { teamsConversationReferences, actionItems, sentMessages } from '@shared/schema';
+import { teamsConversationReferences, actionItems, sentMessages, messageOutbox } from '@shared/schema';
 import { teamsBotAdapter } from './teamsBot';
 import { createMeetingSummaryCard, createMeetingProcessingCard } from './adaptiveCards';
 import { Meeting, MeetingMinutes } from '@shared/schema';

@@ -46,7 +46,7 @@ Azure Commercial (East US)
 - Azure subscription with Contributor or Owner role
 - Ability to create resources in East US region
 - Azure CLI installed locally
-- **Estimated cost:** $150-200/month
+- **Estimated cost:** $79/month (demo), $383/month (production 100 users)
 
 **Microsoft 365:**
 - Microsoft 365 E3 or E5 tenant (commercial)
@@ -442,16 +442,20 @@ az webapp config appsettings set \
     NODE_ENV=production \
     DATABASE_URL="$DATABASE_URL" \
     SESSION_SECRET="$SESSION_SECRET" \
-    GRAPH_CLIENT_ID="$GRAPH_CLIENT_ID" \
-    GRAPH_CLIENT_SECRET="$GRAPH_CLIENT_SECRET" \
-    GRAPH_TENANT_ID="$GRAPH_TENANT_ID" \
-    AZURE_OPENAI_ENDPOINT="$AZURE_OPENAI_ENDPOINT" \
-    AZURE_OPENAI_API_KEY="$AZURE_OPENAI_API_KEY" \
-    AZURE_OPENAI_DEPLOYMENT="gpt-4o" \
+    GRAPH_CLIENT_ID_PROD="$GRAPH_CLIENT_ID" \
+    GRAPH_CLIENT_SECRET_PROD="$GRAPH_CLIENT_SECRET" \
+    GRAPH_TENANT_ID_PROD="$GRAPH_TENANT_ID" \
+    AZURE_OPENAI_ENDPOINT_PROD="$AZURE_OPENAI_ENDPOINT" \
+    AZURE_OPENAI_API_KEY_PROD="$AZURE_OPENAI_API_KEY" \
+    AZURE_OPENAI_DEPLOYMENT_PROD="gpt-4o" \
+    AZURE_OPENAI_API_VERSION_PROD="2024-02-15-preview" \
     MICROSOFT_APP_ID="$MICROSOFT_APP_ID" \
     MICROSOFT_APP_PASSWORD="$MICROSOFT_APP_PASSWORD" \
+    SHAREPOINT_TENANT_ID="$GRAPH_TENANT_ID" \
     SHAREPOINT_SITE_URL="<Your SharePoint site URL>" \
-    SHAREPOINT_LIBRARY="Shared Documents" \
+    SHAREPOINT_LIBRARY="Meeting Minutes" \
+    SHAREPOINT_CLIENT_ID="$GRAPH_CLIENT_ID" \
+    SHAREPOINT_CLIENT_SECRET="$GRAPH_CLIENT_SECRET" \
     APPINSIGHTS_INSTRUMENTATIONKEY="$APPINSIGHTS_INSTRUMENTATIONKEY" \
     USE_MOCK_SERVICES=false
 
@@ -469,7 +473,7 @@ export DATABASE_URL="postgresql://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWO
 # Push schema to database (Drizzle ORM)
 npm run db:push
 
-echo "✓ Database schema initialized with 9 tables"
+echo "✓ Database schema initialized with 12 tables"
 ```
 
 ### Step 3.4: Deploy Application to App Service

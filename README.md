@@ -1,148 +1,212 @@
-# Teams Meeting Minutes - AI-Powered Demo Pilots
+# Teams Meeting Minutes - AI-Powered System
 
-Two separate 20-user demonstration pilots for automated Microsoft Teams meeting minutes.
+Automated Microsoft Teams meeting minutes generation using Azure OpenAI for demonstration and production use on **Azure Commercial**.
 
----
-
-## Demo Pilots
-
-### 1. Commercial Enterprise Demo
-**Location:** `commercial_demo/`  
-**Target:** Commercial enterprises evaluating AI meeting automation  
-**Participants:** 20 commercial users  
-**Duration:** 4-6 weeks  
-
-**[View Commercial Demo Documentation →](commercial_demo/README.md)**
+**Target:** 20-user demo pilots, scalable to enterprise (100+ users)  
+**Cloud:** Azure Commercial (East US)  
+**Deployment:** Native Teams plugin with full Microsoft 365 integration
 
 ---
 
-### 2. NAVY ERP Demo
-**Location:** `navy_demo/`  
-**Target:** NAVY ERP team members  
-**Participants:** 20 NAVY ERP personnel  
-**Duration:** 4-6 weeks  
-**Tenant:** ABC123987.onmicrosoft.com  
+## Features
 
-**[View NAVY ERP Demo Documentation →](navy_demo/README.md)**
+### Automatic Teams Meeting Capture
+- Detects when Teams meeting ends via Microsoft Graph webhooks
+- Captures recordings and transcripts automatically
+- Processes meeting data in 2-3 minutes
 
----
+### AI-Powered Minutes Generation
+- Azure OpenAI (GPT-4o) generates structured meeting minutes
+- Extracts: summary, key discussions, decisions, action items
+- Minimal editing required (<10 minutes)
 
-## What Both Demos Do
+### Approval & Distribution Workflow
+- Review and approve/reject minutes in Teams
+- Configurable auto-approval settings
+- Email distribution (DOCX/PDF attachments)
+- Automatic SharePoint archival
+- Adaptive Cards sent to Teams chat
 
-**Automatic Teams Meeting Capture:**
-- Detects when Teams meeting ends
-- Captures recording and transcript via Microsoft Graph API
-- Processes in 2-3 minutes
-
-**AI-Powered Minutes Generation:**
-- Azure OpenAI (GPT-4o) generates structured minutes
-- Extracts attendees, decisions, action items
-- Requires minimal editing (<10 min)
-
-**Approval & Distribution:**
-- Review and approve workflow
-- Email minutes to attendees (DOCX/PDF)
-- Archive to SharePoint automatically
-
-**Action Item Tracking:**
-- Dashboard shows all action items
+### Action Item Tracking
+- Dashboard shows all assigned action items
 - Assignment and due date tracking
 - Status updates and notifications
+- Priority levels (low/medium/high)
 
 ---
 
-## Demo Scope (Both Pilots)
+## Technology Stack
 
-### ✅ Included
-- 20 user accounts
-- Azure Commercial environment (East US)
-- Teams integration
-- Azure OpenAI processing
-- SharePoint archival
-- Training and support
+### Frontend
+- **Framework:** React 18 + TypeScript
+- **UI Library:** Fluent UI React Components v9 (native Teams design system)
+- **Styling:** Griffel (makeStyles) with Fluent UI design tokens
+- **State Management:** TanStack Query v5
+- **Routing:** Wouter
+- **Teams Integration:** @microsoft/teams-js SDK
 
-### ❌ NOT Included
-- Production deployment
-- Enterprise-wide rollout
-- Security certifications (SOC 2 / ATO)
-- Multi-region deployment
-- Custom integrations
-- Production system integration
+### Backend
+- **Runtime:** Node.js 18 LTS
+- **Framework:** Express + TypeScript
+- **Database:** PostgreSQL 16 (Azure Database for PostgreSQL)
+- **ORM:** Drizzle ORM
+- **Authentication:** Azure AD OAuth 2.0 (MSAL Node)
+- **Microsoft Graph:** @microsoft/microsoft-graph-client
+- **AI:** Azure OpenAI Service (GPT-4o + Whisper)
+- **Bot:** BotBuilder SDK v4
 
----
-
-## Quick Start
-
-### For Commercial Demo
-```bash
-cd commercial_demo
-# See README.md for setup instructions
-```
-
-### For NAVY ERP Demo
-```bash
-cd navy_demo
-# See README.md for setup instructions
-```
-
-### Deploy Infrastructure
-```bash
-# Run deployment script
-./deploy-azure-v2.sh
-
-# Follow prompts for:
-# - Tenant domain
-# - Region (default: eastus)
-# - Environment (demo)
-# - Admin email
-```
+### Infrastructure
+- **Hosting:** Azure App Service (Linux, Node.js 18)
+- **Database:** Azure Database for PostgreSQL (Flexible Server)
+- **AI:** Azure OpenAI Service
+- **Monitoring:** Azure Application Insights
+- **Security:** Azure Key Vault, Azure AD
 
 ---
 
-## Success Metrics (Both Demos)
+## Local Development Setup
 
-**Technical:**
-- 100% meeting capture rate
-- AI accuracy 80%+
-- Processing time <5 min
-- 99%+ uptime
+### Prerequisites
+- Node.js 18.x LTS
+- npm 9.x or later
+- PostgreSQL database (local or Neon)
+- Azure AD app registration (optional, can use mock mode)
 
-**User Experience:**
-- 8/10 user satisfaction
-- 80%+ adoption
-- <10 min editing time
+### Environment Setup
 
-**Business Value:**
-- 30+ min saved per meeting
-- Clear ROI demonstrated
-- Positive stakeholder feedback
+1. **Clone repository:**
+   ```bash
+   git clone <repository-url>
+   cd teams-meeting-minutes
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   cd client
+   npm install
+   cd ..
+   ```
+
+3. **Configure environment variables:**
+   
+   Create `.env` file (development uses mock services by default):
+   ```bash
+   # Database
+   DATABASE_URL="postgresql://user:password@localhost:5432/meetings"
+   SESSION_SECRET="your-session-secret"
+   
+   # Use mock services (no Azure AD or OpenAI required)
+   USE_MOCK_SERVICES=true
+   NODE_ENV=development
+   
+   # Optional: Real Azure services (for production-like testing)
+   # GRAPH_CLIENT_ID_DEV="<Azure AD app client ID>"
+   # GRAPH_CLIENT_SECRET_DEV="<Azure AD client secret>"
+   # GRAPH_TENANT_ID_DEV="<Azure AD tenant ID>"
+   # AZURE_OPENAI_ENDPOINT_DEV="<Azure OpenAI endpoint>"
+   # AZURE_OPENAI_API_KEY_DEV="<Azure OpenAI API key>"
+   # AZURE_OPENAI_DEPLOYMENT_DEV="gpt-4o"
+   ```
+
+4. **Initialize database:**
+   ```bash
+   npm run db:push
+   ```
+
+5. **Start development server:**
+   ```bash
+   npm run dev
+   ```
+   
+   Application runs at `http://localhost:5000`
+
+### Mock Mode (Development)
+By default, the application runs in mock mode:
+- **Mock users:** Pre-configured test users (no Azure AD required)
+- **Mock AI:** Replit AI generates minutes (no Azure OpenAI required)
+- **Mock Graph:** Simulated Microsoft Graph API responses
+- **Full functionality:** Complete approval workflow, action items, search
+
+Switch users in development using the user switcher in the top-right corner.
 
 ---
 
-## Architecture
+## Azure Commercial Deployment
 
-**Frontend:** React + TypeScript, Shadcn UI, Tailwind CSS  
-**Backend:** Node.js + Express, PostgreSQL, Drizzle ORM  
-**AI:** Azure OpenAI (GPT-4o, Whisper)  
-**Cloud:** Azure Commercial (East US)  
-**Integration:** Microsoft Graph API, SharePoint  
+### Demo Deployment (20 users)
+**Estimated Cost:** $79/month  
+**Timeline:** 4-6 hours
+
+**[→ View Complete Deployment Guide (COMMERCIAL_DEMO_DEPLOYMENT.md)](COMMERCIAL_DEMO_DEPLOYMENT.md)**
+
+### Production Deployment (100 users)
+**Estimated Cost:** $383/month  
+**Features:** Auto-scaling, high availability, monitoring
+
+**Resources:**
+- App Service: Standard S1 (2 instances)
+- PostgreSQL: General Purpose D2s_v3
+- Azure OpenAI: GPT-4o + Whisper
+- Application Insights: Standard tier
 
 ---
 
 ## Documentation
 
-- **Commercial Demo:** `commercial_demo/README.md`
-- **NAVY ERP Demo:** `navy_demo/README.md`
-- **System Architecture:** `replit.md`
-- **Azure Deployment:** `azure-infrastructure/README.md`
+### Deployment
+- **[Commercial Demo Deployment Guide](COMMERCIAL_DEMO_DEPLOYMENT.md)** - Step-by-step Azure deployment
+- **[Deployment Summary](DEPLOYMENT_SUMMARY.md)** - Quick reference and cost estimates
+- **[Architecture Documentation](DEPLOYMENT_ARCHITECTURE.md)** - System architecture and tech stack
+
+### Development
+- **[Project Overview](replit.md)** - System architecture, preferences, recent changes
+- **Environment Setup:** See "Local Development Setup" above
+- **Database Schema:** See `shared/schema.ts` (12 tables)
 
 ---
 
-## Support
+## Database Schema (12 Tables)
 
-**Commercial Demo:** Contact pilot coordinator  
-**NAVY ERP Demo:** Weekly check-ins Tuesday 2PM ET
+1. **meetings** - Meeting metadata and Microsoft Graph integration
+2. **meeting_minutes** - AI-generated minutes with approval workflow
+3. **action_items** - Extracted action items with assignments
+4. **users** - User profiles and Azure AD permissions
+5. **meeting_templates** - Reusable meeting templates
+6. **graph_webhook_subscriptions** - Microsoft Graph webhook lifecycle
+7. **user_group_cache** - Cached Azure AD groups (15-min TTL)
+8. **teams_conversation_references** - Teams bot conversation state
+9. **sent_messages** - Audit log of sent Teams messages
+10. **message_outbox** - Transactional outbox for Adaptive Card delivery
+11. **job_queue** - Durable background job processing
+12. **app_settings** - Application configuration
 
 ---
 
-**Both pilots are time-boxed proof-of-concepts. Production deployment requires separate planning and authorization.**
+## Security & Compliance
+
+- **Authentication:** Azure AD OAuth 2.0 with MSAL
+- **Authorization:** Azure AD group-based permissions (role + classification level)
+- **Transport Security:** HTTPS/TLS 1.2+ (Azure-managed certificates)
+- **Data Encryption:** At-rest encryption (Azure default)
+- **Secret Management:** Azure Key Vault + environment variables
+- **Classification Levels:** UNCLASSIFIED, CONFIDENTIAL, SECRET, TOP_SECRET
+- **Audit Logging:** Application Insights structured logs
+
+---
+
+## Support & Contribution
+
+**Issues:** Report via GitHub issues  
+**Questions:** See documentation in `COMMERCIAL_DEMO_DEPLOYMENT.md`  
+**Updates:** Check `replit.md` for recent changes
+
+---
+
+## License
+
+[Add your license here]
+
+---
+
+**Note:** This system is designed for demonstration and production use on Azure Commercial. For Azure Government (GCC High) deployments, contact your Azure representative for compliance requirements.

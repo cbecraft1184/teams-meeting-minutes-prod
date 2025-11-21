@@ -194,11 +194,13 @@ An AI-powered Microsoft Teams meeting minutes management system for demonstratio
     - Uninstalled 27 Radix UI packages
     - Removed tailwindcss-animate plugin
     - Minimal Tailwind config (typography plugin only)
-  - **Quality Assurance**: Multi-iteration architect reviews
+  - **Quality Assurance**: Multi-iteration architect reviews and E2E testing
     - Fixed spinner animation (Griffel keyframes)
     - Fixed Dropdown control state (selectedOptions arrays)
     - Fixed Settings hard-coded hex colors (replaced with Fluent tokens)
     - Fixed toast notifications (shared toasterId constant)
+    - Fixed MeetingDetailsModal: Moved DOCX/PDF download buttons to Attachments tab (UX improvement)
+    - E2E test verification: All downloads, navigation, theme toggles working correctly
 - **November 2025 (Task 5)**: Production-grade telemetry for Adaptive Card delivery system (COMPLETED ✓)
   - **Per-Recipient Error Isolation**: Each Teams recipient has independent outbox entry with separate retry lifecycle
   - **Error Classification System**:

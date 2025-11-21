@@ -21,6 +21,8 @@ import {
 import { eq } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./azureOpenAI";
 import { ZodError } from "zod";
+import { storage } from "../storage";
+import { enqueueJob } from "./durableQueue";
 
 /**
  * Generate meeting minutes automatically after enrichment
@@ -61,6 +63,13 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Extract action items
     const actionItemsData = await extractActionItems(mockTranscript);
     
+    // Check approval settings
+    const settings = await storage.getSettings();
+    const requiresApproval = settings.requireApprovalForMinutes;
+    const initialApprovalStatus = requiresApproval ? "pending_review" as const : "approved" as const;
+    
+    console.log(`⚙️  [MinutesGenerator] Approval required: ${requiresApproval} → Initial status: ${initialApprovalStatus}`);
+    
     // STRICT VALIDATION: Validate meeting minutes data before database write
     const minutesPayload = {
       meetingId: meeting.id,
@@ -69,7 +78,7 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       decisions: minutesData.decisions,
       attendeesPresent: meeting.attendees,
       processingStatus: "completed" as const,
-      approvalStatus: "pending_review" as const
+      approvalStatus: initialApprovalStatus
     };
     
     try {
@@ -139,6 +148,26 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       .where(eq(meetings.id, meetingId));
     
     console.log(`✅ [MinutesGenerator] Meeting minutes generation complete for ${meetingId}`);
+    
+    // If approval not required, automatically trigger distribution workflow
+    if (!requiresApproval) {
+      console.log(`🚀 [MinutesGenerator] Auto-approval enabled - triggering approval workflow automatically`);
+      
+      // Use the same workflow as manual approval to ensure proper document generation and distribution
+      const { triggerApprovalWorkflow } = await import("./meetingOrchestrator");
+      const minutesRecord = await db.select()
+        .from(meetingMinutes)
+        .where(eq(meetingMinutes.meetingId, meetingId))
+        .limit(1);
+      
+      if (minutesRecord[0]) {
+        await triggerApprovalWorkflow({
+          meetingId: meetingId,
+          minutesId: minutesRecord[0].id
+        });
+        console.log(`✅ [MinutesGenerator] Auto-distribution workflow triggered for meeting ${meetingId}`);
+      }
+    }
     
   } catch (error) {
     console.error(`❌ [MinutesGenerator] Failed to generate minutes for meeting ${meetingId}:`, error);

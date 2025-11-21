@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema } from "@shared/schema";
+import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema } from "@shared/schema";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
 import { requireWebhookAuth } from "./middleware/requireServiceAuth";
@@ -12,6 +12,7 @@ import { registerWebhookRoutes, registerAdminWebhookRoutes } from "./routes/webh
 import { uploadToSharePoint } from "./services/sharepointClient";
 import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
 import { teamsBotAdapter } from "./services/teamsBot";
+import { ZodError } from "zod";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -971,6 +972,49 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error fetching user info:", error);
       res.status(500).json({ error: "Failed to fetch user info" });
+    }
+  });
+
+  // ========== APPLICATION SETTINGS API ==========
+
+  // Get application settings
+  app.get("/api/settings", requireRole("admin"), async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error: any) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  // Update application settings (admin only)
+  app.patch("/api/settings", requireRole("admin"), async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Validate request body using partial schema
+      const validatedUpdates = insertAppSettingsSchema.partial().parse(req.body);
+
+      const settings = await storage.updateSettings({
+        ...validatedUpdates,
+        updatedBy: req.user.azureAdId || req.user.id
+      });
+
+      console.log(`[SETTINGS] Updated by ${req.user.email}:`, validatedUpdates);
+      
+      res.json(settings);
+    } catch (error: any) {
+      if (error instanceof ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid settings data", 
+          details: error.errors 
+        });
+      }
+      console.error("Error updating settings:", error);
+      res.status(500).json({ error: "Failed to update settings" });
     }
   });
 

@@ -370,6 +370,30 @@ export const jobQueue = pgTable("job_queue", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// ==================================================
+// Application Settings schema (singleton table)
+// ==================================================
+
+export const appSettings = pgTable("app_settings", {
+  id: varchar("id").primaryKey().default("default"), // Singleton: only one row with id='default'
+  
+  // Approval workflow configuration
+  requireApprovalForMinutes: boolean("require_approval_for_minutes").notNull().default(true),
+  
+  // Email distribution settings
+  enableEmailDistribution: boolean("enable_email_distribution").notNull().default(true),
+  
+  // SharePoint archival settings
+  enableSharePointArchival: boolean("enable_sharepoint_archival").notNull().default(true),
+  
+  // Teams card notification settings
+  enableTeamsCardNotifications: boolean("enable_teams_card_notifications").notNull().default(true),
+  
+  // Metadata
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  updatedBy: text("updated_by"), // Azure AD ID of user who last updated settings
+});
+
 // Insert schemas with strict validation
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
@@ -492,6 +516,11 @@ export const insertTeamsConversationReferenceSchema = createInsertSchema(teamsCo
   updatedAt: true,
 });
 
+export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -519,6 +548,9 @@ export type InsertUserGroupCache = z.infer<typeof insertUserGroupCacheSchema>;
 
 export type Job = typeof jobQueue.$inferSelect;
 export type InsertJob = z.infer<typeof insertJobSchema>;
+
+export type AppSettings = typeof appSettings.$inferSelect;
+export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({

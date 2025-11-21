@@ -4,6 +4,7 @@ import {
   meetingMinutes,
   actionItems,
   meetingTemplates,
+  appSettings,
   type Meeting,
   type InsertMeeting,
   type MeetingMinutes,
@@ -12,7 +13,9 @@ import {
   type InsertActionItem,
   type MeetingTemplate,
   type InsertMeetingTemplate,
-  type MeetingWithMinutes
+  type MeetingWithMinutes,
+  type AppSettings,
+  type InsertAppSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -47,6 +50,10 @@ export interface IStorage {
   createTemplate(template: InsertMeetingTemplate): Promise<MeetingTemplate>;
   updateTemplate(id: string, updates: Partial<MeetingTemplate>): Promise<MeetingTemplate>;
   deleteTemplate(id: string): Promise<void>;
+
+  // Application Settings
+  getSettings(): Promise<AppSettings>;
+  updateSettings(updates: Partial<InsertAppSettings>): Promise<AppSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -202,6 +209,43 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTemplate(id: string): Promise<void> {
     await db.delete(meetingTemplates).where(eq(meetingTemplates.id, id));
+  }
+
+  // Application Settings
+  async getSettings(): Promise<AppSettings> {
+    // Settings is a singleton table with id='default'
+    const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, "default"));
+    
+    // If no settings exist, create default settings
+    if (!settings) {
+      const [newSettings] = await db.insert(appSettings).values({
+        id: "default",
+        requireApprovalForMinutes: true,
+        enableEmailDistribution: true,
+        enableSharePointArchival: true,
+        enableTeamsCardNotifications: true,
+      }).returning();
+      return newSettings;
+    }
+    
+    return settings;
+  }
+
+  async updateSettings(updates: Partial<InsertAppSettings>): Promise<AppSettings> {
+    // Ensure default settings exist first
+    await this.getSettings();
+    
+    // Update settings
+    const [settings] = await db.update(appSettings)
+      .set({
+        ...updates,
+        updatedAt: new Date()
+      })
+      .where(eq(appSettings.id, "default"))
+      .returning();
+    
+    if (!settings) throw new Error('Failed to update settings');
+    return settings;
   }
 }
 

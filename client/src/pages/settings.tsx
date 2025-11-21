@@ -26,9 +26,12 @@ import {
   DismissCircle20Regular, 
   PaintBrush20Regular 
 } from "@fluentui/react-icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/use-theme";
 import { useState } from "react";
+import { queryClient } from "@/lib/queryClient";
+import { useToastController } from "@fluentui/react-components";
+import { APP_TOASTER_ID } from "@/App";
 
 interface UserPermissions {
   canView: boolean;
@@ -52,6 +55,16 @@ interface UserInfo {
     organizationalUnit: string | null;
   };
   permissions: UserPermissions;
+}
+
+interface AppSettings {
+  id: string;
+  requireApprovalForMinutes: boolean;
+  enableEmailDistribution: boolean;
+  enableSharePointArchival: boolean;
+  enableTeamsCardNotifications: boolean;
+  updatedAt: string;
+  updatedBy: string | null;
 }
 
 const useStyles = makeStyles({
@@ -327,6 +340,7 @@ const useStyles = makeStyles({
 export default function Settings() {
   const styles = useStyles();
   const { uiStyle, setUIStyle } = useTheme();
+  const { dispatchToast } = useToastController(APP_TOASTER_ID);
   
   const [autoArchive, setAutoArchive] = useState(true);
   const [completionAlerts, setCompletionAlerts] = useState(true);
@@ -338,6 +352,44 @@ export default function Settings() {
   
   const { data: userInfo, isLoading: isLoadingUser } = useQuery<UserInfo>({
     queryKey: ["/api/user/me"],
+  });
+
+  // Fetch application settings
+  const { data: appSettings, isLoading: isLoadingSettings } = useQuery<AppSettings>({
+    queryKey: ["/api/settings"],
+    enabled: userInfo?.user.role === "admin", // Only fetch if admin
+  });
+
+  // Mutation for updating settings
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (updates: Partial<AppSettings>) => {
+      const response = await fetch("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify(updates),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to update settings");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      dispatchToast(
+        <div>
+          <strong>Settings updated</strong>
+          <div>Application settings have been saved successfully</div>
+        </div>,
+        { intent: "success" }
+      );
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <div>
+          <strong>Update failed</strong>
+          <div>{error.message || "Failed to update settings"}</div>
+        </div>,
+        { intent: "error" }
+      );
+    },
   });
   
   return (
@@ -642,6 +694,127 @@ export default function Settings() {
             </div>
           </div>
         </Card>
+
+        {userInfo?.user.role === "admin" && (
+          <Card>
+            <div className={styles.cardHeader}>
+              <div className={styles.iconContainer}>
+                <Settings20Regular className={styles.iconContainerIcon} />
+              </div>
+              <div className={styles.headerText}>
+                <Text className={styles.cardTitle}>Workflow Settings</Text>
+                <Text className={styles.cardDescription}>Configure approval and distribution workflows</Text>
+              </div>
+            </div>
+            <div className={styles.cardContent}>
+              {isLoadingSettings ? (
+                <Text className={styles.fieldDescription}>Loading settings...</Text>
+              ) : appSettings ? (
+                <>
+                  <div className={styles.switchRow}>
+                    <div className={styles.switchLabelContainer}>
+                      <Text className={styles.switchLabel}>Require Approval for Minutes</Text>
+                      <Text className={styles.switchDescription}>
+                        When enabled, minutes must be manually approved before distribution. When disabled, minutes are automatically approved and distributed after AI generation.
+                      </Text>
+                    </div>
+                    <Switch
+                      checked={appSettings.requireApprovalForMinutes}
+                      onChange={(ev, data) => {
+                        updateSettingsMutation.mutate({ requireApprovalForMinutes: data.checked });
+                      }}
+                      disabled={updateSettingsMutation.isPending}
+                      data-testid="switch-require-approval"
+                    />
+                  </div>
+
+                  <Divider />
+
+                  <div className={styles.switchRow}>
+                    <div className={styles.switchLabelContainer}>
+                      <Text className={styles.switchLabel}>Email Distribution</Text>
+                      <Text className={styles.switchDescription}>
+                        Automatically send meeting minutes via email to attendees
+                      </Text>
+                    </div>
+                    <Switch
+                      checked={appSettings.enableEmailDistribution}
+                      onChange={(ev, data) => {
+                        updateSettingsMutation.mutate({ enableEmailDistribution: data.checked });
+                      }}
+                      disabled={updateSettingsMutation.isPending}
+                      data-testid="switch-email-distribution"
+                    />
+                  </div>
+
+                  <div className={styles.switchRow}>
+                    <div className={styles.switchLabelContainer}>
+                      <Text className={styles.switchLabel}>SharePoint Archival</Text>
+                      <Text className={styles.switchDescription}>
+                        Automatically upload approved minutes to SharePoint
+                      </Text>
+                    </div>
+                    <Switch
+                      checked={appSettings.enableSharePointArchival}
+                      onChange={(ev, data) => {
+                        updateSettingsMutation.mutate({ enableSharePointArchival: data.checked });
+                      }}
+                      disabled={updateSettingsMutation.isPending}
+                      data-testid="switch-sharepoint-archival"
+                    />
+                  </div>
+
+                  <div className={styles.switchRow}>
+                    <div className={styles.switchLabelContainer}>
+                      <Text className={styles.switchLabel}>Teams Card Notifications</Text>
+                      <Text className={styles.switchDescription}>
+                        Post Adaptive Cards to Teams meeting chats with minutes summary
+                      </Text>
+                    </div>
+                    <Switch
+                      checked={appSettings.enableTeamsCardNotifications}
+                      onChange={(ev, data) => {
+                        updateSettingsMutation.mutate({ enableTeamsCardNotifications: data.checked });
+                      }}
+                      disabled={updateSettingsMutation.isPending}
+                      data-testid="switch-teams-notifications"
+                    />
+                  </div>
+
+                  <Divider />
+
+                  <div className={styles.infoBox}>
+                    <div className={styles.infoBoxContent}>
+                      <Info20Regular className={styles.infoBoxIcon} />
+                      <div className={styles.infoBoxText}>
+                        <Text className={styles.infoBoxTitle}>
+                          {appSettings.requireApprovalForMinutes ? "Manual Approval Workflow" : "Fully Autonomous Workflow"}
+                        </Text>
+                        <Text className={styles.infoBoxDescription}>
+                          {appSettings.requireApprovalForMinutes ? (
+                            <>
+                              <strong>Current Mode:</strong> Minutes require manual approval before distribution
+                              <br /><br />
+                              <strong>Flow:</strong> Meeting ends → AI generates minutes → Status: "Pending Review" → Approver clicks "Approve" → Email + SharePoint + Teams card sent automatically
+                            </>
+                          ) : (
+                            <>
+                              <strong>Current Mode:</strong> Fully autonomous - minutes automatically approved and distributed
+                              <br /><br />
+                              <strong>Flow:</strong> Meeting ends → AI generates minutes → Status: "Approved" (automatic) → Email + SharePoint + Teams card sent automatically
+                            </>
+                          )}
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <Text className={styles.fieldDescription}>Failed to load settings</Text>
+              )}
+            </div>
+          </Card>
+        )}
 
         <Card>
           <div className={styles.cardHeader}>

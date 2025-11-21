@@ -5,6 +5,7 @@ import { FluentProvider, webLightTheme, webDarkTheme, teamsHighContrastTheme, te
 import { Navigation24Regular } from "@fluentui/react-icons";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { UserSwitcher } from "@/components/user-switcher";
 import { FluentNavigation } from "@/components/FluentNavigation";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { TeamsProvider, useTeams } from "@/contexts/TeamsContext";
@@ -165,6 +166,7 @@ function AppContent() {
             <div className={styles.classificationBadge} data-testid="badge-classification-header">
               UNCLASSIFIED
             </div>
+            <UserSwitcher />
             <ThemeToggle />
           </div>
         </header>

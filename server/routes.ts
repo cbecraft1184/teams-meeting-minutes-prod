@@ -1020,6 +1020,94 @@ export function registerRoutes(app: Express): Server {
 
   // ========== DEMO/TESTING ENDPOINTS (Mock Mode) ==========
 
+  // Get list of available mock users (development only)
+  app.get("/api/dev/mock-users", async (req, res) => {
+    try {
+      const useMockServices = process.env.USE_MOCK_SERVICES !== "false";
+      if (!useMockServices) {
+        return res.status(400).json({ 
+          error: "Mock users only available in development mode" 
+        });
+      }
+
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const mockUsersPath = path.join(process.cwd(), "config", "mockUsers.json");
+      const mockUsersData = await fs.readFile(mockUsersPath, "utf-8");
+      const mockUsers = JSON.parse(mockUsersData);
+
+      res.json(mockUsers.users);
+    } catch (error: any) {
+      console.error("Error fetching mock users:", error);
+      res.status(500).json({ error: "Failed to fetch mock users" });
+    }
+  });
+
+  // Switch to a different mock user (development only)
+  app.post("/api/dev/switch-user", async (req, res) => {
+    try {
+      const useMockServices = process.env.USE_MOCK_SERVICES !== "false";
+      if (!useMockServices) {
+        return res.status(400).json({ 
+          error: "User switching only available in development mode" 
+        });
+      }
+
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: "Email required" });
+      }
+
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const mockUsersPath = path.join(process.cwd(), "config", "mockUsers.json");
+      const mockUsersData = await fs.readFile(mockUsersPath, "utf-8");
+      const mockUsers = JSON.parse(mockUsersData);
+
+      const user = mockUsers.users.find((u: any) => u.email === email);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Update session with new user
+      if (req.session) {
+        req.session.user = {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          role: user.role,
+          clearanceLevel: user.clearanceLevel,
+          department: user.department,
+          organizationalUnit: user.organizationalUnit,
+          azureAdId: user.azureAdId,
+          azureUserPrincipalName: user.azureUserPrincipalName,
+          tenantId: user.tenantId,
+        };
+
+        await new Promise<void>((resolve, reject) => {
+          req.session!.save((err: any) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        console.log(`🔄 [DEV] User switched to: ${user.displayName} (${user.email}) - Role: ${user.role}`);
+      }
+
+      res.json({ 
+        success: true,
+        user: {
+          email: user.email,
+          displayName: user.displayName,
+          role: user.role,
+        }
+      });
+    } catch (error: any) {
+      console.error("Error switching user:", error);
+      res.status(500).json({ error: "Failed to switch user" });
+    }
+  });
+
   // Trigger mock webhook workflow (simulate Teams meeting completion)
   app.post("/api/demo/trigger-webhook/:meetingId", async (req, res) => {
     try {

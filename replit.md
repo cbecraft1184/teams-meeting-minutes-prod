@@ -176,6 +176,28 @@ An AI-powered Microsoft Teams meeting minutes management system for demonstratio
 
 ## Recent Changes
 
+- **November 2025 (Task 7)**: Configurable approval workflow with admin settings (COMPLETED ✓)
+  - **Admin Settings Panel**: New Workflow Settings card in Settings page (admin-only access)
+    - Toggle: "Require Approval for Minutes" (default: ON)
+    - Toggles: Email Distribution, SharePoint Archival, Teams Card Notifications
+    - Real-time updates with Fluent UI toast notifications
+  - **Database Schema**: app_settings singleton table with 4 workflow toggles
+  - **Auto-Approval Logic**: When approval disabled, minutes automatically marked "approved" after AI generation
+  - **Distribution Orchestrator**: Respects all toggle settings before enqueuing jobs
+    - Email job only enqueued if enableEmailDistribution=true
+    - SharePoint job only enqueued if enableSharePointArchival=true
+    - Teams cards only sent if enableTeamsCardNotifications=true
+    - Returns null job IDs when channels disabled (accurate status tracking)
+  - **Development User Switcher**: New dropdown menu in header to switch between mock users
+    - Displays all 5 mock users (Admin, Approver, Auditor, 2 Viewers)
+    - Shows role and clearance level for each user
+    - One-click user switching for testing different permissions
+    - Only visible in development mode (USE_MOCK_SERVICES=true)
+  - **API Endpoints**: 
+    - GET/PATCH /api/settings (admin-only with Zod validation)
+    - GET /api/dev/mock-users (development only)
+    - POST /api/dev/switch-user (development only)
+  - **Architect-Approved**: Multi-iteration review confirming all distribution channels respect settings
 - **November 2025 (Task 6)**: Complete Fluent UI v9 migration - native Teams design system (COMPLETED ✓)
   - **Full Component Migration**: All pages and components migrated to Fluent UI React Components
     - Dashboard, Meetings, Search, Settings, NotFound pages

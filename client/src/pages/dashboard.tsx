@@ -4,9 +4,9 @@ import { Link } from "wouter";
 import { StatsCard } from "@/components/stats-card";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { FileText, Calendar, Archive, CheckCircle2, Settings, Search, AlertCircle } from "lucide-react";
+import { Button, SearchBox, makeStyles, tokens, shorthands } from "@fluentui/react-components";
+import { Settings24Regular, Search24Regular } from "@fluentui/react-icons";
+import { FileText, Calendar, Archive, CheckCircle2, AlertCircle } from "lucide-react";
 import type { MeetingWithMinutes } from "@shared/schema";
 
 type DashboardStats = {
@@ -22,7 +22,111 @@ type DashboardStats = {
   };
 };
 
+const useStyles = makeStyles({
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.gap("16px"),
+    flexWrap: "wrap",
+  },
+  title: {
+    fontSize: "28px",
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    marginBottom: "4px",
+  },
+  subtitle: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground3,
+  },
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(1, 1fr)",
+    ...shorthands.gap("16px"),
+    "@media (min-width: 768px)": {
+      gridTemplateColumns: "repeat(2, 1fr)",
+    },
+    "@media (min-width: 1024px)": {
+      gridTemplateColumns: "repeat(4, 1fr)",
+    },
+  },
+  section: {
+    marginTop: "24px",
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap("16px"),
+  },
+  sectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.gap("16px"),
+    flexWrap: "wrap",
+  },
+  sectionTitle: {
+    fontSize: tokens.fontSizeBase500,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  skeleton: {
+    height: "128px",
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke2),
+    animationName: {
+      from: { opacity: 0.5 },
+      to: { opacity: 1 },
+    },
+    animationDuration: "1.5s",
+    animationIterationCount: "infinite",
+    animationDirection: "alternate",
+  },
+  errorState: {
+    textAlign: "center",
+    ...shorthands.padding("48px"),
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke2),
+  },
+  emptyState: {
+    textAlign: "center",
+    ...shorthands.padding("48px"),
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke2),
+  },
+  errorIcon: {
+    marginLeft: "auto",
+    marginRight: "auto",
+    marginBottom: "12px",
+    color: tokens.colorPaletteRedForeground1,
+  },
+  emptyIcon: {
+    marginLeft: "auto",
+    marginRight: "auto",
+    marginBottom: "12px",
+    color: tokens.colorNeutralForeground3,
+  },
+  errorTitle: {
+    fontSize: tokens.fontSizeBase400,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    marginBottom: "8px",
+  },
+  errorSubtitle: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground3,
+  },
+  meetingsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(1, 1fr)",
+    ...shorthands.gap("16px"),
+  },
+});
+
 export default function Dashboard() {
+  const styles = useStyles();
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -40,34 +144,37 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      <div className={styles.header}>
         <div>
-          <h1 className="text-3xl font-semibold text-foreground" data-testid="heading-dashboard">
+          <h1 className={styles.title} data-testid="heading-dashboard">
             Meeting Minutes Dashboard
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className={styles.subtitle}>
             Meetings are automatically captured from Microsoft Teams
           </p>
         </div>
         <Link href="/settings">
-          <Button variant="outline" data-testid="button-settings">
-            <Settings className="w-4 h-4 mr-2" />
+          <Button 
+            appearance="subtle" 
+            icon={<Settings24Regular />}
+            data-testid="button-settings"
+          >
             Teams Integration
           </Button>
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={styles.statsGrid}>
         {statsLoading ? (
           <>
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 bg-card rounded-lg border border-card-border animate-pulse" />
+              <div key={i} className={styles.skeleton} />
             ))}
           </>
         ) : statsError ? (
-          <div className="col-span-full text-center py-8 bg-card rounded-lg border border-card-border">
-            <p className="text-sm text-muted-foreground">Failed to load statistics</p>
+          <div className={styles.errorState} style={{ gridColumn: "1 / -1" }}>
+            <p className={styles.errorSubtitle}>Failed to load statistics</p>
           </div>
         ) : (
           <>
@@ -99,35 +206,38 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h2 className="text-xl font-semibold text-foreground">Recent Meetings</h2>
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
+      <div className={styles.section}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>Recent Meetings</h2>
+          <div style={{ flex: 1, maxWidth: "400px" }}>
+            <SearchBox
               placeholder="Search meetings..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
+              onChange={(_, data) => setSearchQuery(data.value)}
               data-testid="input-search-meetings"
+              contentBefore={<Search24Regular />}
+              dismiss={searchQuery ? {
+                'aria-label': 'Clear search',
+                onClick: () => setSearchQuery('')
+              } : undefined}
             />
           </div>
         </div>
 
         {meetingsLoading ? (
-          <div className="grid grid-cols-1 gap-4" data-testid="loading-meetings">
+          <div className={styles.meetingsGrid} data-testid="loading-meetings">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 bg-card rounded-lg border border-card-border animate-pulse" />
+              <div key={i} className={styles.skeleton} style={{ height: "192px" }} />
             ))}
           </div>
         ) : meetingsError ? (
-          <div className="text-center py-12 bg-card rounded-lg border border-card-border" data-testid="error-meetings">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-3" />
-            <p className="text-base font-medium text-foreground mb-2">Failed to load meetings</p>
-            <p className="text-sm text-muted-foreground">Please try refreshing the page.</p>
+          <div className={styles.errorState} data-testid="error-meetings">
+            <AlertCircle style={{ width: "48px", height: "48px" }} className={styles.errorIcon} />
+            <p className={styles.errorTitle}>Failed to load meetings</p>
+            <p className={styles.errorSubtitle}>Please try refreshing the page.</p>
           </div>
         ) : filteredMeetings.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4">
+          <div className={styles.meetingsGrid}>
             {filteredMeetings.map((meeting) => (
               <MeetingCard
                 key={meeting.id}
@@ -137,9 +247,9 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-12 bg-card rounded-lg border border-card-border" data-testid="empty-meetings">
-            <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
+          <div className={styles.emptyState} data-testid="empty-meetings">
+            <Calendar style={{ width: "48px", height: "48px" }} className={styles.emptyIcon} />
+            <p className={styles.errorSubtitle}>
               {searchQuery ? "No meetings found matching your search." : "No recent meetings to display."}
             </p>
           </div>

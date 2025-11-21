@@ -1,4 +1,4 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, makeStyles, tokens, shorthands } from "@fluentui/react-components";
 import { LucideIcon } from "lucide-react";
 
 interface StatsCardProps {
@@ -8,25 +8,65 @@ interface StatsCardProps {
   description?: string;
 }
 
+const useStyles = makeStyles({
+  card: {
+    ...shorthands.padding("24px"),
+  },
+  content: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.gap("16px"),
+  },
+  textContainer: {
+    flex: 1,
+  },
+  title: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground3,
+    marginBottom: "4px",
+  },
+  value: {
+    fontSize: "28px",
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  description: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+    marginTop: "4px",
+  },
+  iconContainer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "48px",
+    height: "48px",
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    backgroundColor: tokens.colorBrandBackground2,
+  },
+});
+
 export function StatsCard({ title, value, icon: Icon, description }: StatsCardProps) {
+  const styles = useStyles();
+  
   return (
-    <Card data-testid={`card-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
-            <p className="text-3xl font-semibold text-foreground" data-testid={`value-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-              {value}
-            </p>
-            {description && (
-              <p className="text-xs text-muted-foreground mt-1">{description}</p>
-            )}
-          </div>
-          <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
-            <Icon className="w-6 h-6 text-primary" />
-          </div>
+    <Card className={styles.card} data-testid={`card-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+      <div className={styles.content}>
+        <div className={styles.textContainer}>
+          <p className={styles.title}>{title}</p>
+          <p className={styles.value} data-testid={`value-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+            {value}
+          </p>
+          {description && (
+            <p className={styles.description}>{description}</p>
+          )}
         </div>
-      </CardContent>
+        <div className={styles.iconContainer}>
+          <Icon style={{ width: "24px", height: "24px", color: tokens.colorBrandForeground1 }} />
+        </div>
+      </div>
     </Card>
   );
 }

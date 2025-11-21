@@ -493,9 +493,9 @@ Groups define two attributes:
 ### Network Requirements
 
 - **Outbound:** HTTPS (443) to:
-  - `graph.microsoft.com` (Microsoft Graph API)
-  - `login.microsoftonline.com` (Azure AD authentication)
-  - `*.openai.azure.com` (Azure OpenAI)
+  - `graph.microsoft.us` (Microsoft Graph API - Azure Government)
+  - `login.microsoftonline.us` (Azure AD authentication - Azure Government)
+  - `*.openai.usgovcloudapi.net` (Azure OpenAI - Azure Government)
   - `*.botframework.com` (Bot Framework)
 
 - **Inbound:** HTTPS (443) for:
@@ -526,7 +526,7 @@ Groups define two attributes:
 | **HTTPS** | Replit SSL | Azure App Service SSL |
 | **Secrets** | Environment variables | Azure Key Vault |
 | **Monitoring** | Console logs | Application Insights |
-| **Domain** | `*.replit.dev` | `*.azurewebsites.net` or custom |
+| **Domain** | `*.replit.dev` | `*.azurewebsites.us` (Azure Government) or custom |
 
 ---
 

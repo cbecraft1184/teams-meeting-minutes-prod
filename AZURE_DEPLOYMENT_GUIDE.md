@@ -232,7 +232,7 @@ Gather this information before starting:
 
 **Find your IDs:**
 ```bash
-# Go to: https://portal.azure.com
+# Go to: https://portal.azure.us (Azure Government Portal)
 # Top right → Click your profile → "Switch directory" → Find tenant ID
 # Or run in Cloud Shell: az account show
 ```
@@ -242,13 +242,13 @@ Gather this information before starting:
 ### Step 2: Open Azure Cloud Shell (2 min)
 
 **Option A: Browser**
-1. Go to: **https://shell.azure.com**
+1. Go to: **https://shell.azure.us** (Azure Government Cloud Shell)
 2. Sign in with: `ChrisBECRAFT@ABC123987.onmicrosoft.com`
 3. Choose: **Bash** (not PowerShell)
 4. Wait for cloud shell to initialize (~30 seconds)
 
 **Option B: Azure Portal**
-1. Go to: **https://portal.azure.com**
+1. Go to: **https://portal.azure.us** (Azure Government Portal)
 2. Click the **">_" icon** (top right toolbar)
 3. Choose: **Bash**
 
@@ -338,9 +338,9 @@ chmod +x deploy.sh
 [SUCCESS] Deployment completed successfully!
 
 Resource Group: tmm-navy-demo-eastus
-App Service: https://tmm-app-navy-demo.azurewebsites.net
-PostgreSQL: tmm-pg-navy-demo.postgres.database.azure.com
-OpenAI Endpoint: https://tmm-openai-navy-demo.openai.azure.com
+App Service: https://tmm-app-navy-demo.azurewebsites.us
+PostgreSQL: tmm-pg-navy-demo.postgres.database.usgovcloudapi.net
+OpenAI Endpoint: https://tmm-openai-navy-demo.openai.azure.us
 ```
 
 ---
@@ -478,7 +478,7 @@ az ad user get-member-groups \
 az ad app create \
   --display-name "NAVY ERP Meeting Minutes" \
   --sign-in-audience "AzureADMyOrg" \
-  --web-redirect-uris "https://tmm-app-navy-demo.azurewebsites.net/auth/callback" \
+  --web-redirect-uris "https://tmm-app-navy-demo.azurewebsites.us/auth/callback" \
   --enable-id-token-issuance true
 
 # Save the appId from output
@@ -873,7 +873,7 @@ az webapp log tail \
 2. App Service extracts files
 3. Runs `npm install --production` (installs dependencies from package.json)
 4. Starts Node.js server using `npm start`
-5. Application available at `https://tmm-app-navy-demo.azurewebsites.net`
+5. Application available at `https://tmm-app-navy-demo.azurewebsites.us`
 
 **8.5: Verify Deployment**
 
@@ -885,7 +885,7 @@ az webapp log show \
   --limit 50
 
 # Test health endpoint
-curl https://tmm-app-navy-demo.azurewebsites.net/api/health
+curl https://tmm-app-navy-demo.azurewebsites.us/api/health
 
 # Expected response:
 # {
@@ -1088,7 +1088,7 @@ The application automatically manages webhook subscriptions:
 
 **Webhook Endpoint:**
 ```
-https://tmm-app-navy-demo.azurewebsites.net/api/graph/notifications
+https://tmm-app-navy-demo.azurewebsites.us/api/graph/notifications
 ```
 
 **10.3: Verify Webhook Registration**
@@ -1162,14 +1162,14 @@ az webapp log tail \
 **Health Check:**
 ```bash
 # Test app is running
-curl https://tmm-app-navy-demo.azurewebsites.net/api/health
+curl https://tmm-app-navy-demo.azurewebsites.us/api/health
 
 # Expected response:
 # {"status":"healthy","database":"connected","openai":"available"}
 ```
 
 **Access Application:**
-1. Open browser: `https://tmm-app-navy-demo.azurewebsites.net`
+1. Open browser: `https://tmm-app-navy-demo.azurewebsites.us`
 2. Sign in with: `ChrisBECRAFT@ABC123987.onmicrosoft.com`
 3. Should see Dashboard with no meetings yet
 

@@ -16,7 +16,7 @@ This guide provides detailed testing procedures for the 20-user pilot deployment
 
 - [ ] Azure resources deployed (App Service, PostgreSQL, OpenAI, Bot Service)
 - [ ] Application deployed to Azure App Service
-- [ ] Health endpoint returns 200 OK: `https://[app-name].azurewebsites.net/health`
+- [ ] Health endpoint returns 200 OK: `https://[app-name].azurewebsites.us/health`
 - [ ] Database schema initialized (all tables created)
 - [ ] Application Insights collecting telemetry
 - [ ] Microsoft Graph API permissions granted with admin consent
@@ -30,7 +30,7 @@ This guide provides detailed testing procedures for the 20-user pilot deployment
 - [ ] App icons created (192x192 color, 32x32 outline)
 - [ ] Teams app package uploaded to Teams Admin Center
 - [ ] App published to organization (or uploaded for testing)
-- [ ] Bot messaging endpoint configured: `https://[app-name].azurewebsites.net/api/webhooks/bot`
+- [ ] Bot messaging endpoint configured: `https://[app-name].azurewebsites.us/api/webhooks/bot`
 - [ ] Teams channel enabled in Bot Service
 
 ### User Accounts Preparation
@@ -627,7 +627,7 @@ This guide provides detailed testing procedures for the 20-user pilot deployment
 
 ### Check Application Health
 ```bash
-curl https://[app-name].azurewebsites.net/health
+curl https://[app-name].azurewebsites.us/health
 ```
 
 ### View Recent Logs

@@ -1,13 +1,13 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { FluentProvider, webLightTheme, webDarkTheme, teamsHighContrastTheme, teamsDarkTheme, teamsLightTheme } from "@fluentui/react-components";
+import { FluentProvider, webLightTheme, webDarkTheme, teamsHighContrastTheme, teamsDarkTheme, teamsLightTheme, makeStyles, tokens, shorthands, Button } from "@fluentui/react-components";
+import { Navigation24Regular } from "@fluentui/react-icons";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { AppSidebar } from "@/components/app-sidebar";
+import { FluentNavigation } from "@/components/FluentNavigation";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { TeamsProvider, useTeams } from "@/contexts/TeamsContext";
 import Dashboard from "@/pages/dashboard";
@@ -15,6 +15,7 @@ import Meetings from "@/pages/meetings";
 import Search from "@/pages/search";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
+import { useState } from "react";
 
 function Router() {
   return (
@@ -39,71 +40,101 @@ function getFluentTheme(isInTeams: boolean, theme: 'default' | 'dark' | 'contras
   return webLightTheme;
 }
 
+const useStyles = makeStyles({
+  appContainer: {
+    display: "flex",
+    height: "100vh",
+    width: "100%",
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  mainContainer: {
+    display: "flex",
+    flexDirection: "column",
+    flex: 1,
+    overflow: "hidden",
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.padding("12px", "24px"),
+    ...shorthands.borderBottom("1px", "solid", tokens.colorNeutralStroke2),
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  content: {
+    flex: 1,
+    overflowY: "auto",
+    backgroundColor: tokens.colorNeutralBackground1,
+    ...shorthands.padding("24px"),
+  },
+  classificationBadge: {
+    fontSize: "12px",
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorPaletteRedForeground1,
+    backgroundColor: tokens.colorPaletteRedBackground1,
+    ...shorthands.padding("4px", "12px"),
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border("1px", "solid", tokens.colorPaletteRedBorder1),
+  },
+});
+
 function AppContent() {
   const { context, isInitialized } = useTeams();
   const isInTeams = !!context;
-
-  const style = {
-    "--sidebar-width": "20rem",
-    "--sidebar-width-icon": "4rem",
-  };
+  const styles = useStyles();
+  const [navOpen, setNavOpen] = useState(true);
 
   if (!isInitialized) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+      <div style={{ display: "flex", height: "100vh", width: "100%", alignItems: "center", justifyContent: "center" }}>
+        <div>Loading...</div>
       </div>
     );
   }
 
   if (isInTeams) {
     return (
-      <div className="flex flex-col h-screen w-full overflow-hidden">
-        <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-background">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold" data-testid="text-app-title">Meeting Minutes</h1>
-          </div>
-          <div 
-            className="text-xs font-medium text-destructive bg-destructive/10 px-3 py-1 rounded-md border border-destructive/20"
-            data-testid="badge-classification-header"
-          >
+      <div className={styles.appContainer} style={{ flexDirection: "column" }}>
+        <header className={styles.header}>
+          <h1 style={{ fontSize: "18px", fontWeight: tokens.fontWeightSemibold }} data-testid="text-app-title">
+            Meeting Minutes
+          </h1>
+          <div className={styles.classificationBadge} data-testid="badge-classification-header">
             UNCLASSIFIED
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto bg-background">
-          <div className="container max-w-7xl mx-auto px-6 py-6">
-            <Router />
-          </div>
+        <main className={styles.content} style={{ maxWidth: "1280px", marginLeft: "auto", marginRight: "auto", width: "100%" }}>
+          <Router />
         </main>
       </div>
     );
   }
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-4">
-              <div 
-                className="text-xs font-medium text-destructive bg-destructive/10 px-3 py-1 rounded-md border border-destructive/20"
-                data-testid="badge-classification-header"
-              >
-                UNCLASSIFIED
-              </div>
-              <ThemeToggle />
+    <div className={styles.appContainer}>
+      <FluentNavigation isOpen={navOpen} onClose={() => setNavOpen(false)} />
+      <div className={styles.mainContainer}>
+        <header className={styles.header}>
+          <Button
+            appearance="subtle"
+            icon={<Navigation24Regular />}
+            onClick={() => setNavOpen(!navOpen)}
+            data-testid="button-sidebar-toggle"
+            aria-label="Toggle navigation"
+          />
+          <div style={{ flex: 1 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <div className={styles.classificationBadge} data-testid="badge-classification-header">
+              UNCLASSIFIED
             </div>
-          </header>
-          <main className="flex-1 overflow-y-auto bg-background">
-            <div className="container max-w-7xl mx-auto px-6 py-6">
-              <Router />
-            </div>
-          </main>
-        </div>
+            <ThemeToggle />
+          </div>
+        </header>
+        <main className={styles.content} style={{ maxWidth: "1280px", marginLeft: "auto", marginRight: "auto", width: "100%" }}>
+          <Router />
+        </main>
       </div>
-    </SidebarProvider>
+    </div>
   );
 }
 

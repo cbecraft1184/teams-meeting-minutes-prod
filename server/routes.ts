@@ -1014,6 +1014,225 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ========== OUTBOX TESTING ENDPOINTS (DEBUG/DEV ONLY) ==========
+  
+  /**
+   * Test endpoint to manually trigger outbox messages
+   * This simulates the entire flow: stage message → background processing → delivery
+   */
+  app.post("/api/debug/outbox/test", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { meetingId, simulateFailure } = req.body;
+
+      // Get or create a test meeting
+      let meeting;
+      if (meetingId) {
+        meeting = await storage.getMeeting(meetingId);
+        if (!meeting) {
+          return res.status(404).json({ error: "Meeting not found" });
+        }
+      } else {
+        // Create a test meeting
+        const testMeeting = await storage.createMeeting({
+          title: `Outbox Test Meeting - ${new Date().toISOString()}`,
+          scheduledAt: new Date(),
+          duration: "1h",
+          attendees: [req.user.email],
+          status: "completed",
+          organizerAadId: req.user.azureAdId || "test-organizer",
+        });
+        meeting = testMeeting;
+
+        // Create test minutes
+        await storage.createMinutes({
+          meetingId: meeting.id,
+          summary: "This is a test meeting summary for outbox testing",
+          keyDiscussions: ["Testing outbox pattern", "Verifying exactly-once delivery"],
+          decisions: ["Implement proper retry logic"],
+          attendeesPresent: [req.user.email],
+          approvalStatus: "approved",
+          processingStatus: "completed",
+        });
+      }
+
+      const minutes = await storage.getMinutesByMeetingId(meeting.id);
+      if (!minutes) {
+        return res.status(400).json({ error: "Meeting has no minutes" });
+      }
+
+      // Import messaging service
+      const { teamsProactiveMessaging } = await import("./services/teamsProactiveMessaging");
+
+      console.log(`🧪 [OUTBOX TEST] Triggering notification for meeting: ${meeting.id}`);
+      
+      // This will stage messages in the outbox
+      await teamsProactiveMessaging.notifyMeetingProcessed(meeting, minutes);
+
+      res.json({
+        success: true,
+        message: "Outbox messages staged successfully",
+        meetingId: meeting.id,
+        minutesId: minutes.id,
+        nextSteps: [
+          "1. Messages are now in the message_outbox table",
+          "2. Background worker will process them in the next poll cycle (5 seconds)",
+          "3. Check /api/debug/outbox/status for current state",
+          "4. Check server logs for '[Outbox]' messages"
+        ],
+        testQueries: {
+          checkOutbox: "SELECT * FROM message_outbox ORDER BY created_at DESC LIMIT 5",
+          checkSentMessages: "SELECT * FROM sent_messages ORDER BY created_at DESC LIMIT 5",
+        }
+      });
+    } catch (error: any) {
+      console.error("Error testing outbox:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * Get current outbox status (pending, sent, failed messages)
+   */
+  app.get("/api/debug/outbox/status", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { db } = await import("./db");
+      const { messageOutbox, sentMessages } = await import("@shared/schema");
+      const { sql } = await import("drizzle-orm");
+
+      // Get outbox statistics
+      const outboxStats = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE attempt_count = 0) as pending,
+          COUNT(*) FILTER (WHERE attempt_count > 0 AND attempt_count < 4) as retrying,
+          COUNT(*) FILTER (WHERE next_attempt_at > NOW()) as scheduled,
+          AVG(attempt_count) as avg_attempts
+        FROM message_outbox
+      `);
+
+      // Get sent message statistics
+      const sentStats = await db.execute(sql`
+        SELECT 
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE status = 'sent') as sent,
+          COUNT(*) FILTER (WHERE status = 'failed') as failed,
+          COUNT(*) FILTER (WHERE status = 'staged') as staged
+        FROM sent_messages
+      `);
+
+      // Get recent outbox messages
+      const recentOutbox = await db.execute(sql`
+        SELECT 
+          mo.id,
+          mo.attempt_count,
+          mo.last_attempt_at,
+          mo.next_attempt_at,
+          mo.last_error,
+          mo.created_at,
+          sm.idempotency_key,
+          sm.status as sent_status,
+          sm.message_type
+        FROM message_outbox mo
+        JOIN sent_messages sm ON sm.id = mo.sent_message_id
+        ORDER BY mo.created_at DESC
+        LIMIT 10
+      `);
+
+      // Get recent sent messages
+      const recentSent = await db.execute(sql`
+        SELECT 
+          id,
+          idempotency_key,
+          meeting_id,
+          conversation_id,
+          message_type,
+          status,
+          attempt_count,
+          created_at,
+          sent_at
+        FROM sent_messages
+        WHERE status = 'sent'
+        ORDER BY sent_at DESC
+        LIMIT 10
+      `);
+
+      // Get recent failures (dead-letter)
+      const recentFailures = await db.execute(sql`
+        SELECT 
+          id,
+          idempotency_key,
+          meeting_id,
+          message_type,
+          status,
+          attempt_count,
+          created_at
+        FROM sent_messages
+        WHERE status = 'failed'
+        ORDER BY created_at DESC
+        LIMIT 10
+      `);
+
+      res.json({
+        timestamp: new Date().toISOString(),
+        statistics: {
+          outbox: outboxStats.rows[0],
+          sent: sentStats.rows[0],
+        },
+        recentMessages: {
+          outbox: recentOutbox.rows,
+          sent: recentSent.rows,
+          failures: recentFailures.rows,
+        },
+        retrySchedule: {
+          attempt1to2: "1 minute",
+          attempt2to3: "5 minutes",
+          attempt3to4: "15 minutes",
+          attempt4: "Dead-letter (no more retries)",
+        }
+      });
+    } catch (error: any) {
+      console.error("Error fetching outbox status:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * Force process outbox messages (trigger worker manually)
+   */
+  app.post("/api/debug/outbox/process", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { processOutboxMessages } = await import("./services/outboxProcessor");
+      
+      console.log(`🧪 [OUTBOX TEST] Manual trigger requested by ${req.user.email}`);
+      
+      const processed = await processOutboxMessages(10);
+
+      res.json({
+        success: true,
+        processed,
+        message: processed > 0 
+          ? `Processed ${processed} messages from outbox`
+          : "No messages to process",
+        nextCheck: "Check /api/debug/outbox/status for updated state"
+      });
+    } catch (error: any) {
+      console.error("Error processing outbox:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
 

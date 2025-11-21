@@ -306,6 +306,18 @@ const useStyles = makeStyles({
   iconCentered: {
     margin: "0 auto 12px",
   },
+  documentsDescription: {
+    color: tokens.colorNeutralForeground3,
+    marginBottom: "16px",
+  },
+  downloadButtonsContainer: {
+    display: "flex",
+    ...shorthands.gap("12px"),
+    flexWrap: "wrap",
+  },
+  processingIndicator: {
+    marginBottom: "12px",
+  },
 });
 
 export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDetailsModalProps) {
@@ -502,47 +514,25 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                           </Badge>
                         )}
                       </div>
-                      {meeting.minutes.processingStatus === "completed" && (
+                      {showApprovalActions && meeting.minutes.processingStatus === "completed" && (
                         <div className={styles.minutesActions}>
-                          {showApprovalActions && (
-                            <>
-                              <Button 
-                                appearance="primary" 
-                                size="small" 
-                                data-testid="button-approve"
-                                onClick={() => setShowApproveDialog(true)}
-                              >
-                                <ThumbsUp className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
-                                Approve & Distribute
-                              </Button>
-                              <Button 
-                                appearance="primary" 
-                                size="small" 
-                                data-testid="button-reject"
-                                onClick={() => setShowRejectDialog(true)}
-                              >
-                                <ThumbsDown className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
-                                Reject
-                              </Button>
-                            </>
-                          )}
                           <Button 
-                            appearance="outline" 
+                            appearance="primary" 
                             size="small" 
-                            data-testid="button-download-docx"
-                            onClick={() => window.open(`/api/meetings/${meeting.id}/export/docx`, '_blank')}
+                            data-testid="button-approve"
+                            onClick={() => setShowApproveDialog(true)}
                           >
-                            <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
-                            DOCX
+                            <ThumbsUp className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                            Approve & Distribute
                           </Button>
                           <Button 
-                            appearance="outline" 
+                            appearance="primary" 
                             size="small" 
-                            data-testid="button-download-pdf"
-                            onClick={() => window.open(`/api/meetings/${meeting.id}/export/pdf`, '_blank')}
+                            data-testid="button-reject"
+                            onClick={() => setShowRejectDialog(true)}
                           >
-                            <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
-                            PDF
+                            <ThumbsDown className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                            Reject
                           </Button>
                         </div>
                       )}
@@ -654,9 +644,47 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
             )}
 
             {selectedTab === "attachments" && (
-              <div className={styles.emptyState}>
-                <FileText className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
-                <p className={styles.emptyText}>No attachments available.</p>
+              <div>
+                {meeting.minutes ? (
+                  <div className={styles.contentSection}>
+                    <h4 className={styles.sectionTitle}>Meeting Documents</h4>
+                    <p className={styles.documentsDescription}>
+                      Download the meeting minutes in your preferred format:
+                    </p>
+                    {meeting.minutes.processingStatus !== "completed" && (
+                      <div className={styles.processingIndicator}>
+                        <ProcessingStatus status={meeting.minutes.processingStatus} />
+                      </div>
+                    )}
+                    <div className={styles.downloadButtonsContainer}>
+                      <Button 
+                        appearance="outline" 
+                        size="medium" 
+                        data-testid="button-download-docx"
+                        onClick={() => window.open(`/api/meetings/${meeting.id}/export/docx`, '_blank')}
+                        disabled={meeting.minutes.processingStatus !== "completed"}
+                      >
+                        <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                        Download DOCX
+                      </Button>
+                      <Button 
+                        appearance="outline" 
+                        size="medium" 
+                        data-testid="button-download-pdf"
+                        onClick={() => window.open(`/api/meetings/${meeting.id}/export/pdf`, '_blank')}
+                        disabled={meeting.minutes.processingStatus !== "completed"}
+                      >
+                        <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                        Download PDF
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.emptyState}>
+                    <FileText className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
+                    <p className={styles.emptyText}>No documents available yet.</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1,5 +1,6 @@
 import { dequeueJob, recoverStuckJobs, getJobStats, cleanupOldJobs } from "./durableQueue";
 import { processJob } from "./meetingOrchestrator";
+import { processOutboxMessages, recoverOutboxMessages } from "./outboxProcessor";
 import type { JobType } from "./durableQueue";
 import { db } from "../db";
 import { sql } from "drizzle-orm";
@@ -90,8 +91,9 @@ export async function startJobWorker(): Promise<void> {
   let cleanupInterval: NodeJS.Timeout | null = null;
 
   try {
-    // Recover stuck jobs from previous crashes
+    // Recover stuck jobs and outbox messages from previous crashes
     await recoverStuckJobs();
+    await recoverOutboxMessages();
 
     // Start cleanup interval
     cleanupInterval = setInterval(async () => {
@@ -105,16 +107,20 @@ export async function startJobWorker(): Promise<void> {
     // Main processing loop
     while (!shouldStop) {
       try {
-        // Get next job
+        // Process outbox messages first (high priority - user-facing notifications)
+        const outboxProcessed = await processOutboxMessages(10);
+
+        // Get next job from durable queue
         const job = await dequeueJob();
 
         if (job) {
           // Process the job
           await processJob(job);
-        } else {
-          // No jobs available, wait before polling again
+        } else if (outboxProcessed === 0) {
+          // No outbox messages AND no jobs - wait before polling again
           await sleep(POLL_INTERVAL_MS);
         }
+        // If outbox had messages, continue immediately for next batch
 
         // Log stats periodically (every 10 iterations)
         if (Math.random() < 0.1) {

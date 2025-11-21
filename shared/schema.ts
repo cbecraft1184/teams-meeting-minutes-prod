@@ -325,6 +325,7 @@ export const messageOutbox = pgTable("message_outbox", {
   // Delivery tracking
   attemptCount: integer("attempt_count").notNull().default(0),
   lastAttemptAt: timestamp("last_attempt_at"),
+  nextAttemptAt: timestamp("next_attempt_at").defaultNow().notNull(), // When next retry is allowed (exponential backoff)
   lastError: text("last_error"),
   
   // Metadata

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This guide provides step-by-step instructions to deploy the Teams Meeting Minutes system to **Azure Commercial** for demonstration purposes. This deployment will showcase the system's capabilities before proceeding with Azure Government deployment for NAVY ERP.
+This guide provides step-by-step instructions to deploy the Teams Meeting Minutes system to **Azure Commercial** for demonstration and production use.
 
 **Target Audience:** Azure administrators, deployment engineers  
 **Prerequisites:** Basic Azure and Teams administration knowledge  
@@ -1012,26 +1012,137 @@ az webapp config appsettings list \
 
 ---
 
-## Next Steps: Prepare for Azure Government
+## Cost Estimates
 
-1. **Collect feedback from demo:**
-   - User experience improvements
-   - Performance bottlenecks
-   - Missing features
+### Monthly Costs (Demo/Pilot - 20 Users)
 
-2. **Document architecture changes:**
-   - Update `AZURE_GOVERNMENT_ARCHITECTURE.md` with lessons learned
-   - Note any configuration differences
+| Service | SKU | Quantity | Unit Cost | Monthly Cost |
+|---------|-----|----------|-----------|--------------|
+| **App Service Plan** | Basic B1 | 1 instance | $13/month | $13 |
+| **PostgreSQL Flexible Server** | Burstable B2s | 1 server | $30/month | $30 |
+| **PostgreSQL Storage** | 32 GB SSD | 32 GB | $0.12/GB | $4 |
+| **Azure OpenAI** | GPT-4o | 500K tokens/month | $0.015/1K tokens | $8 |
+| **Azure OpenAI** | Whisper | 50 hours/month | $0.006/minute | $18 |
+| **Application Insights** | Standard | 2 GB/month | $2.30/GB | $5 |
+| **Bot Service** | Free tier | 10K messages | Free | $0 |
+| **Data Transfer** | Standard | 5 GB/month | $0.087/GB | $0.50 |
+| | | | **TOTAL (Demo):** | **$78.50/month** |
 
-3. **Plan Azure Government migration:**
-   - Request Azure Government subscription
-   - Obtain Microsoft 365 GCC High tenant
-   - Complete ATO package preparation
+### Monthly Costs (Production - 100 Users)
 
-4. **Cost optimization:**
-   - Analyze usage patterns
-   - Right-size resources for pilot (20 users)
-   - Estimate Azure Government costs
+| Service | SKU | Quantity | Monthly Cost |
+|---------|-----|----------|--------------|
+| **App Service Plan** | Standard S1 | 2 instances (avg) | $140 |
+| **PostgreSQL** | General Purpose D2s_v3 | 1 server | $120 |
+| **PostgreSQL Storage** | 64 GB SSD | 64 GB | $8 |
+| **Azure OpenAI** | GPT-4o + Whisper | 5M tokens + 250 hours | $90 |
+| **Application Insights** | Standard | 10 GB/month | $23 |
+| **Data Transfer** | Standard | 25 GB/month | $2 |
+| | | **TOTAL (Production):** | **$383/month** |
+
+### Cost Optimization Tips
+
+1. **Auto-scaling:** Configure App Service to scale down during non-business hours (6 PM - 6 AM)
+   - **Savings:** ~$40/month (30% reduction)
+
+2. **Reserved Instances (1-3 year):**
+   - **App Service:** 20-40% savings
+   - **PostgreSQL:** 40-60% savings
+   - **Estimated savings:** $80-120/month for production
+
+3. **Budget Alerts:**
+   ```bash
+   # Set up budget alert at 80% of monthly estimate
+   az consumption budget create \
+     --budget-name "teams-minutes-demo-budget" \
+     --amount 100 \
+     --time-grain Monthly \
+     --category Cost \
+     --resource-group $RESOURCE_GROUP
+   ```
+
+---
+
+## Rollback Procedures
+
+### Rollback Application Deployment
+
+**If deployment fails or introduces issues:**
+
+```bash
+# Option 1: Restore previous deployment slot (if using slots)
+az webapp deployment slot swap \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --slot staging \
+  --target-slot production \
+  --action swap
+
+# Option 2: Redeploy previous version from Git
+git checkout <previous-working-commit>
+npm run build
+az webapp deploy \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --src-path deploy.zip \
+  --type zip
+
+# Restart app
+az webapp restart \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP
+```
+
+### Rollback Database Changes
+
+**Point-in-time restore (up to 7 days):**
+
+```bash
+# Restore database to specific point in time
+az postgres flexible-server restore \
+  --resource-group $RESOURCE_GROUP \
+  --name $POSTGRES_SERVER-restored \
+  --source-server $POSTGRES_SERVER \
+  --restore-time "2024-11-20T14:30:00Z"
+
+# Update App Service to use restored database
+# (Update DATABASE_URL connection string)
+```
+
+**Schema rollback:**
+
+```bash
+# If schema migration failed, restore from backup
+psql "$DATABASE_URL" < backup-before-migration.sql
+```
+
+### Emergency Procedures
+
+**If application is completely broken:**
+
+1. **Disable webhook subscriptions** (stop new meetings from triggering jobs):
+   ```bash
+   # Set env var to disable webhooks temporarily
+   az webapp config appsettings set \
+     --name $APP_SERVICE_NAME \
+     --resource-group $RESOURCE_GROUP \
+     --settings ENABLE_WEBHOOKS=false
+   ```
+
+2. **Stop job worker** (prevents background processing):
+   ```bash
+   az webapp config appsettings set \
+     --name $APP_SERVICE_NAME \
+     --resource-group $RESOURCE_GROUP \
+     --settings ENABLE_JOB_WORKER=false
+   
+   az webapp restart --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP
+   ```
+
+3. **Restore from last known good state:**
+   - Redeploy previous working version (see above)
+   - Restore database if needed
+   - Re-enable webhooks and job worker
 
 ---
 
@@ -1106,8 +1217,8 @@ az webapp config appsettings list --name $APP_SERVICE_NAME --resource-group $RES
 
 ## Document Control
 
-- **Version:** 1.0
+- **Version:** 2.0
 - **Date:** November 21, 2024
-- **Purpose:** Commercial demo deployment
-- **Next Deployment:** Azure Government (IL4) for NAVY ERP
-- **Estimated Demo Duration:** 4-6 weeks
+- **Purpose:** Azure Commercial deployment guide
+- **Target:** Demonstration and production environments
+- **Cost:** $79/month (demo), $383/month (100 users production)

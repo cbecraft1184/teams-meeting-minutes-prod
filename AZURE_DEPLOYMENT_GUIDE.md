@@ -720,73 +720,444 @@ AZURE_AD_AUTHORITY=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.
 
 ---
 
-### Step 8: Deploy Application Code (10 min)
+### Step 8: Build and Deploy Application (15 min)
 
-**Option A: Deploy from Replit (Recommended)**
+**8.1: Build React Frontend**
 
-Back in Replit:
+The application uses **Vite** to build the React frontend. Build artifacts go to `dist/` directory.
+
 ```bash
-# Install Azure CLI in Replit (one-time)
-npm install -g azure-cli
+# Navigate to project root (in Replit or local dev machine)
+cd ~/navy-erp-demo  # Or your project directory
 
-# Login to Azure
-az login
+# Install dependencies (if not already done)
+npm install
 
-# Build application
+# Build React frontend for production
 npm run build
 
-# Create deployment package
-zip -r deploy.zip \
-  dist/ \
-  server/ \
-  package.json \
-  package-lock.json
-
-# Deploy to App Service
-az webapp deployment source config-zip \
-  --resource-group tmm-navy-demo-eastus \
-  --name tmm-app-navy-demo \
-  --src deploy.zip
+# Verify build output
+ls -lh dist/
+# Should see: index.html, assets/ (JS bundles, CSS)
 ```
 
-**Option B: Deploy from Cloud Shell**
+**Build Output:**
+- `dist/index.html` - Frontend entry point
+- `dist/assets/` - Minified JavaScript and CSS bundles
+- All imports resolved and bundled by Vite
+
+**8.2: Configure App Service Environment Variables**
+
+Set all environment variables to use Key Vault references:
 
 ```bash
-# Upload your built application to Cloud Shell
-# Then deploy
-az webapp deployment source config-zip \
-  --resource-group tmm-navy-demo-eastus \
-  --name tmm-app-navy-demo \
-  --src deploy.zip
+# Get App Service name
+APP_SERVICE_NAME="tmm-app-navy-demo"
+RESOURCE_GROUP="tmm-navy-demo-eastus"
+KEYVAULT_NAME=$(az keyvault list --resource-group $RESOURCE_GROUP --query "[0].name" -o tsv)
+
+# Set database configuration
+az webapp config appsettings set \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    DATABASE_URL="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/database-url/)" \
+    SESSION_SECRET="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/session-secret/)"
+
+# Set Azure AD configuration (GCC High)
+az webapp config appsettings set \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    AZURE_AD_CLIENT_ID="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/azure-ad-client-id/)" \
+    AZURE_AD_CLIENT_SECRET="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/azure-ad-client-secret/)" \
+    AZURE_AD_TENANT_ID="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/azure-ad-tenant-id/)" \
+    AZURE_AD_AUTHORITY="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/azure-ad-authority/)"
+
+# Set Microsoft Graph API configuration (GCC High)
+az webapp config appsettings set \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    MICROSOFT_GRAPH_ENDPOINT="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/graph-api-endpoint/)" \
+    MICROSOFT_GRAPH_SCOPE="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/graph-api-scope/)"
+
+# Set SharePoint configuration (GCC High)
+az webapp config appsettings set \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    SHAREPOINT_SITE_URL="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/sharepoint-site-url/)" \
+    SHAREPOINT_LIBRARY="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/sharepoint-library/)"
+
+# Set Azure OpenAI configuration (Azure Government)
+az webapp config appsettings set \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    AZURE_OPENAI_ENDPOINT="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/azure-openai-endpoint/)" \
+    AZURE_OPENAI_API_KEY="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/azure-openai-api-key/)" \
+    AZURE_OPENAI_DEPLOYMENT="@Microsoft.KeyVault(SecretUri=https://$KEYVAULT_NAME.vault.usgovcloudapi.net/secrets/azure-openai-deployment/)"
+
+# Set Node.js environment
+az webapp config appsettings set \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --settings \
+    NODE_ENV="production" \
+    PORT="8080"
 ```
+
+**Verify environment variables:**
+```bash
+az webapp config appsettings list \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --query "[?contains(name, 'AZURE') || contains(name, 'DATABASE') || contains(name, 'GRAPH')].[name,value]" -o table
+
+# Should see all Key Vault references (@Microsoft.KeyVault...)
+```
+
+**8.3: Create Deployment Package**
+
+Package the application with all required files:
+
+```bash
+# Create deployment directory
+mkdir -p deploy-package
+cd deploy-package
+
+# Copy built frontend
+cp -r ../dist ./
+
+# Copy backend server code
+cp -r ../server ./
+
+# Copy shared types/schemas
+cp -r ../shared ./
+
+# Copy package files
+cp ../package.json ./
+cp ../package-lock.json ./
+
+# Create ZIP archive
+zip -r ../tmm-navy-demo-deploy.zip .
+
+# Go back to project root
+cd ..
+
+# Verify package contents
+unzip -l tmm-navy-demo-deploy.zip
+# Should see: dist/, server/, shared/, package.json, package-lock.json
+```
+
+**8.4: Deploy to Azure App Service**
+
+```bash
+# Deploy using ZIP deployment
+az webapp deployment source config-zip \
+  --resource-group $RESOURCE_GROUP \
+  --name $APP_SERVICE_NAME \
+  --src tmm-navy-demo-deploy.zip
+
+# Monitor deployment logs
+az webapp log tail \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP
+
+# Wait for message: "Deployment successful"
+```
+
+**Deployment Process:**
+1. ZIP file uploaded to App Service
+2. App Service extracts files
+3. Runs `npm install --production` (installs dependencies from package.json)
+4. Starts Node.js server using `npm start`
+5. Application available at `https://tmm-app-navy-demo.azurewebsites.net`
+
+**8.5: Verify Deployment**
+
+```bash
+# Check application logs for startup errors
+az webapp log show \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --limit 50
+
+# Test health endpoint
+curl https://tmm-app-navy-demo.azurewebsites.net/api/health
+
+# Expected response:
+# {
+#   "status": "healthy",
+#   "database": "connected",
+#   "openai": "available",
+#   "timestamp": "2025-11-21T..."
+# }
+```
+
+**Troubleshooting:**
+
+**Problem: Deployment fails with "npm install" error**
+- **Cause:** Missing package.json or package-lock.json in ZIP
+- **Solution:** Verify ZIP contains both files at root level
+
+**Problem: App returns 503 Service Unavailable**
+- **Cause:** Node.js process crashed during startup
+- **Solution:** Check logs with `az webapp log tail`, look for uncaught exceptions
+
+**Problem: Key Vault reference unresolved (shows @Microsoft.KeyVault... in logs)**
+- **Cause:** App Service managed identity doesn't have Key Vault access
+- **Solution:** Re-run Step 7.2 to grant Key Vault access policy
+
+**Problem: Database connection fails**
+- **Cause:** PostgreSQL firewall blocking App Service IP
+- **Solution:** Verify App Service outbound IPs allowed in PostgreSQL firewall
 
 ---
 
-### Step 8: Initialize Database (5 min)
+### Step 9: Initialize Database with Migrations (10 min)
+
+⚠️ **Database Safety Protocol**: Always back up before running migrations in production.
+
+**9.1: Pre-Migration Safety Checks**
 
 ```bash
-# Get database connection string
+# Verify database connectivity
+az postgres flexible-server show \
+  --name tmm-pg-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --query "{Name:name,State:state,Version:version}" -o table
+
+# Expected: State should be "Ready"
+
+# Create backup before first migration
+az postgres flexible-server backup create \
+  --name tmm-pg-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --backup-name "pre-migration-$(date +%Y%m%d-%H%M%S)"
+
+# Verify backup created
+az postgres flexible-server backup list \
+  --name tmm-pg-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --query "[0].{Name:name,Status:status,Time:earliestRestoreDate}" -o table
+```
+
+**9.2: Run Database Migrations**
+
+The application uses **Drizzle ORM** for schema management. Migrations are applied using `db:push`.
+
+```bash
+# Get database connection string from Key Vault
 DATABASE_URL=$(az keyvault secret show \
   --vault-name $KEYVAULT_NAME \
   --name database-url \
   --query value -o tsv)
 
-# Run database migrations (from Replit or local)
+# Export for local use
 export DATABASE_URL="$DATABASE_URL"
+
+# Run schema migration (Drizzle ORM)
 npm run db:push
 
-# Verify tables created
+# Expected output:
+# ✓ Applying migrations...
+# ✓ Created table: meetings
+# ✓ Created table: meeting_minutes
+# ✓ Created table: action_items
+# ✓ Created table: job_queue
+# ✓ Created table: graph_webhook_subscriptions
+# ✓ Created table: user_group_cache
+# ✓ Created table: app_settings
+# ✓ Created table: teams_conversation_references
+# ✓ Created table: adaptive_card_outbox
+```
+
+**9.3: Verify Schema**
+
+```bash
+# List all tables
+az postgres flexible-server execute \
+  --name tmm-pg-navy-demo \
+  --admin-user dbadmin \
+  --admin-password "<your-password>" \
+  --database-name meeting_minutes \
+  --querytext "SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name;" \
+  -o table
+
+# Expected tables (9 total):
+# - action_items
+# - adaptive_card_outbox
+# - app_settings
+# - graph_webhook_subscriptions
+# - job_queue
+# - meeting_minutes
+# - meetings
+# - teams_conversation_references
+# - user_group_cache
+
+# Verify key columns for meetings table
+az postgres flexible-server execute \
+  --name tmm-pg-navy-demo \
+  --admin-user dbadmin \
+  --admin-password "<your-password>" \
+  --database-name meeting_minutes \
+  --querytext "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='meetings' ORDER BY ordinal_position;" \
+  -o table
+```
+
+**9.4: Initialize Default Data**
+
+```bash
+# Create default app settings (approval workflow enabled by default)
+az postgres flexible-server execute \
+  --name tmm-pg-navy-demo \
+  --admin-user dbadmin \
+  --admin-password "<your-password>" \
+  --database-name meeting_minutes \
+  --querytext "
+    INSERT INTO app_settings (id, require_approval, enable_email_distribution, enable_sharepoint_archival, enable_teams_card_notifications)
+    VALUES (1, true, true, true, true)
+    ON CONFLICT (id) DO NOTHING;
+  "
+
+# Verify settings created
+az postgres flexible-server execute \
+  --name tmm-pg-navy-demo \
+  --admin-user dbadmin \
+  --admin-password "<your-password>" \
+  --database-name meeting_minutes \
+  --querytext "SELECT * FROM app_settings;" \
+  -o table
+```
+
+**Migration Troubleshooting:**
+
+**Problem: Migration fails with "relation already exists"**
+- **Cause:** Database already has tables from previous deployment
+- **Solution:** Either drop existing tables or skip with `npm run db:push --force`
+
+**Problem: Migration fails with "permission denied"**
+- **Cause:** Database user lacks CREATE TABLE permission
+- **Solution:** Grant permissions:
+  ```bash
+  az postgres flexible-server execute \
+    --name tmm-pg-navy-demo \
+    --admin-user dbadmin \
+    --admin-password "<password>" \
+    --database-name meeting_minutes \
+    --querytext "GRANT ALL PRIVILEGES ON DATABASE meeting_minutes TO dbadmin;"
+  ```
+
+**Problem: Cannot connect to database**
+- **Cause:** Firewall blocking connection from current IP
+- **Solution:** Add your IP to PostgreSQL firewall rules
+
+**Important Notes:**
+- ⚠️ **Never modify primary key types** (e.g., serial ↔ varchar) - causes data loss
+- ⚠️ **Always backup before migrations** in production
+- ⚠️ **Test migrations in dev environment** first
+- ⚠️ **Monitor migration logs** for errors
+
+---
+
+### Step 10: Configure Microsoft Graph Webhooks (5 min)
+
+The application uses **Microsoft Graph webhooks** to automatically capture Teams meetings. Webhooks have a 48-hour maximum lifespan and must be renewed periodically.
+
+**10.1: Webhook Prerequisites**
+
+```bash
+# Verify app registration has required permissions (from Step 7.1)
+az ad app permission list --id $APP_ID --query "[].{Resource:resourceDisplayName,Permission:value}" -o table
+
+# Should see:
+# - OnlineMeetings.Read.All
+# - Calendars.Read
+```
+
+**10.2: Webhook Lifecycle**
+
+The application automatically manages webhook subscriptions:
+
+1. **Creation**: On first startup, app creates webhook subscription via Microsoft Graph API
+2. **Validation**: Microsoft validates webhook endpoint (responds to validation token)
+3. **Renewal**: Background job renews subscription every 12 hours (max 48-hour lifespan)
+4. **Crash Recovery**: On restart, app re-creates subscriptions if missing
+
+**Webhook Endpoint:**
+```
+https://tmm-app-navy-demo.azurewebsites.net/api/graph/notifications
+```
+
+**10.3: Verify Webhook Registration**
+
+After application starts, check webhook status:
+
+```bash
+# Check application logs for webhook creation
+az webapp log tail \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  | grep "webhook"
+
+# Expected log entries:
+# [INFO] Creating Microsoft Graph webhook subscription...
+# [INFO] Webhook subscription created: <subscription-id>
+# [INFO] Webhook will expire at: 2025-11-23T12:00:00Z
+```
+
+**Query webhook status via database:**
+```bash
 az postgres flexible-server execute \
   --name tmm-pg-navy-demo \
   --admin-user dbadmin \
   --admin-password "<password>" \
   --database-name meeting_minutes \
-  --querytext "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
+  --querytext "SELECT subscription_id, resource, expiration_datetime, created_at FROM graph_webhook_subscriptions ORDER BY created_at DESC LIMIT 5;" \
+  -o table
 ```
+
+**10.4: Manual Webhook Renewal (If Needed)**
+
+If webhooks expire (app was down >48 hours):
+
+```bash
+# Restart app service to trigger webhook re-creation
+az webapp restart \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP
+
+# Monitor logs for webhook creation
+az webapp log tail \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP
+```
+
+**Webhook Troubleshooting:**
+
+**Problem: Webhook creation fails with 403 Forbidden**
+- **Cause:** App registration lacks OnlineMeetings.Read.All permission
+- **Solution:** Re-run Step 7.1 to grant Graph API permissions
+
+**Problem: Webhook validation fails**
+- **Cause:** App Service not accessible from Microsoft Graph service
+- **Solution:** Verify App Service is running and accessible via public internet
+
+**Problem: Meetings not captured automatically**
+- **Cause:** Webhook subscription expired or deleted
+- **Solution:** Restart app service to re-create subscription
+
+**Important Notes:**
+- ⚠️ **Webhooks expire after 48 hours maximum** (Microsoft Graph limit)
+- ⚠️ **App must run continuously** to renew webhooks every 12 hours
+- ⚠️ **If app stops >48 hours**, webhooks expire and must be recreated
+- ⚠️ **One webhook per resource type** (onlineMeetings, calendar events)
 
 ---
 
-### Step 9: Test Deployment (5 min)
+### Step 11: Test Deployment (5 min)
 
 **Health Check:**
 ```bash
@@ -825,6 +1196,256 @@ After deployment, verify:
 - [ ] Test meeting captured and processed
 - [ ] AI generates meeting minutes
 - [ ] Can approve and distribute minutes
+
+---
+
+### Step 12: Configure Monitoring and Alerting (10 min)
+
+**12.1: Enable Application Insights**
+
+Application Insights is already created by Bicep deployment. Configure alerting rules:
+
+```bash
+# Get Application Insights resource ID
+APPINSIGHTS_ID=$(az monitor app-insights component show \
+  --app tmm-appinsights-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --query id -o tsv)
+
+echo "Application Insights ID: $APPINSIGHTS_ID"
+```
+
+**12.2: Create Alert Rules**
+
+**Alert 1: High Error Rate**
+```bash
+az monitor metrics alert create \
+  --name "High Error Rate - Navy Demo" \
+  --resource-group $RESOURCE_GROUP \
+  --scopes $APPINSIGHTS_ID \
+  --condition "count exceptions/count > 10" \
+  --window-size 5m \
+  --evaluation-frequency 1m \
+  --severity 2 \
+  --description "Alert when error rate exceeds 10 exceptions in 5 minutes"
+```
+
+**Alert 2: Database Connection Failures**
+```bash
+az monitor metrics alert create \
+  --name "Database Connection Failed - Navy Demo" \
+  --resource-group $RESOURCE_GROUP \
+  --scopes $APPINSIGHTS_ID \
+  --condition "count customEvents/count where name == 'DatabaseConnectionFailed' > 3" \
+  --window-size 5m \
+  --evaluation-frequency 1m \
+  --severity 1 \
+  --description "Critical alert for database connection failures"
+```
+
+**Alert 3: Webhook Subscription Expiring**
+```bash
+az monitor metrics alert create \
+  --name "Webhook Expiring Soon - Navy Demo" \
+  --resource-group $RESOURCE_GROUP \
+  --scopes $APPINSIGHTS_ID \
+  --condition "count customEvents/count where name == 'WebhookExpiringIn6Hours' > 0" \
+  --window-size 15m \
+  --evaluation-frequency 5m \
+  --severity 3 \
+  --description "Warning when Microsoft Graph webhook will expire in 6 hours"
+```
+
+**12.3: Configure Log Analytics Queries**
+
+Useful queries for monitoring:
+
+```kusto
+// Failed job queue items (last 24 hours)
+customEvents
+| where timestamp > ago(24h)
+| where name == "JobFailed"
+| summarize count() by jobType = tostring(customDimensions.jobType), error = tostring(customDimensions.error)
+| order by count_ desc
+
+// Meeting processing latency
+customMetrics
+| where timestamp > ago(1h)
+| where name == "MeetingProcessingDuration"
+| summarize avg(value), max(value), min(value) by bin(timestamp, 5m)
+
+// Azure OpenAI API call failures
+dependencies
+| where timestamp > ago(24h)
+| where target contains "openai.azure"
+| where success == false
+| summarize count() by resultCode
+```
+
+**12.4: Set Up Email Notifications**
+
+```bash
+# Create action group for email alerts
+az monitor action-group create \
+  --name "NavyDemo-Admins" \
+  --resource-group $RESOURCE_GROUP \
+  --short-name "NavyAdmins" \
+  --email-receiver name="Admin1" email="ChrisBECRAFT@ABC123987.onmicrosoft.com" \
+  --email-receiver name="Admin2" email="admin2@ABC123987.onmicrosoft.com"
+
+# Link action group to alerts
+az monitor metrics alert update \
+  --name "High Error Rate - Navy Demo" \
+  --resource-group $RESOURCE_GROUP \
+  --add-action /subscriptions/{subscription-id}/resourceGroups/$RESOURCE_GROUP/providers/microsoft.insights/actionGroups/NavyDemo-Admins
+```
+
+**12.5: Dashboard for Monitoring**
+
+Create custom dashboard in Azure Portal:
+
+1. Navigate to: **Azure Portal** → **Dashboard** → **New dashboard**
+2. Add tiles:
+   - **App Service Metrics**: CPU, Memory, Response Time
+   - **Application Insights**: Request rate, Failed requests, Exceptions
+   - **PostgreSQL Metrics**: Connection count, Storage used, CPU%
+   - **Azure OpenAI**: Token usage, API calls, Latency
+3. Pin dashboard for daily monitoring
+
+**Monitoring Checklist:**
+- [ ] Application Insights enabled and receiving telemetry
+- [ ] Alert rules created for critical failures
+- [ ] Email notifications configured
+- [ ] Dashboard created for daily monitoring
+- [ ] Log Analytics queries saved
+
+---
+
+### Step 13: Configure Backup and Recovery (10 min)
+
+⚠️ **Critical**: Backups are mandatory for IL4 compliance. 35-day retention required.
+
+**13.1: PostgreSQL Automated Backups**
+
+```bash
+# Verify backup configuration
+az postgres flexible-server show \
+  --name tmm-pg-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --query "{BackupRetentionDays:backup.backupRetentionDays,GeoRedundant:backup.geoRedundantBackup}" -o table
+
+# Expected output:
+# BackupRetentionDays    GeoRedundant
+# 35                     Enabled
+
+# List recent backups
+az postgres flexible-server backup list \
+  --name tmm-pg-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --query "[].{Name:name,Status:status,Time:earliestRestoreDate}" -o table
+```
+
+**13.2: Manual Backup Before Major Changes**
+
+```bash
+# Create manual backup before deployments/migrations
+BACKUP_NAME="manual-backup-$(date +%Y%m%d-%H%M%S)"
+
+az postgres flexible-server backup create \
+  --name tmm-pg-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --backup-name "$BACKUP_NAME"
+
+echo "Backup created: $BACKUP_NAME"
+```
+
+**13.3: Test Backup Restoration (Quarterly)**
+
+**Restore to Test Server:**
+```bash
+# Create test server from backup
+az postgres flexible-server restore \
+  --name tmm-pg-navy-demo-restore-test \
+  --resource-group $RESOURCE_GROUP \
+  --source-server tmm-pg-navy-demo \
+  --restore-time "2025-11-20T12:00:00Z"
+
+# Verify restored database
+az postgres flexible-server execute \
+  --name tmm-pg-navy-demo-restore-test \
+  --admin-user dbadmin \
+  --admin-password "<password>" \
+  --database-name meeting_minutes \
+  --querytext "SELECT COUNT(*) FROM meetings;"
+
+# Delete test server after verification
+az postgres flexible-server delete \
+  --name tmm-pg-navy-demo-restore-test \
+  --resource-group $RESOURCE_GROUP \
+  --yes
+```
+
+**13.4: Application Configuration Backup**
+
+```bash
+# Export all Key Vault secrets (for disaster recovery documentation)
+az keyvault secret list \
+  --vault-name $KEYVAULT_NAME \
+  --query "[].{Name:name}" -o table > keyvault-secrets-list.txt
+
+# Export App Service configuration
+az webapp config appsettings list \
+  --name $APP_SERVICE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  -o json > app-service-config-backup.json
+
+# Store in secure location (NOT in Git repository)
+```
+
+**13.5: Disaster Recovery Procedures**
+
+**Scenario 1: Database Corruption**
+```bash
+# Restore database to point-in-time before corruption
+az postgres flexible-server restore \
+  --name tmm-pg-navy-demo \
+  --resource-group $RESOURCE_GROUP \
+  --restore-time "<timestamp-before-corruption>"
+```
+
+**Scenario 2: Accidental Data Deletion**
+```bash
+# Restore specific tables from backup (requires pg_restore)
+# 1. Create backup export
+# 2. Restore to temporary server
+# 3. Extract specific tables
+# 4. Import to production
+```
+
+**Scenario 3: Region Outage**
+```bash
+# Geo-redundant backups allow restore to different region
+az postgres flexible-server restore \
+  --name tmm-pg-navy-demo-dr \
+  --resource-group tmm-navy-demo-westus \
+  --location westus \
+  --source-server tmm-pg-navy-demo \
+  --restore-time "<last-known-good-time>"
+```
+
+**Backup Testing Schedule:**
+- **Weekly**: Verify automated backups are running
+- **Monthly**: Test restore to dev environment
+- **Quarterly**: Full DR drill with restore to secondary region
+
+**Recovery Time Objectives (RTO):**
+- **Database Restore**: 15-30 minutes
+- **Application Redeployment**: 10-15 minutes  
+- **Full System Recovery**: 1 hour maximum
+
+**Recovery Point Objectives (RPO):**
+- **Database**: 5 minutes (continuous backup)
+- **Application Config**: Last deployment (stored in Key Vault)
 
 ---
 

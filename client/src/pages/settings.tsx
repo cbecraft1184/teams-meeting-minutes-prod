@@ -1,14 +1,34 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings as SettingsIcon, Bell, Shield, Database, Save, ExternalLink, Info, Webhook, User, CheckCircle2, XCircle, Palette } from "lucide-react";
+import { 
+  Card, 
+  Label, 
+  Input, 
+  Button, 
+  Switch, 
+  Divider, 
+  Badge, 
+  Dropdown, 
+  Option,
+  Text,
+  makeStyles, 
+  tokens, 
+  shorthands 
+} from "@fluentui/react-components";
+import { 
+  Settings20Regular, 
+  Alert20Regular, 
+  Shield20Regular, 
+  Database20Regular, 
+  Save20Regular, 
+  Link20Regular, 
+  Info20Regular, 
+  PlugConnected20Regular, 
+  CheckmarkCircle20Regular, 
+  DismissCircle20Regular, 
+  PaintBrush20Regular 
+} from "@fluentui/react-icons";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/use-theme";
+import { useState } from "react";
 
 interface UserPermissions {
   canView: boolean;
@@ -34,81 +54,356 @@ interface UserInfo {
   permissions: UserPermissions;
 }
 
+const useStyles = makeStyles({
+  container: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXXL),
+  },
+  header: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXS),
+  },
+  pageTitle: {
+    fontSize: tokens.fontSizeHero800,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    lineHeight: tokens.lineHeightHero800,
+  },
+  pageSubtitle: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground2,
+    lineHeight: tokens.lineHeightBase200,
+  },
+  gridLayout: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    ...shorthands.gap(tokens.spacingVerticalXXL),
+    "@media (min-width: 1024px)": {
+      gridTemplateColumns: "1fr 1fr",
+    },
+  },
+  cardHeader: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalM),
+    marginBottom: tokens.spacingVerticalL,
+  },
+  iconContainer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "40px",
+    height: "40px",
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    backgroundColor: tokens.colorBrandBackground2,
+  },
+  iconContainerIcon: {
+    color: tokens.colorBrandForeground1,
+  },
+  headerText: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXXS),
+  },
+  cardTitle: {
+    fontSize: tokens.fontSizeBase400,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    lineHeight: tokens.lineHeightBase400,
+  },
+  cardDescription: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground2,
+    lineHeight: tokens.lineHeightBase200,
+  },
+  cardContent: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalL),
+  },
+  formField: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXS),
+  },
+  fieldLabel: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  fieldDescription: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground2,
+    lineHeight: tokens.lineHeightBase200,
+  },
+  switchRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorNeutralStroke1),
+    ...shorthands.padding(tokens.spacingVerticalL, tokens.spacingHorizontalL),
+  },
+  switchLabelContainer: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXXS),
+  },
+  switchLabel: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  switchDescription: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground2,
+  },
+  infoBox: {
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorNeutralStroke1),
+    ...shorthands.padding(tokens.spacingVerticalL),
+    backgroundColor: tokens.colorNeutralBackground2,
+  },
+  infoBoxContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+  },
+  infoBoxIcon: {
+    color: tokens.colorNeutralForeground2,
+    flexShrink: 0,
+    marginTop: "2px",
+  },
+  infoBoxText: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalS),
+    fontSize: tokens.fontSizeBase200,
+  },
+  infoBoxTitle: {
+    color: tokens.colorNeutralForeground1,
+    fontWeight: tokens.fontWeightSemibold,
+  },
+  infoBoxDescription: {
+    color: tokens.colorNeutralForeground2,
+  },
+  infoBoxList: {
+    color: tokens.colorNeutralForeground2,
+    marginLeft: tokens.spacingHorizontalS,
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXXS),
+  },
+  buttonRow: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+  },
+  fullWidthButton: {
+    width: "100%",
+  },
+  inputGroup: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+  },
+  monoInput: {
+    flex: 1,
+    "& input": {
+      fontFamily: tokens.fontFamilyMonospace,
+      fontSize: tokens.fontSizeBase200,
+      backgroundColor: tokens.colorNeutralBackground2,
+    },
+  },
+  link: {
+    display: "inline-flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalXXS),
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorBrandForeground1,
+    textDecoration: "none",
+    ":hover": {
+      textDecoration: "underline",
+    },
+  },
+  linkIcon: {
+    fontSize: "12px",
+  },
+  permissionBox: {
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorNeutralStroke1),
+    ...shorthands.padding(tokens.spacingVerticalL),
+    backgroundColor: tokens.colorNeutralBackground2,
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalM),
+  },
+  permissionRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  permissionLabel: {
+    fontSize: tokens.fontSizeBase200,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  permissionGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    ...shorthands.gap(tokens.spacingVerticalS),
+  },
+  permissionItem: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+    fontSize: tokens.fontSizeBase200,
+  },
+  permissionIconActive: {
+    color: tokens.colorPaletteGreenForeground1,
+  },
+  permissionIconInactive: {
+    color: tokens.colorNeutralForeground2,
+  },
+  permissionTextActive: {
+    color: tokens.colorNeutralForeground1,
+  },
+  permissionTextInactive: {
+    color: tokens.colorNeutralForeground2,
+  },
+  statusBoxGreen: {
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorPaletteGreenBorder1),
+    ...shorthands.padding(tokens.spacingVerticalM),
+    backgroundColor: tokens.colorPaletteGreenBackground1,
+  },
+  statusBoxYellow: {
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorPaletteYellowBorder1),
+    ...shorthands.padding(tokens.spacingVerticalM),
+    backgroundColor: tokens.colorPaletteYellowBackground1,
+  },
+  statusBoxContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+  },
+  statusBoxIcon: {
+    flexShrink: 0,
+    marginTop: "2px",
+  },
+  statusBoxIconGreen: {
+    color: tokens.colorPaletteGreenForeground1,
+  },
+  statusBoxIconYellow: {
+    color: tokens.colorPaletteYellowForeground1,
+  },
+  statusBoxText: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXXS),
+    fontSize: tokens.fontSizeBase200,
+  },
+  statusBoxTitleGreen: {
+    color: tokens.colorPaletteGreenForeground2,
+    fontWeight: tokens.fontWeightSemibold,
+  },
+  statusBoxTitleYellow: {
+    color: tokens.colorPaletteYellowForeground2,
+    fontWeight: tokens.fontWeightSemibold,
+  },
+  statusBoxDescGreen: {
+    color: tokens.colorPaletteGreenForeground2,
+    fontSize: tokens.fontSizeBase100,
+  },
+  statusBoxDescYellow: {
+    color: tokens.colorPaletteYellowForeground2,
+    fontSize: tokens.fontSizeBase100,
+  },
+});
+
 export default function Settings() {
+  const styles = useStyles();
   const { uiStyle, setUIStyle } = useTheme();
   
-  // Fetch current user permissions and Azure AD group status
+  const [autoArchive, setAutoArchive] = useState(true);
+  const [completionAlerts, setCompletionAlerts] = useState(true);
+  const [failureAlerts, setFailureAlerts] = useState(true);
+  const [dailyReports, setDailyReports] = useState(false);
+  const [autoProcessing, setAutoProcessing] = useState(true);
+  const [extractActions, setExtractActions] = useState(true);
+  const [classificationLevel, setClassificationLevel] = useState("UNCLASSIFIED");
+  
   const { data: userInfo, isLoading: isLoadingUser } = useQuery<UserInfo>({
     queryKey: ["/api/user/me"],
   });
   
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold text-foreground" data-testid="heading-settings">
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <Text className={styles.pageTitle} data-testid="heading-settings">
           Integration Settings
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        </Text>
+        <Text className={styles.pageSubtitle}>
           Configure Microsoft Teams, SharePoint, and Azure OpenAI integrations
-        </p>
+        </Text>
       </div>
 
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-              <Palette className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>UI Appearance</CardTitle>
-              <CardDescription>Choose your preferred interface design</CardDescription>
-            </div>
+        <div className={styles.cardHeader}>
+          <div className={styles.iconContainer}>
+            <PaintBrush20Regular className={styles.iconContainerIcon} />
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="ui-style">Interface Style</Label>
-            <Select value={uiStyle} onValueChange={(value) => setUIStyle(value as "teams" | "ibm")}>
-              <SelectTrigger id="ui-style" data-testid="select-ui-style">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="teams">Microsoft Teams (Fluent Design)</SelectItem>
-                <SelectItem value="ibm">IBM Carbon Design</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
+          <div className={styles.headerText}>
+            <Text className={styles.cardTitle}>UI Appearance</Text>
+            <Text className={styles.cardDescription}>Choose your preferred interface design</Text>
+          </div>
+        </div>
+        <div className={styles.cardContent}>
+          <div className={styles.formField}>
+            <Label htmlFor="ui-style" className={styles.fieldLabel}>Interface Style</Label>
+            <Dropdown
+              id="ui-style"
+              value={uiStyle === "teams" ? "Microsoft Teams (Fluent Design)" : "IBM Carbon Design"}
+              selectedOptions={[uiStyle]}
+              onOptionSelect={(e, data) => setUIStyle(data.optionValue as "teams" | "ibm")}
+              data-testid="select-ui-style"
+            >
+              <Option value="teams">Microsoft Teams (Fluent Design)</Option>
+              <Option value="ibm">IBM Carbon Design</Option>
+            </Dropdown>
+            <Text className={styles.fieldDescription}>
               {uiStyle === "teams" 
                 ? "Fluent design with soft colors and rounded corners" 
                 : "Data-dense Carbon design with sharp edges and monochromatic colors"}
-            </p>
+            </Text>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className={styles.gridLayout}>
         <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                <Webhook className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle>Microsoft Teams Integration</CardTitle>
-                <CardDescription>Automatically capture meetings from Microsoft Teams</CardDescription>
-              </div>
+          <div className={styles.cardHeader}>
+            <div className={styles.iconContainer}>
+              <PlugConnected20Regular className={styles.iconContainerIcon} />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div className="space-y-2 text-sm">
-                  <p className="text-foreground font-medium">How it works</p>
-                  <p className="text-muted-foreground">
+            <div className={styles.headerText}>
+              <Text className={styles.cardTitle}>Microsoft Teams Integration</Text>
+              <Text className={styles.cardDescription}>Automatically capture meetings from Microsoft Teams</Text>
+            </div>
+          </div>
+          <div className={styles.cardContent}>
+            <div className={styles.infoBox}>
+              <div className={styles.infoBoxContent}>
+                <Info20Regular className={styles.infoBoxIcon} />
+                <div className={styles.infoBoxText}>
+                  <Text className={styles.infoBoxTitle}>How it works</Text>
+                  <Text className={styles.infoBoxDescription}>
                     Meetings are <strong>scheduled and conducted in Microsoft Teams</strong>. This application automatically captures completed meetings via Microsoft Graph API webhooks to process recordings and transcripts.
-                  </p>
-                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-2">
+                  </Text>
+                  <ol className={styles.infoBoxList}>
                     <li>Users schedule meetings in Microsoft Teams (not in this app)</li>
                     <li>When meetings end, Teams webhooks notify this application</li>
                     <li>App downloads recordings/transcripts via Microsoft Graph API</li>
@@ -119,10 +414,10 @@ export default function Settings() {
               </div>
             </div>
 
-            <Separator />
+            <Divider />
 
-            <div className="space-y-2">
-              <Label htmlFor="tenant-id">Microsoft Tenant ID (DOD)</Label>
+            <div className={styles.formField}>
+              <Label htmlFor="tenant-id" className={styles.fieldLabel}>Microsoft Tenant ID (DOD)</Label>
               <Input
                 id="tenant-id"
                 placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -130,8 +425,8 @@ export default function Settings() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="client-id">Application (Client) ID</Label>
+            <div className={styles.formField}>
+              <Label htmlFor="client-id" className={styles.fieldLabel}>Application (Client) ID</Label>
               <Input
                 id="client-id"
                 placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -139,8 +434,8 @@ export default function Settings() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="client-secret">Client Secret</Label>
+            <div className={styles.formField}>
+              <Label htmlFor="client-secret" className={styles.fieldLabel}>Client Secret</Label>
               <Input
                 id="client-secret"
                 type="password"
@@ -149,30 +444,30 @@ export default function Settings() {
               />
             </div>
 
-            <Separator />
+            <Divider />
 
-            <div className="space-y-2">
-              <Label>Webhook Endpoint URL</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value="/api/webhooks/teams"
-                  readOnly
-                  className="font-mono text-xs bg-muted"
-                  data-testid="input-webhook-url"
-                />
-                <Button size="sm" variant="outline">Copy</Button>
+            <div className={styles.formField}>
+              <Label className={styles.fieldLabel}>Webhook Endpoint URL</Label>
+              <div className={styles.inputGroup}>
+                <div className={styles.monoInput}>
+                  <Input
+                    value="/api/webhooks/teams"
+                    readOnly
+                    data-testid="input-webhook-url"
+                  />
+                </div>
+                <Button size="small" appearance="outline">Copy</Button>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <Text className={styles.fieldDescription}>
                 Configure this endpoint in Microsoft Graph API to receive meeting notifications
-              </p>
+              </Text>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button data-testid="button-test-teams-connection">
+            <div className={styles.buttonRow}>
+              <Button appearance="primary" data-testid="button-test-teams-connection">
                 Test Connection
               </Button>
-              <Button variant="outline" data-testid="button-save-teams-config">
-                <Save className="w-4 h-4 mr-2" />
+              <Button appearance="outline" icon={<Save20Regular />} data-testid="button-save-teams-config">
                 Save Configuration
               </Button>
             </div>
@@ -181,37 +476,35 @@ export default function Settings() {
               href="https://learn.microsoft.com/en-us/graph/webhooks"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              className={styles.link}
             >
               Microsoft Graph Webhooks Documentation
-              <ExternalLink className="w-3 h-3" />
+              <Link20Regular className={styles.linkIcon} />
             </a>
-          </CardContent>
+          </div>
         </Card>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                <Database className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle>SharePoint Configuration</CardTitle>
-                <CardDescription>Set up document archival location</CardDescription>
-              </div>
+          <div className={styles.cardHeader}>
+            <div className={styles.iconContainer}>
+              <Database20Regular className={styles.iconContainerIcon} />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="sharepoint-site">SharePoint Site URL</Label>
+            <div className={styles.headerText}>
+              <Text className={styles.cardTitle}>SharePoint Configuration</Text>
+              <Text className={styles.cardDescription}>Set up document archival location</Text>
+            </div>
+          </div>
+          <div className={styles.cardContent}>
+            <div className={styles.formField}>
+              <Label htmlFor="sharepoint-site" className={styles.fieldLabel}>SharePoint Site URL</Label>
               <Input
                 id="sharepoint-site"
                 placeholder="https://yourorg.sharepoint.com/sites/meetings"
                 data-testid="input-sharepoint-site"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="document-library">Document Library</Label>
+            <div className={styles.formField}>
+              <Label htmlFor="document-library" className={styles.fieldLabel}>Document Library</Label>
               <Input
                 id="document-library"
                 placeholder="Meeting Minutes"
@@ -219,229 +512,252 @@ export default function Settings() {
                 data-testid="input-document-library"
               />
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-card-border p-4">
-              <div className="space-y-0.5">
-                <Label>Auto-Archive Completed Minutes</Label>
-                <p className="text-xs text-muted-foreground">
+            <div className={styles.switchRow}>
+              <div className={styles.switchLabelContainer}>
+                <Text className={styles.switchLabel}>Auto-Archive Completed Minutes</Text>
+                <Text className={styles.switchDescription}>
                   Automatically upload to SharePoint when processing completes
-                </p>
+                </Text>
               </div>
-              <Switch defaultChecked data-testid="switch-auto-archive" />
+              <Switch
+                checked={autoArchive}
+                onChange={(ev, data) => setAutoArchive(data.checked)}
+                data-testid="switch-auto-archive"
+              />
             </div>
-            <Button className="w-full" data-testid="button-save-sharepoint-config">
-              <Save className="w-4 h-4 mr-2" />
+            <Button 
+              appearance="primary" 
+              icon={<Save20Regular />} 
+              className={styles.fullWidthButton}
+              data-testid="button-save-sharepoint-config"
+            >
               Save SharePoint Configuration
             </Button>
-          </CardContent>
+          </div>
         </Card>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                <Bell className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle>Notifications</CardTitle>
-                <CardDescription>Manage notification preferences</CardDescription>
-              </div>
+          <div className={styles.cardHeader}>
+            <div className={styles.iconContainer}>
+              <Alert20Regular className={styles.iconContainerIcon} />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-card-border p-4">
-              <div className="space-y-0.5">
-                <Label>Meeting Completion Alerts</Label>
-                <p className="text-xs text-muted-foreground">
+            <div className={styles.headerText}>
+              <Text className={styles.cardTitle}>Notifications</Text>
+              <Text className={styles.cardDescription}>Manage notification preferences</Text>
+            </div>
+          </div>
+          <div className={styles.cardContent}>
+            <div className={styles.switchRow}>
+              <div className={styles.switchLabelContainer}>
+                <Text className={styles.switchLabel}>Meeting Completion Alerts</Text>
+                <Text className={styles.switchDescription}>
                   Get notified when minutes are generated
-                </p>
+                </Text>
               </div>
-              <Switch defaultChecked data-testid="switch-completion-alerts" />
+              <Switch
+                checked={completionAlerts}
+                onChange={(ev, data) => setCompletionAlerts(data.checked)}
+                data-testid="switch-completion-alerts"
+              />
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-card-border p-4">
-              <div className="space-y-0.5">
-                <Label>Processing Failure Alerts</Label>
-                <p className="text-xs text-muted-foreground">
+            <div className={styles.switchRow}>
+              <div className={styles.switchLabelContainer}>
+                <Text className={styles.switchLabel}>Processing Failure Alerts</Text>
+                <Text className={styles.switchDescription}>
                   Get notified when processing fails
-                </p>
+                </Text>
               </div>
-              <Switch defaultChecked data-testid="switch-failure-alerts" />
+              <Switch
+                checked={failureAlerts}
+                onChange={(ev, data) => setFailureAlerts(data.checked)}
+                data-testid="switch-failure-alerts"
+              />
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-card-border p-4">
-              <div className="space-y-0.5">
-                <Label>Daily Summary Reports</Label>
-                <p className="text-xs text-muted-foreground">
+            <div className={styles.switchRow}>
+              <div className={styles.switchLabelContainer}>
+                <Text className={styles.switchLabel}>Daily Summary Reports</Text>
+                <Text className={styles.switchDescription}>
                   Receive daily summary of all meetings
-                </p>
+                </Text>
               </div>
-              <Switch data-testid="switch-daily-reports" />
+              <Switch
+                checked={dailyReports}
+                onChange={(ev, data) => setDailyReports(data.checked)}
+                data-testid="switch-daily-reports"
+              />
             </div>
-          </CardContent>
+          </div>
         </Card>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                <SettingsIcon className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle>AI Processing</CardTitle>
-                <CardDescription>Configure AI-powered minute generation</CardDescription>
-              </div>
+          <div className={styles.cardHeader}>
+            <div className={styles.iconContainer}>
+              <Settings20Regular className={styles.iconContainerIcon} />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-card-border p-4">
-              <div className="space-y-0.5">
-                <Label>Automatic Processing</Label>
-                <p className="text-xs text-muted-foreground">
+            <div className={styles.headerText}>
+              <Text className={styles.cardTitle}>AI Processing</Text>
+              <Text className={styles.cardDescription}>Configure AI-powered minute generation</Text>
+            </div>
+          </div>
+          <div className={styles.cardContent}>
+            <div className={styles.switchRow}>
+              <div className={styles.switchLabelContainer}>
+                <Text className={styles.switchLabel}>Automatic Processing</Text>
+                <Text className={styles.switchDescription}>
                   Process transcripts automatically when available
-                </p>
+                </Text>
               </div>
-              <Switch defaultChecked data-testid="switch-auto-processing" />
+              <Switch
+                checked={autoProcessing}
+                onChange={(ev, data) => setAutoProcessing(data.checked)}
+                data-testid="switch-auto-processing"
+              />
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-card-border p-4">
-              <div className="space-y-0.5">
-                <Label>Extract Action Items</Label>
-                <p className="text-xs text-muted-foreground">
+            <div className={styles.switchRow}>
+              <div className={styles.switchLabelContainer}>
+                <Text className={styles.switchLabel}>Extract Action Items</Text>
+                <Text className={styles.switchDescription}>
                   Automatically identify and extract action items
-                </p>
+                </Text>
               </div>
-              <Switch defaultChecked data-testid="switch-extract-actions" />
+              <Switch
+                checked={extractActions}
+                onChange={(ev, data) => setExtractActions(data.checked)}
+                data-testid="switch-extract-actions"
+              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="classification-default">Default Classification Level</Label>
-              <select
+            <div className={styles.formField}>
+              <Label htmlFor="classification-default" className={styles.fieldLabel}>Default Classification Level</Label>
+              <Dropdown
                 id="classification-default"
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+                value={classificationLevel === "UNCLASSIFIED" ? "Unclassified" : classificationLevel === "CONFIDENTIAL" ? "Confidential" : "Secret"}
+                selectedOptions={[classificationLevel]}
+                onOptionSelect={(e, data) => setClassificationLevel(data.optionValue as string)}
                 data-testid="select-default-classification"
               >
-                <option value="UNCLASSIFIED">Unclassified</option>
-                <option value="CONFIDENTIAL">Confidential</option>
-                <option value="SECRET">Secret</option>
-              </select>
+                <Option value="UNCLASSIFIED">Unclassified</Option>
+                <Option value="CONFIDENTIAL">Confidential</Option>
+                <Option value="SECRET">Secret</Option>
+              </Dropdown>
             </div>
-          </CardContent>
+          </div>
         </Card>
 
         <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
-                <Shield className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle>User Permissions & Authorization</CardTitle>
-                <CardDescription>Your access level and Azure AD group status</CardDescription>
-              </div>
+          <div className={styles.cardHeader}>
+            <div className={styles.iconContainer}>
+              <Shield20Regular className={styles.iconContainerIcon} />
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            <div className={styles.headerText}>
+              <Text className={styles.cardTitle}>User Permissions & Authorization</Text>
+              <Text className={styles.cardDescription}>Your access level and Azure AD group status</Text>
+            </div>
+          </div>
+          <div className={styles.cardContent}>
             {isLoadingUser ? (
-              <div className="text-sm text-muted-foreground">Loading permissions...</div>
+              <Text className={styles.fieldDescription}>Loading permissions...</Text>
             ) : userInfo ? (
               <>
-                <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Authorization Source</span>
-                    <Badge variant={userInfo.permissions?.azureAdGroupsActive ? "default" : "secondary"}>
-                      {userInfo.permissions?.azureAdGroupsActive ? (
-                        <><CheckCircle2 className="w-3 h-3 mr-1" /> Azure AD Groups</>
-                      ) : (
-                        <><Info className="w-3 h-3 mr-1" /> Database Fallback</>
-                      )}
+                <div className={styles.permissionBox}>
+                  <div className={styles.permissionRow}>
+                    <Text className={styles.permissionLabel}>Authorization Source</Text>
+                    <Badge 
+                      appearance={userInfo.permissions?.azureAdGroupsActive ? "filled" : "outline"}
+                      icon={userInfo.permissions?.azureAdGroupsActive ? <CheckmarkCircle20Regular /> : <Info20Regular />}
+                    >
+                      {userInfo.permissions?.azureAdGroupsActive ? "Azure AD Groups" : "Database Fallback"}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Effective Role</span>
-                    <Badge variant="outline">{userInfo.permissions?.role}</Badge>
+                  <div className={styles.permissionRow}>
+                    <Text className={styles.permissionLabel}>Effective Role</Text>
+                    <Badge appearance="outline">{userInfo.permissions?.role}</Badge>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Clearance Level</span>
-                    <Badge variant="outline">{userInfo.permissions?.clearanceLevel}</Badge>
+                  <div className={styles.permissionRow}>
+                    <Text className={styles.permissionLabel}>Clearance Level</Text>
+                    <Badge appearance="outline">{userInfo.permissions?.clearanceLevel}</Badge>
                   </div>
                 </div>
 
-                <Separator />
+                <Divider />
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Permissions</Label>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="flex items-center gap-2 text-sm">
+                <div className={styles.formField}>
+                  <Label className={styles.fieldLabel}>Permissions</Label>
+                  <div className={styles.permissionGrid}>
+                    <div className={styles.permissionItem}>
                       {userInfo.permissions?.canViewAll ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <CheckmarkCircle20Regular className={styles.permissionIconActive} />
                       ) : (
-                        <XCircle className="w-4 h-4 text-muted-foreground" />
+                        <DismissCircle20Regular className={styles.permissionIconInactive} />
                       )}
-                      <span className={userInfo.permissions?.canViewAll ? "text-foreground" : "text-muted-foreground"}>
+                      <Text className={userInfo.permissions?.canViewAll ? styles.permissionTextActive : styles.permissionTextInactive}>
                         View All Meetings (Admin/Auditor)
-                      </span>
+                      </Text>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className={styles.permissionItem}>
                       {userInfo.permissions?.canApprove ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <CheckmarkCircle20Regular className={styles.permissionIconActive} />
                       ) : (
-                        <XCircle className="w-4 h-4 text-muted-foreground" />
+                        <DismissCircle20Regular className={styles.permissionIconInactive} />
                       )}
-                      <span className={userInfo.permissions?.canApprove ? "text-foreground" : "text-muted-foreground"}>
+                      <Text className={userInfo.permissions?.canApprove ? styles.permissionTextActive : styles.permissionTextInactive}>
                         Approve Meeting Minutes
-                      </span>
+                      </Text>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className={styles.permissionItem}>
                       {userInfo.permissions?.canManageUsers ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <CheckmarkCircle20Regular className={styles.permissionIconActive} />
                       ) : (
-                        <XCircle className="w-4 h-4 text-muted-foreground" />
+                        <DismissCircle20Regular className={styles.permissionIconInactive} />
                       )}
-                      <span className={userInfo.permissions?.canManageUsers ? "text-foreground" : "text-muted-foreground"}>
+                      <Text className={userInfo.permissions?.canManageUsers ? styles.permissionTextActive : styles.permissionTextInactive}>
                         Manage Users (Admin Only)
-                      </span>
+                      </Text>
                     </div>
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className={styles.permissionItem}>
                       {userInfo.permissions?.canConfigureIntegrations ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <CheckmarkCircle20Regular className={styles.permissionIconActive} />
                       ) : (
-                        <XCircle className="w-4 h-4 text-muted-foreground" />
+                        <DismissCircle20Regular className={styles.permissionIconInactive} />
                       )}
-                      <span className={userInfo.permissions?.canConfigureIntegrations ? "text-foreground" : "text-muted-foreground"}>
+                      <Text className={userInfo.permissions?.canConfigureIntegrations ? styles.permissionTextActive : styles.permissionTextInactive}>
                         Configure Integrations (Admin Only)
-                      </span>
+                      </Text>
                     </div>
                   </div>
                 </div>
 
                 {userInfo.permissions?.azureAdGroupsActive && (
-                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/50 rounded-lg p-3">
-                    <div className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                      <div className="space-y-1 text-sm">
-                        <p className="text-green-900 dark:text-green-100 font-medium">Azure AD Integration Active</p>
-                        <p className="text-green-700 dark:text-green-300 text-xs">
+                  <div className={styles.statusBoxGreen}>
+                    <div className={styles.statusBoxContent}>
+                      <CheckmarkCircle20Regular className={`${styles.statusBoxIcon} ${styles.statusBoxIconGreen}`} />
+                      <div className={styles.statusBoxText}>
+                        <Text className={styles.statusBoxTitleGreen}>Azure AD Integration Active</Text>
+                        <Text className={styles.statusBoxDescGreen}>
                           Permissions are managed through Azure AD security groups. Changes to your Azure AD group membership will be reflected within 15 minutes.
-                        </p>
+                        </Text>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {!userInfo.permissions?.azureAdGroupsActive && (
-                  <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/50 rounded-lg p-3">
-                    <div className="flex items-start gap-2">
-                      <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
-                      <div className="space-y-1 text-sm">
-                        <p className="text-yellow-900 dark:text-yellow-100 font-medium">Database Fallback Mode</p>
-                        <p className="text-yellow-700 dark:text-yellow-300 text-xs">
+                  <div className={styles.statusBoxYellow}>
+                    <div className={styles.statusBoxContent}>
+                      <Info20Regular className={`${styles.statusBoxIcon} ${styles.statusBoxIconYellow}`} />
+                      <div className={styles.statusBoxText}>
+                        <Text className={styles.statusBoxTitleYellow}>Database Fallback Mode</Text>
+                        <Text className={styles.statusBoxDescYellow}>
                           Permissions are currently sourced from the database. Azure AD groups integration is not active or unavailable. Contact your administrator to enable Azure AD integration.
-                        </p>
+                        </Text>
                       </div>
                     </div>
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-sm text-muted-foreground">Failed to load permissions</div>
+              <Text className={styles.fieldDescription}>Failed to load permissions</Text>
             )}
-          </CardContent>
+          </div>
         </Card>
       </div>
     </div>

@@ -94,24 +94,22 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 
 ---
 
-### 3. DEPLOYMENT_ARCHITECTURE.md
-**Purpose:** General architecture reference (not deployment-specific)
+### 3. replit.md
+**Purpose:** Project overview and development guidelines
 
 **Use for:**
-- Understanding system components
-- Architecture decision records
-- Technical documentation
+- Understanding the project at a glance
+- Onboarding new developers
+- Tracking recent changes and updates
 
 **Key Contents:**
-- Frontend architecture (React, Fluent UI, TanStack Query)
-- Backend architecture (Express, Drizzle ORM, job queue)
-- Database design and schema
-- Microsoft Graph integration (webhooks, API calls)
-- Azure OpenAI integration (GPT-4o, Whisper)
-- Background job processing system
-- Document generation (DOCX, PDF)
+- System overview and key capabilities
+- User preferences and project scope
+- System architecture summary
+- External dependencies
+- Recent changes log
 
-**Audience:** Developers, technical stakeholders
+**Audience:** All team members, stakeholders
 
 ---
 

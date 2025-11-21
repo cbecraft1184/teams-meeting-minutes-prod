@@ -1,8 +1,8 @@
-# Teams Meeting Minutes - Demo Pilot System
+# Teams Meeting Minutes - AI-Powered System
 
 ## Overview
 
-This project is an AI-powered Microsoft Teams meeting minutes management system designed for demonstration pilots. It automatically captures Teams meetings, generates AI-powered meeting minutes, and manages an approval workflow with SharePoint archival.
+AI-powered Microsoft Teams meeting minutes management system deployed on Azure Commercial with full Microsoft 365 integration.
 
 **Key Capabilities:**
 - Automatic Teams meeting capture via Microsoft Graph webhooks
@@ -12,13 +12,11 @@ This project is an AI-powered Microsoft Teams meeting minutes management system 
 - Email distribution and SharePoint archival
 - Durable job queue for reliable background processing
 
-The system supports two separate 20-user demo pilots: one for commercial enterprises and one for NAVY ERP personnel, with clear separation and tailored documentation for each.
-
 ## User Preferences
 
 - Simple, everyday language
-- Demo-focused scope (not production-scale)
-- Clear separation between commercial and NAVY demos
+- Focus on Azure Commercial deployment
+- Clear documentation for demo and production environments
 - Iterative development with small updates
 
 ## System Architecture
@@ -70,6 +68,23 @@ The system supports two separate 20-user demo pilots: one for commercial enterpr
 - **Libraries**: `docx` for DOCX, `pdf-lib` for PDF
 - **Content Structure**: Title page, attendee list, agenda/discussion, decisions, action items, timestamp.
 
+## Development Environment
+
+### Local Development
+- Replit with hot-reload (Vite HMR)
+- Mock authentication (no Azure AD required)
+- In-memory or Neon PostgreSQL database
+- Replit AI for minutes generation (no Azure OpenAI needed)
+
+### Demo Deployment
+- Azure Commercial Cloud (East US)
+- Azure App Service (Basic tier for demo, Standard for production)
+- Azure Database for PostgreSQL (Burstable for demo, General Purpose for production)
+- Azure OpenAI Service
+- Application Insights for monitoring
+
+**Cost**: $79/month (demo), $383/month (100 users production)
+
 ## External Dependencies
 
 ### Microsoft Services
@@ -89,3 +104,41 @@ The system supports two separate 20-user demo pilots: one for commercial enterpr
 - **AI**: OpenAI SDK (Azure + Replit compatible)
 - **Documents**: `docx`, `pdf-lib`
 - **Utilities**: `date-fns`, `zod`, `nanoid`
+
+## Security
+
+- **Authentication**: Azure AD OAuth 2.0
+- **Transport**: HTTPS/TLS 1.2+
+- **Data**: Encryption at rest (Azure default)
+- **Access**: Azure AD group-based permissions
+- **Monitoring**: Application Insights with real-time alerting
+
+## Recent Changes
+
+- **November 2025 (Documentation - Commercial Azure)**: Complete deployment documentation for Azure Commercial (COMPLETED ✓)
+  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: Comprehensive step-by-step deployment guide
+    - 5-phase deployment procedure (Azure resources, Azure AD, code deployment, Teams integration, testing)
+    - Cost estimates: $79/month (demo), $383/month (100 users production)
+    - Rollback procedures for application and database
+    - Comprehensive troubleshooting guide
+    - GitHub Actions CI/CD workflow
+  - **DEPLOYMENT_SUMMARY.md**: Documentation package overview
+    - Deployment timeline (4-6 hours active work)
+    - Cost summary and optimization strategies
+    - Quick reference guide
+- **November 2025 (Task 7)**: Configurable approval workflow with admin settings (COMPLETED ✓)
+  - Admin Settings Panel with workflow toggles
+  - Auto-approval logic when approval disabled
+  - Distribution orchestrator respecting all toggle settings
+  - Development user switcher for testing roles
+- **November 2025 (Task 6)**: Complete Fluent UI v9 migration - native Teams design system (COMPLETED ✓)
+  - Full component migration to Fluent UI React Components
+  - 100% Fluent UI makeStyles with design tokens
+  - Complete Shadcn/Radix removal
+- **November 2025 (Task 5)**: Production-grade telemetry for Adaptive Card delivery system (COMPLETED ✓)
+  - Per-recipient error isolation
+  - Error classification system (PERMANENT/TRANSIENT/UNKNOWN)
+  - DOD-compliant telemetry (PII-safe logging)
+- **November 2025 (Task 4)**: Strict schema validation for all database writes (COMPLETED ✓)
+  - All CRUD operations validated before database writes
+  - Schema rules for meetings, minutes, action items

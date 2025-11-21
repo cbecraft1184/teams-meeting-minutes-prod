@@ -163,28 +163,27 @@ echo "✓ Azure OpenAI account created. Deploying models..."
 # Deploy GPT-4o model
 az cognitiveservices account deployment create \
   --resource-group $RESOURCE_GROUP \
-  --name $OPENAI_ACCOUNT \
+  --account-name $OPENAI_ACCOUNT \
   --deployment-name gpt-4o \
   --model-name gpt-4o \
   --model-version "2024-08-06" \
   --model-format OpenAI \
-  --sku-name Standard \
-  --sku-capacity 100
+  --sku-capacity 100 \
+  --sku-name "Standard"
 
 echo "✓ GPT-4o model deployed"
 
-# Deploy Whisper model (if available in your region)
+# Deploy Whisper model (for audio transcription)
+# Note: Whisper may not be available in all regions - this step may fail
 az cognitiveservices account deployment create \
   --resource-group $RESOURCE_GROUP \
-  --name $OPENAI_ACCOUNT \
+  --account-name $OPENAI_ACCOUNT \
   --deployment-name whisper \
   --model-name whisper \
   --model-version "001" \
   --model-format OpenAI \
-  --sku-name Standard \
-  --sku-capacity 10
-
-echo "✓ Whisper model deployed (if available)"
+  --sku-capacity 10 \
+  --sku-name "Standard" 2>/dev/null || echo "⚠ Whisper not available in this region (optional)"
 
 # Get OpenAI endpoint and key
 export AZURE_OPENAI_ENDPOINT=$(az cognitiveservices account show \
@@ -251,11 +250,11 @@ az webapp update \
   --resource-group $RESOURCE_GROUP \
   --https-only true
 
-# Configure startup command
+# Configure startup command (uses npm start from package.json)
 az webapp config set \
   --name $APP_SERVICE_NAME \
   --resource-group $RESOURCE_GROUP \
-  --startup-file "node server/index.js"
+  --startup-file "npm start"
 
 echo "✓ App Service configured"
 ```
@@ -408,23 +407,29 @@ export MICROSOFT_APP_PASSWORD="<Bot client secret>"
 
 ## Phase 3: Configure and Deploy Application
 
-### Step 3.1: Prepare Application Code
+### Step 3.1: Build Application Code
 
 ```bash
 # Navigate to project directory
 cd /path/to/teams-meeting-minutes
 
-# Install dependencies
+# Install ALL dependencies (including dev dependencies for build tools)
 npm install
 
-# Build frontend
+# Build TypeScript backend (compiles to dist/)
+npm run build
+
+# Build React frontend
 cd client
 npm install
 npm run build
 cd ..
 
-# Verify build output
-ls -la client/dist
+# Verify build outputs
+ls -la dist/             # Backend compiled JS
+ls -la client/dist/      # Frontend built assets
+
+echo "✓ Application built successfully"
 ```
 
 ### Step 3.2: Set Environment Variables in App Service
@@ -458,12 +463,13 @@ echo "✓ Environment variables configured"
 ### Step 3.3: Initialize Database Schema
 
 ```bash
-# Run migrations locally (requires DATABASE_URL env var)
-export DATABASE_URL="<your connection string from Step 1.3>"
+# Set DATABASE_URL environment variable
+export DATABASE_URL="postgresql://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWORD}@${POSTGRES_SERVER}.postgres.database.azure.com:5432/meetings?sslmode=require"
 
+# Push schema to database (Drizzle ORM)
 npm run db:push
 
-echo "✓ Database schema initialized"
+echo "✓ Database schema initialized with 9 tables"
 ```
 
 ### Step 3.4: Deploy Application to App Service
@@ -471,18 +477,21 @@ echo "✓ Database schema initialized"
 **Option A: Direct Deployment (Azure CLI)**
 
 ```bash
-# Create deployment package
-npm run build  # If not already built
-zip -r deploy.zip . -x "node_modules/*" ".git/*" "*.log"
+# Create deployment package (INCLUDE node_modules for production dependencies)
+npm install --production
+zip -r deploy.zip dist/ node_modules/ client/dist/ package.json package-lock.json -x "*.log" ".git/*"
 
-# Deploy
+# Deploy to App Service
 az webapp deploy \
   --name $APP_SERVICE_NAME \
   --resource-group $RESOURCE_GROUP \
   --src-path deploy.zip \
   --type zip
 
-echo "✓ Application deployed"
+echo "✓ Application deployed (ZIP uploaded)"
+
+# Wait for deployment to complete (30-60 seconds)
+sleep 60
 
 # Restart app
 az webapp restart \

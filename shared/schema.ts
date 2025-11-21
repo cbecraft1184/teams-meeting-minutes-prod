@@ -370,21 +370,92 @@ export const jobQueue = pgTable("job_queue", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Insert schemas
+// Insert schemas with strict validation
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
   createdAt: true,
+}).extend({
+  // Strict validation for attendees
+  attendees: z.array(z.string().email("Each attendee must be a valid email address"))
+    .min(1, "At least one attendee is required")
+    .max(500, "Maximum 500 attendees allowed"),
+  
+  // Strict validation for title
+  title: z.string()
+    .min(1, "Title is required")
+    .max(500, "Title must be 500 characters or less")
+    .trim(),
+  
+  // Strict validation for duration
+  duration: z.string()
+    .regex(/^\d+h( \d+m)?$|^\d+m$/, "Duration must be in format '1h 30m' or '30m'")
+    .trim(),
+  
+  // Optional description validation
+  description: z.string()
+    .max(2000, "Description must be 2000 characters or less")
+    .trim()
+    .optional()
+    .nullable(),
 });
 
 export const insertMeetingMinutesSchema = createInsertSchema(meetingMinutes).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  // Strict validation for summary
+  summary: z.string()
+    .min(1, "Summary is required")
+    .max(5000, "Summary must be 5000 characters or less")
+    .trim(),
+  
+  // Strict validation for attendees present
+  attendeesPresent: z.array(z.string().email("Each attendee must be a valid email address"))
+    .min(1, "At least one attendee must be present")
+    .max(500, "Maximum 500 attendees allowed"),
+  
+  // Strict validation for key discussions
+  keyDiscussions: z.array(z.string().min(1).max(1000))
+    .min(0, "Key discussions must be an array")
+    .max(100, "Maximum 100 key discussion points allowed"),
+  
+  // Strict validation for decisions
+  decisions: z.array(z.string().min(1).max(1000))
+    .min(0, "Decisions must be an array")
+    .max(100, "Maximum 100 decisions allowed"),
 });
 
 export const insertActionItemSchema = createInsertSchema(actionItems).omit({
   id: true,
   createdAt: true,
+}).extend({
+  // Strict validation for task
+  task: z.string()
+    .min(1, "Task description is required")
+    .max(1000, "Task description must be 1000 characters or less")
+    .trim(),
+  
+  // Strict validation for assignee (email or "Unassigned")
+  assignee: z.string()
+    .refine(
+      (val) => val === "Unassigned" || z.string().email().safeParse(val).success,
+      "Assignee must be a valid email address or 'Unassigned'"
+    ),
+  
+  // Strict validation for due date (must be in future if provided)
+  // Use union to handle null/undefined, then coerce and validate only when present
+  dueDate: z.union([
+    z.coerce.date().refine(
+      (date) => date > new Date(),
+      "Due date must be in the future"
+    ),
+    z.null(),
+    z.undefined()
+  ]).optional(),
+  
+  // Priority is already enum-validated by drizzle-zod
+  // Status is already enum-validated by drizzle-zod
 });
 
 export const insertMeetingTemplateSchema = createInsertSchema(meetingTemplates).omit({

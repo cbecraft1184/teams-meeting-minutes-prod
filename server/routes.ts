@@ -198,9 +198,14 @@ export function registerRoutes(app: Express): Server {
 
       console.log(`[ACCESS] Admin ${req.user.email} updating meeting: ${existingMeeting.title}`);
 
-      const meeting = await storage.updateMeeting(req.params.id, req.body);
+      // STRICT VALIDATION: Validate partial updates against schema
+      const validatedData = insertMeetingSchema.partial().parse(req.body);
+      const meeting = await storage.updateMeeting(req.params.id, validatedData);
       res.json(meeting);
     } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid meeting data", details: error.errors });
+      }
       if (error.message === "Meeting not found") {
         return res.status(404).json({ error: "Meeting not found" });
       }
@@ -397,9 +402,14 @@ export function registerRoutes(app: Express): Server {
 
       console.log(`[ACCESS] User ${req.user.email} (${req.user.role}) updating minutes for meeting: ${meeting.title}`);
 
-      const minutes = await storage.updateMinutes(req.params.id, req.body);
+      // STRICT VALIDATION: Validate partial updates against schema
+      const validatedData = insertMeetingMinutesSchema.partial().parse(req.body);
+      const minutes = await storage.updateMinutes(req.params.id, validatedData);
       res.json(minutes);
     } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid minutes data", details: error.errors });
+      }
       if (error.message === "Minutes not found") {
         return res.status(404).json({ error: "Minutes not found" });
       }
@@ -732,9 +742,14 @@ export function registerRoutes(app: Express): Server {
   // Update action item
   app.patch("/api/action-items/:id", async (req, res) => {
     try {
-      const item = await storage.updateActionItem(req.params.id, req.body);
+      // STRICT VALIDATION: Validate partial updates against schema
+      const validatedData = insertActionItemSchema.partial().parse(req.body);
+      const item = await storage.updateActionItem(req.params.id, validatedData);
       res.json(item);
     } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid action item data", details: error.errors });
+      }
       if (error.message === "Action item not found") {
         return res.status(404).json({ error: "Action item not found" });
       }

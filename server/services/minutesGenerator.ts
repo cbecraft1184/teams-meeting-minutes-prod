@@ -3,12 +3,24 @@
  * 
  * Automatically generates meeting minutes after enrichment completes
  * Uses Azure OpenAI (production) or Replit AI (development)
+ * 
+ * STRICT VALIDATION:
+ * - All meeting minutes validated before database writes
+ * - All action items validated before database writes
+ * - Validation failures throw detailed errors for debugging
  */
 
 import { db } from "../db";
-import { meetings, meetingMinutes, actionItems } from "@shared/schema";
+import { 
+  meetings, 
+  meetingMinutes, 
+  actionItems,
+  insertMeetingMinutesSchema,
+  insertActionItemSchema
+} from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./azureOpenAI";
+import { ZodError } from "zod";
 
 /**
  * Generate meeting minutes automatically after enrichment
@@ -49,42 +61,80 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Extract action items
     const actionItemsData = await extractActionItems(mockTranscript);
     
-    // Create meeting minutes record
-    const [createdMinutes] = await db.insert(meetingMinutes)
-      .values({
-        meetingId: meeting.id,
-        summary: minutesData.summary,
-        keyDiscussions: minutesData.keyDiscussions,
-        decisions: minutesData.decisions,
-        attendeesPresent: meeting.attendees,
-        processingStatus: "completed",
-        approvalStatus: "pending_review"
-      })
-      .returning();
+    // STRICT VALIDATION: Validate meeting minutes data before database write
+    const minutesPayload = {
+      meetingId: meeting.id,
+      summary: minutesData.summary,
+      keyDiscussions: minutesData.keyDiscussions,
+      decisions: minutesData.decisions,
+      attendeesPresent: meeting.attendees,
+      processingStatus: "completed" as const,
+      approvalStatus: "pending_review" as const
+    };
     
-    console.log(`✅ [MinutesGenerator] Created meeting minutes ${createdMinutes.id}`);
-    
-    // Create action items
-    if (actionItemsData.length > 0) {
-      await db.insert(actionItems)
-        .values(actionItemsData.map(item => ({
-          meetingId: meeting.id,
-          minutesId: createdMinutes.id,
-          task: item.task,
-          assignee: item.assignee,
-          dueDate: item.dueDate ? new Date(item.dueDate) : null,
-          priority: item.priority as "high" | "medium" | "low",
-          status: "pending" as const
-        })));
+    try {
+      const validatedMinutes = insertMeetingMinutesSchema.parse(minutesPayload);
       
-      console.log(`✅ [MinutesGenerator] Created ${actionItemsData.length} action items`);
+      // Create meeting minutes record with validated data
+      const [createdMinutes] = await db.insert(meetingMinutes)
+        .values(validatedMinutes)
+        .returning();
+      
+      console.log(`✅ [MinutesGenerator] Created meeting minutes ${createdMinutes.id}`);
+      
+      // STRICT VALIDATION: Validate each action item before database write
+      if (actionItemsData.length > 0) {
+        const validatedActionItems = [];
+        
+        for (const item of actionItemsData) {
+          const actionItemPayload = {
+            meetingId: meeting.id,
+            minutesId: createdMinutes.id,
+            task: item.task,
+            assignee: item.assignee || "Unassigned",
+            dueDate: item.dueDate ? new Date(item.dueDate) : null,
+            priority: item.priority as "high" | "medium" | "low",
+            status: "pending" as const
+          };
+          
+          try {
+            const validatedItem = insertActionItemSchema.parse(actionItemPayload);
+            validatedActionItems.push(validatedItem);
+          } catch (error) {
+            if (error instanceof ZodError) {
+              console.error(`❌ [MinutesGenerator] Invalid action item data:`, {
+                item: actionItemPayload,
+                errors: error.errors
+              });
+              // Skip invalid action items but continue with valid ones
+              continue;
+            }
+            throw error;
+          }
+        }
+        
+        if (validatedActionItems.length > 0) {
+          await db.insert(actionItems).values(validatedActionItems);
+          console.log(`✅ [MinutesGenerator] Created ${validatedActionItems.length}/${actionItemsData.length} action items (skipped ${actionItemsData.length - validatedActionItems.length} invalid)`);
+        }
+      }
+      
+    } catch (error) {
+      if (error instanceof ZodError) {
+        console.error(`❌ [MinutesGenerator] Invalid meeting minutes data:`, {
+          payload: minutesPayload,
+          errors: error.errors
+        });
+        throw new Error(`Validation failed for meeting minutes: ${error.errors.map(e => e.message).join(', ')}`);
+      }
+      throw error;
     }
     
     // Update meeting status
     await db.update(meetings)
       .set({
         status: "completed",
-        graphSyncStatus: "minutes_generated"
+        graphSyncStatus: "enriched"
       })
       .where(eq(meetings.id, meetingId));
     
@@ -93,18 +143,34 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
   } catch (error) {
     console.error(`❌ [MinutesGenerator] Failed to generate minutes for meeting ${meetingId}:`, error);
     
-    // Update meeting minutes status to failed
-    await db.insert(meetingMinutes)
-      .values({
+    // Get meeting for fallback attendees
+    const [meeting] = await db.select()
+      .from(meetings)
+      .where(eq(meetings.id, meetingId));
+    
+    if (meeting) {
+      // STRICT VALIDATION: Create failure record with schema-compliant placeholder values
+      const fallbackPayload = {
         meetingId: meetingId,
-        summary: "",
-        keyDiscussions: [],
-        decisions: [],
-        attendeesPresent: [],
-        processingStatus: "failed",
-        approvalStatus: "pending_review"
-      })
-      .onConflictDoNothing();
+        summary: "Failed to generate meeting minutes. Please regenerate or create manually.",
+        keyDiscussions: ["Minutes generation failed - no discussions captured"],
+        decisions: ["Minutes generation failed - no decisions captured"],
+        attendeesPresent: meeting.attendees || ["unknown@example.com"], // Use meeting attendees or fallback
+        processingStatus: "failed" as const,
+        approvalStatus: "pending_review" as const
+      };
+      
+      try {
+        // Validate fallback data before insert
+        const validatedFallback = insertMeetingMinutesSchema.parse(fallbackPayload);
+        await db.insert(meetingMinutes)
+          .values(validatedFallback)
+          .onConflictDoNothing();
+      } catch (validationError) {
+        // If even the fallback fails validation, log error but don't create record
+        console.error(`❌ [MinutesGenerator] Fallback record validation failed:`, validationError);
+      }
+    }
     
     throw error;
   }

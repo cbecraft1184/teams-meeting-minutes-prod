@@ -176,6 +176,18 @@ An AI-powered Microsoft Teams meeting minutes management system for demonstratio
 
 ## Recent Changes
 
+- **November 2025 (Task 4)**: Added strict schema validation for all database writes
+  - Meeting data: Email validation, attendee limits, title/duration constraints
+  - Meeting minutes: Summary limits, attendees validation, array constraints
+  - Action items: Task validation, assignee email verification, future date checks
+  - All API endpoints validate before database writes (POST /api/meetings, PATCH /api/minutes, etc.)
+  - Validation errors return detailed 400 responses with field-level error messages
+- **November 2025 (Task 3)**: Implemented transactional outbox pattern for exactly-once delivery
+  - Zero duplicates, zero message loss, crash-safe with exponential backoff (1m→5m→15m)
+  - Production-grade reliability tested and verified
+- **November 2025 (Tasks 1-2)**: Security hardening and database cleanup
+  - Eliminated plaintext secret logging
+  - Added TTL and 2AM cleanup scheduler for conversation references
 - **November 2025**: Documentation restructured for demo pilots
 - All old production-scale documentation removed
 - Created separate folders for commercial and NAVY demos

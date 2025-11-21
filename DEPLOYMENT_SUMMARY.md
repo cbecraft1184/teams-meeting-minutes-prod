@@ -25,6 +25,11 @@ Complete deployment documentation for Teams Meeting Minutes AI system, covering 
 - Complete technology stack (React, Express, PostgreSQL, Azure OpenAI)
 - Database schema with all tables
 - API architecture and endpoints
+- **Azure AD Group-Based Authorization:**
+  - Role groups: `DOD-Role-{Admin|Approver|Auditor|Viewer}`
+  - Clearance groups: `DOD-Clearance-{TOP_SECRET|SECRET|CONFIDENTIAL|UNCLASSIFIED}`
+  - Automatic group sync via Microsoft Graph API
+  - 15-minute cache TTL for performance
 - Security controls and compliance
 - Background job system
 - Monitoring and observability

@@ -38,11 +38,18 @@ This guide provides detailed testing procedures for the 20-user pilot deployment
 - [ ] 20 test users created in Microsoft 365 tenant
 - [ ] All users have Teams licenses (E3 or E5)
 - [ ] All users have mailboxes (Exchange Online)
-- [ ] Test Azure AD groups created:
-  - [ ] `MeetingMinutes-Admins` (2 users)
-  - [ ] `MeetingMinutes-Approvers` (5 users)
-  - [ ] `MeetingMinutes-Viewers` (13 users)
-- [ ] Users assigned to appropriate groups
+- [ ] Azure AD role groups created with exact names:
+  - [ ] `DOD-Role-Admin` (2 users)
+  - [ ] `DOD-Role-Approver` (5 users)
+  - [ ] `DOD-Role-Auditor` (3 users)
+  - [ ] `DOD-Role-Viewer` (10 users)
+- [ ] Azure AD clearance groups created with exact names:
+  - [ ] `DOD-Clearance-TOP_SECRET`
+  - [ ] `DOD-Clearance-SECRET`
+  - [ ] `DOD-Clearance-CONFIDENTIAL`
+  - [ ] `DOD-Clearance-UNCLASSIFIED`
+- [ ] Users assigned to appropriate role AND clearance groups
+- [ ] Group assignments verified: Each user in ONE role + ONE clearance group
 - [ ] SharePoint permissions verified (all users can access site)
 
 ---

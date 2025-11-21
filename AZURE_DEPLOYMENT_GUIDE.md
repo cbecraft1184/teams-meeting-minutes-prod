@@ -135,9 +135,133 @@ OpenAI Endpoint: https://tmm-openai-navy-demo.openai.azure.com
 
 ---
 
-### Step 6: Configure Application (10 min)
+### Step 6: Configure Azure AD Groups (15 min)
 
-**6.1: Create Azure AD App Registrations**
+The application uses Azure AD group membership to determine user roles and clearance levels. You must create these groups before users can access the application.
+
+**6.1: Create Role Groups**
+
+Create these groups in Azure AD (Entra ID) with the exact names shown:
+
+```bash
+# Admin role - Full access to Settings, create meetings
+az ad group create \
+  --display-name "DOD-Role-Admin" \
+  --mail-nickname "DOD-Role-Admin" \
+  --description "Meeting Minutes Administrators - Full access to settings and meeting creation"
+
+# Approver role - Can approve/reject meeting minutes
+az ad group create \
+  --display-name "DOD-Role-Approver" \
+  --mail-nickname "DOD-Role-Approver" \
+  --description "Meeting Minutes Approvers - Can approve or reject meeting minutes"
+
+# Auditor role - View-only access to all meetings within clearance
+az ad group create \
+  --display-name "DOD-Role-Auditor" \
+  --mail-nickname "DOD-Role-Auditor" \
+  --description "Meeting Minutes Auditors - View-only access to all meetings"
+
+# Viewer role - Can only view meetings they attended
+az ad group create \
+  --display-name "DOD-Role-Viewer" \
+  --mail-nickname "DOD-Role-Viewer" \
+  --description "Meeting Minutes Viewers - Can only view meetings they attended"
+```
+
+**6.2: Create Clearance Level Groups**
+
+```bash
+# TOP SECRET clearance - Can see all meeting classifications
+az ad group create \
+  --display-name "DOD-Clearance-TOP_SECRET" \
+  --mail-nickname "DOD-Clearance-TOP-SECRET" \
+  --description "TOP SECRET clearance - Access to all classified meetings"
+
+# SECRET clearance - Can see SECRET, CONFIDENTIAL, and UNCLASSIFIED
+az ad group create \
+  --display-name "DOD-Clearance-SECRET" \
+  --mail-nickname "DOD-Clearance-SECRET" \
+  --description "SECRET clearance - Access to SECRET and below"
+
+# CONFIDENTIAL clearance - Can see CONFIDENTIAL and UNCLASSIFIED
+az ad group create \
+  --display-name "DOD-Clearance-CONFIDENTIAL" \
+  --mail-nickname "DOD-Clearance-CONFIDENTIAL" \
+  --description "CONFIDENTIAL clearance - Access to CONFIDENTIAL and below"
+
+# UNCLASSIFIED clearance - Default for all users
+az ad group create \
+  --display-name "DOD-Clearance-UNCLASSIFIED" \
+  --mail-nickname "DOD-Clearance-UNCLASSIFIED" \
+  --description "UNCLASSIFIED clearance - Access to unclassified meetings only"
+```
+
+**6.3: Assign Users to Groups**
+
+Add users to appropriate groups using Azure Portal or CLI:
+
+**Using Azure Portal:**
+1. Go to **Azure Active Directory** → **Groups**
+2. Select a group (e.g., `DOD-Role-Approver`)
+3. Click **Members** → **Add members**
+4. Search for users by name or email
+5. Click **Select**
+
+**Using Azure CLI:**
+```bash
+# Example: Add user to Approver role
+az ad group member add \
+  --group "DOD-Role-Approver" \
+  --member-id $(az ad user show --id john.smith@navy.mil --query id -o tsv)
+
+# Example: Add user to SECRET clearance
+az ad group member add \
+  --group "DOD-Clearance-SECRET" \
+  --member-id $(az ad user show --id john.smith@navy.mil --query id -o tsv)
+```
+
+**Important Rules:**
+- Each user should be in **ONE role group** (Admin, Approver, Auditor, OR Viewer)
+- Each user should be in **ONE clearance group** (TOP_SECRET, SECRET, CONFIDENTIAL, OR UNCLASSIFIED)
+- If a user is in multiple role groups, the system uses the highest role (Admin > Approver > Auditor > Viewer)
+- If a user is in multiple clearance groups, the system uses the highest clearance
+
+**Recommended Pilot Assignments (20 users):**
+- 2 Admins (TOP_SECRET or SECRET clearance)
+- 5 Approvers (SECRET clearance)
+- 3 Auditors (SECRET clearance)
+- 10 Viewers (mix of CONFIDENTIAL and UNCLASSIFIED)
+
+**6.4: Verify Group Configuration**
+
+```bash
+# List all DOD groups
+az ad group list --query "[?startsWith(displayName, 'DOD-')].{Name:displayName, Members:mail}" -o table
+
+# Check a specific user's groups
+az ad user get-member-groups \
+  --id john.smith@navy.mil \
+  --query "[?startsWith(displayName, 'DOD-')].[displayName]" -o table
+```
+
+**How It Works:**
+1. User logs in with Azure AD SSO
+2. Application fetches their group memberships via Microsoft Graph API
+3. Groups are parsed to extract role and clearance level
+4. Permissions are cached for 15 minutes (automatic refresh)
+5. No app restart needed - changes take effect within 15 minutes
+
+**To Change a User's Role:**
+1. Remove them from current role group: `az ad group member remove --group "DOD-Role-Viewer" --member-id <user-id>`
+2. Add them to new role group: `az ad group member add --group "DOD-Role-Approver" --member-id <user-id>`
+3. Wait up to 15 minutes for cache to refresh (or have user log out/in)
+
+---
+
+### Step 7: Configure Application (10 min)
+
+**7.1: Create Azure AD App Registrations**
 
 ```bash
 # Create app registration for authentication

@@ -6,6 +6,216 @@
 
 ---
 
+## ⚠️ CRITICAL: Azure Government vs Commercial Cloud
+
+This application is designed for **Azure Government (GCC High)** deployment for NAVY ERP. The configuration is **fundamentally different** from Azure Commercial Cloud.
+
+### Microsoft 365 GCC High vs Commercial
+
+| Service | Commercial Cloud | GCC High (Government) | **Use For NAVY** |
+|---------|------------------|----------------------|------------------|
+| **Microsoft Graph API** | `https://graph.microsoft.com` | `https://graph.microsoft.us` | ✅ GCC High |
+| **Azure AD OAuth** | `https://login.microsoftonline.com` | `https://login.microsoftonline.us` | ✅ GCC High |
+| **SharePoint** | `https://{tenant}.sharepoint.com` | `https://{tenant}.sharepoint.us` | ✅ GCC High |
+| **Exchange Online** | `outlook.office365.com` | `outlook.office365.us` | ✅ GCC High |
+| **Teams** | Commercial Teams | GCC High Teams | ✅ GCC High |
+
+### Required OAuth Scopes for GCC High
+
+**Microsoft Graph API Permissions (GCC High):**
+
+```bash
+# Application permissions (daemon/background services)
+https://graph.microsoft.us/.default
+
+# Delegated permissions (user context)
+https://graph.microsoft.us/User.Read
+https://graph.microsoft.us/Calendars.Read
+https://graph.microsoft.us/OnlineMeetings.Read
+https://graph.microsoft.us/Files.ReadWrite.All
+https://graph.microsoft.us/Group.Read.All
+```
+
+**Key Differences from Commercial:**
+- ❌ Commercial scopes: `https://graph.microsoft.com/.default`
+- ✅ GCC High scopes: `https://graph.microsoft.us/.default`
+- Resource identifier changes from `.com` to `.us`
+
+### Application Environment Variables for GCC High
+
+**Required Configuration:**
+
+```bash
+# Azure AD Endpoints (GCC High)
+AZURE_AD_AUTHORITY=https://login.microsoftonline.us/{tenant-id}
+AZURE_AD_TOKEN_ENDPOINT=https://login.microsoftonline.us/{tenant-id}/oauth2/v2.0/token
+
+# Microsoft Graph API (GCC High)
+MICROSOFT_GRAPH_ENDPOINT=https://graph.microsoft.us
+MICROSOFT_GRAPH_SCOPE=https://graph.microsoft.us/.default
+
+# SharePoint (GCC High)
+SHAREPOINT_SITE_URL=https://{tenant}.sharepoint.us/sites/{site-name}
+
+# Teams Bot Framework (GCC High)
+BOT_FRAMEWORK_ENDPOINT=https://smba.trafficmanager.net/amer-client-ss.msg/
+
+# Azure OpenAI (Azure Government)
+AZURE_OPENAI_ENDPOINT=https://{resource-name}.openai.azure.us/
+```
+
+**DO NOT USE Commercial Endpoints:**
+- ❌ `login.microsoftonline.com`
+- ❌ `graph.microsoft.com`
+- ❌ `{tenant}.sharepoint.com`
+- ❌ `{resource-name}.openai.azure.com`
+
+### Tenant Requirements
+
+**NAVY ERP Tenant Configuration:**
+- **Tenant:** ABC123987.onmicrosoft.com (GCC High tenant)
+- **Tenant Type:** Microsoft 365 GCC High
+- **Azure Subscription:** Azure Government subscription required
+- **Region:** US Gov Virginia or US Gov Texas
+
+**Verification:**
+```bash
+# Verify your tenant is GCC High
+az login --tenant ABC123987.onmicrosoft.com
+az account show --query "{Subscription:name, Tenant:tenantId, Environment:environmentName}"
+
+# Expected output:
+# {
+#   "Subscription": "Azure Government - NAVY",
+#   "Tenant": "<tenant-id>",
+#   "Environment": "AzureUSGovernment"
+# }
+```
+
+### Azure Key Vault + Managed Identity Architecture
+
+**Why Key Vault?**
+- ✅ **IL4 Compliance**: FIPS 140-2 Level 2 HSM-backed secrets
+- ✅ **No Hardcoded Secrets**: Never store secrets in code or environment variables
+- ✅ **Managed Identity for Key Vault**: App Service authenticates to Key Vault without passwords
+- ✅ **Audit Trail**: All secret access logged in Application Insights
+- ✅ **Automatic Rotation**: Supports secret versioning and rotation
+
+**How It Works:**
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  Azure App Service (Meeting Minutes Application)                     │
+│  • System-assigned managed identity enabled                          │
+│  • Managed identity ONLY for Key Vault access (not Graph API)        │
+│  • No credentials stored in code or config                           │
+└────────────────┬─────────────────────────────────────────────────────┘
+                 │
+                 │ (1) Managed Identity Authentication
+                 │     App Service → Key Vault (passwordless)
+                 ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Azure Key Vault (Premium SKU - Azure Government)                    │
+│  • Domain: vault.usgovcloudapi.net (NOT vault.azure.net)             │
+│  • Access policy: Grants "Get" + "List" to App Service identity      │
+│  • Secrets: Azure AD client secret, Graph API config, OpenAI keys    │
+│  • FIPS 140-2 Level 2 HSM encryption                                 │
+└────────────────┬─────────────────────────────────────────────────────┘
+                 │
+                 │ (2) Secrets loaded at runtime (Key Vault references)
+                 ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  Application loads secrets from Key Vault                            │
+│  • azure-ad-client-id + azure-ad-client-secret                       │
+│  • graph-api-endpoint, graph-api-scope                               │
+│  • sharepoint-site-url, azure-openai-api-key                         │
+│  • database-url, session-secret                                      │
+└────────────────┬─────────────────────────────────────────────────────┘
+                 │
+                 │ (3) Client Credentials Authentication
+                 │     App uses Azure AD client ID + secret
+                 ▼
+           Application accesses external services:
+           • Microsoft Graph API (GCC High) - client credentials
+           • SharePoint (GCC High) - via Graph API
+           • Azure OpenAI (Azure Government) - API key
+           • PostgreSQL database - connection string
+```
+
+**Authentication Methods Used:**
+1. **App Service → Key Vault**: System-assigned managed identity (passwordless)
+2. **App Service → Microsoft Graph API**: Client credentials (Azure AD app registration + client secret)
+3. **App Service → Azure OpenAI**: API key (stored in Key Vault)
+4. **App Service → PostgreSQL**: Connection string (stored in Key Vault)
+
+### Complete Key Vault Secrets List
+
+All secrets must be configured for GCC High endpoints:
+
+| Secret Name | Value Format | Required | Purpose |
+|-------------|--------------|----------|---------|
+| `database-url` | `postgresql://user:pass@host:5432/db?sslmode=require` | ✅ Yes | PostgreSQL connection string |
+| `session-secret` | Base64 string (32+ bytes) | ✅ Yes | Express session encryption |
+| `azure-ad-client-id` | GUID | ✅ Yes | Azure AD app registration ID |
+| `azure-ad-tenant-id` | GUID | ✅ Yes | Azure AD tenant ID |
+| `azure-ad-client-secret` | String | ✅ Yes | Azure AD app secret (for service principal) |
+| `azure-ad-authority` | `https://login.microsoftonline.us/{tenant}` | ✅ Yes | GCC High OAuth authority |
+| `graph-api-endpoint` | `https://graph.microsoft.us` | ✅ Yes | GCC High Graph endpoint |
+| `graph-api-scope` | `https://graph.microsoft.us/.default` | ✅ Yes | GCC High OAuth scope |
+| `sharepoint-site-url` | `https://{tenant}.sharepoint.us/sites/{site}` | ✅ Yes | GCC High SharePoint site |
+| `sharepoint-library` | `Approved Minutes` | ✅ Yes | SharePoint document library name |
+| `azure-openai-endpoint` | `https://{resource}.openai.azure.us/` | ✅ Yes | Azure Gov OpenAI endpoint |
+| `azure-openai-api-key` | String | ✅ Yes | Azure OpenAI API key |
+| `azure-openai-deployment` | `gpt-4o` | ✅ Yes | OpenAI model deployment name |
+| `microsoft-app-id` | GUID | ⚠️ Optional | Teams Bot app ID (if using bot features) |
+| `microsoft-app-password` | String | ⚠️ Optional | Teams Bot password (if using bot features) |
+
+### App Service Environment Variables (Key Vault References)
+
+Instead of storing secrets directly in App Service configuration, use **Key Vault references**:
+
+```bash
+# Format: @Microsoft.KeyVault(SecretUri={vault-url}/secrets/{secret-name}/)
+
+DATABASE_URL=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/database-url/)
+SESSION_SECRET=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/session-secret/)
+AZURE_AD_CLIENT_ID=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-client-id/)
+AZURE_AD_TENANT_ID=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-tenant-id/)
+AZURE_AD_CLIENT_SECRET=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-client-secret/)
+AZURE_AD_AUTHORITY=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-authority/)
+MICROSOFT_GRAPH_ENDPOINT=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/graph-api-endpoint/)
+MICROSOFT_GRAPH_SCOPE=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/graph-api-scope/)
+SHAREPOINT_SITE_URL=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/sharepoint-site-url/)
+SHAREPOINT_LIBRARY=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/sharepoint-library/)
+AZURE_OPENAI_ENDPOINT=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-openai-endpoint/)
+AZURE_OPENAI_API_KEY=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-openai-api-key/)
+AZURE_OPENAI_DEPLOYMENT=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-openai-deployment/)
+```
+
+**Important:**
+- ⚠️ Azure Government uses `.usgovcloudapi.net` domain (not `.azure.net`)
+- ⚠️ Managed identity must have "Get" + "List" permissions on Key Vault
+- ⚠️ App Service automatically resolves these references at runtime
+
+### Security Best Practices
+
+**DO:**
+- ✅ Use managed identity (no credentials to manage)
+- ✅ Store ALL secrets in Key Vault (database passwords, API keys, OAuth secrets)
+- ✅ Use Key Vault references in App Service configuration
+- ✅ Enable soft delete and purge protection on Key Vault
+- ✅ Rotate secrets regularly (90-day policy)
+- ✅ Monitor secret access via Application Insights
+
+**DON'T:**
+- ❌ Store secrets in code or configuration files
+- ❌ Use plaintext environment variables for sensitive data
+- ❌ Commit secrets to Git repositories
+- ❌ Share secrets via email or chat
+- ❌ Use the same secrets across dev/test/prod environments
+
+---
+
 ## 🚀 Quick Start (Recommended)
 
 ### Step 1: Prepare Requirements (5 min)
@@ -274,19 +484,32 @@ az ad app create \
 # Save the appId from output
 APP_ID="<paste-app-id-here>"
 
-# Add Microsoft Graph permissions
+# Add Microsoft Graph permissions (GCC High)
 az ad app permission add \
   --id $APP_ID \
   --api 00000003-0000-0000-c000-000000000000 \
   --api-permissions \
     b0afded3-3588-46d8-8b3d-9842eff778da=Scope \
-    43431867-d0fb-4f55-aebb-5c2e3ae67fbc=Scope
+    43431867-d0fb-4f55-aebb-5c2e3ae67fbc=Scope \
+    9492366f-7969-46a4-8d15-ed1a20078fff=Role
+
+# Application permissions:
+# - b0afded3-3588-46d8-8b3d-9842eff778da = OnlineMeetings.Read.All (delegated)
+# - 43431867-d0fb-4f55-aebb-5c2e3ae67fbc = User.Read (delegated)
+# - 9492366f-7969-46a4-8d15-ed1a20078fff = Sites.ReadWrite.All (application)
 
 # Grant admin consent (requires admin)
 az ad app permission admin-consent --id $APP_ID
+
+# Create client secret for app registration
+APP_SECRET=$(az ad app credential reset \
+  --id $APP_ID \
+  --query password -o tsv)
+
+echo "IMPORTANT: Save this client secret securely (shown only once): $APP_SECRET"
 ```
 
-**6.2: Store Secrets in Key Vault**
+**7.2: Store Secrets in Key Vault**
 
 ```bash
 # Get Key Vault name
@@ -302,16 +525,29 @@ OPENAI_KEY=$(az cognitiveservices account keys list \
   --resource-group tmm-navy-demo-eastus \
   --query "key1" -o tsv)
 
-# Store OpenAI credentials
+# Get Azure OpenAI endpoint (Azure Government)
+OPENAI_ENDPOINT=$(az cognitiveservices account show \
+  --name tmm-openai-navy-demo \
+  --resource-group tmm-navy-demo-eastus \
+  --query "properties.endpoint" -o tsv)
+
+# Store Azure OpenAI credentials (Azure Government)
 az keyvault secret set \
   --vault-name $KEYVAULT_NAME \
-  --name openai-api-key \
+  --name azure-openai-api-key \
   --value "$OPENAI_KEY"
 
 az keyvault secret set \
   --vault-name $KEYVAULT_NAME \
-  --name openai-endpoint \
-  --value "https://tmm-openai-navy-demo.openai.azure.com"
+  --name azure-openai-endpoint \
+  --value "$OPENAI_ENDPOINT"
+
+# Note: Azure Government OpenAI endpoint format: https://{resource-name}.openai.azure.us/
+
+az keyvault secret set \
+  --vault-name $KEYVAULT_NAME \
+  --name azure-openai-deployment \
+  --value "gpt-4o"
 
 # Generate and store session secret
 SESSION_SECRET=$(openssl rand -base64 32)
@@ -327,21 +563,50 @@ az keyvault secret set \
   --name database-url \
   --value "postgresql://dbadmin:${DB_PASSWORD}@tmm-pg-navy-demo.postgres.database.azure.com:5432/meeting_minutes?sslmode=require"
 
-# Store Azure AD app ID
+# Store Azure AD app registration credentials
 az keyvault secret set \
   --vault-name $KEYVAULT_NAME \
   --name azure-ad-client-id \
   --value "$APP_ID"
 
-# Store tenant ID
+az keyvault secret set \
+  --vault-name $KEYVAULT_NAME \
+  --name azure-ad-client-secret \
+  --value "$APP_SECRET"
+
+# Store Azure AD tenant ID
 TENANT_ID=$(az account show --query tenantId -o tsv)
 az keyvault secret set \
   --vault-name $KEYVAULT_NAME \
   --name azure-ad-tenant-id \
   --value "$TENANT_ID"
+
+# Store Azure AD authority (GCC High)
+az keyvault secret set \
+  --vault-name $KEYVAULT_NAME \
+  --name azure-ad-authority \
+  --value "https://login.microsoftonline.us/$TENANT_ID"
+
+# Store Microsoft Graph endpoint and scope (GCC High)
+az keyvault secret set \
+  --vault-name $KEYVAULT_NAME \
+  --name graph-api-endpoint \
+  --value "https://graph.microsoft.us"
+
+az keyvault secret set \
+  --vault-name $KEYVAULT_NAME \
+  --name graph-api-scope \
+  --value "https://graph.microsoft.us/.default"
+
+# Store SharePoint site URL (GCC High)
+# Note: Update this URL to match your SharePoint site created in Step 7.3
+az keyvault secret set \
+  --vault-name $KEYVAULT_NAME \
+  --name sharepoint-site-url \
+  --value "https://ABC123987.sharepoint.us/sites/meeting-minutes"
 ```
 
-**6.3: Grant App Service Access to Key Vault**
+**7.2: Grant App Service Access to Key Vault**
 
 ```bash
 # Get App Service managed identity
@@ -357,9 +622,105 @@ az keyvault set-policy \
   --secret-permissions get list
 ```
 
+**7.3: Configure SharePoint Integration for GCC High**
+
+SharePoint integration uses **Microsoft Graph API** with **client credentials authentication** (Azure AD app registration + client secret) - NOT Replit connectors or managed identity.
+
+**Authentication Method:**
+- ✅ **Client Credentials Flow**: App uses `azure-ad-client-id` + `azure-ad-client-secret` to authenticate to Microsoft Graph
+- ✅ **Application Permissions**: Sites.ReadWrite.All permission already added in Step 7.1
+- ❌ **NOT Managed Identity**: App Service managed identity is only for Key Vault access, not Graph API
+
+**Create SharePoint Site (GCC High):**
+
+1. **Create SharePoint site** for meeting minutes archival:
+   ```bash
+   # Navigate to SharePoint admin center (GCC High)
+   # https://{tenant}-admin.sharepoint.us/_layouts/15/online/AdminHome.aspx
+   
+   # Create new site:
+   # - Site name: "Meeting Minutes Archive"
+   # - URL: https://{tenant}.sharepoint.us/sites/meeting-minutes
+   # - Template: Team site
+   ```
+
+2. **Create document library**:
+   ```bash
+   # In your new site:
+   # 1. Click "New" → "Document library"
+   # 2. Name: "Approved Minutes"
+   # 3. Click "Create"
+   
+   # Note the library name: "Approved Minutes"
+   ```
+
+3. **Verify Graph API permissions** (already completed in Step 7.1):
+   ```bash
+   # The Sites.ReadWrite.All permission was already added in Step 7.1
+   # Verify it's granted:
+   az ad app permission list --id $APP_ID
+   ```
+
+4. **Store SharePoint library name** in Key Vault:
+   ```bash
+   # SharePoint library name (site URL already stored in Step 7.2)
+   az keyvault secret set \
+     --vault-name $KEYVAULT_NAME \
+     --name sharepoint-library \
+     --value "Approved Minutes"
+   
+   # Note: SharePoint site URL and all GCC High secrets (graph-api-endpoint, graph-api-scope, 
+   # azure-ad-authority) were already stored in Step 7.2.
+   ```
+
+5. **Verify SharePoint access**:
+   ```bash
+   # After app deployment, test Graph API access using client credentials
+   # The application authenticates using azure-ad-client-id + azure-ad-client-secret
+   # and accesses SharePoint via Microsoft Graph API
+   ```
+
+**Key Points:**
+- ✅ Uses **Azure AD client credentials** (app registration + client secret) - NOT Replit connectors
+- ✅ App Service **managed identity** used ONLY for Key Vault access
+- ✅ Uses **Microsoft Graph API** for file upload (`https://graph.microsoft.us`)
+- ✅ Uses **GCC High endpoints** (`.sharepoint.us`, not `.sharepoint.com`)
+- ✅ Secrets stored in **Azure Key Vault** (IL4 compliant)
+- ✅ No hardcoded credentials in code
+
+**Required App Service Environment Variables:**
+
+The application will automatically load these from Key Vault references (note: `.usgovcloudapi.net` domain for Azure Government):
+
+```bash
+# SharePoint configuration
+SHAREPOINT_SITE_URL=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/sharepoint-site-url/)
+SHAREPOINT_LIBRARY=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/sharepoint-library/)
+
+# Microsoft Graph API configuration (GCC High)
+MICROSOFT_GRAPH_ENDPOINT=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/graph-api-endpoint/)
+MICROSOFT_GRAPH_SCOPE=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/graph-api-scope/)
+
+# Azure AD configuration (GCC High)
+AZURE_AD_CLIENT_ID=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-client-id/)
+AZURE_AD_CLIENT_SECRET=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-client-secret/)
+AZURE_AD_TENANT_ID=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-tenant-id/)
+AZURE_AD_AUTHORITY=@Microsoft.KeyVault(SecretUri=https://tmm-kv-navy-demo.vault.usgovcloudapi.net/secrets/azure-ad-authority/)
+```
+
+**Troubleshooting:**
+
+**Problem: SharePoint upload fails with 401 Unauthorized**
+- **Cause:** App registration doesn't have Sites.ReadWrite.All permission, or client secret is incorrect
+- **Solution:** Verify permissions in Step 7.1, ensure client secret is correctly stored in Key Vault
+
+**Problem: SharePoint upload fails with 404 Not Found**
+- **Cause:** Site URL or library name incorrect
+- **Solution:** Verify site URL and library name in SharePoint admin center (GCC High)
+
 ---
 
-### Step 7: Deploy Application Code (10 min)
+### Step 8: Deploy Application Code (10 min)
 
 **Option A: Deploy from Replit (Recommended)**
 

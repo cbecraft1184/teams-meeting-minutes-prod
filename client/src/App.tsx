@@ -28,26 +28,24 @@ function Router() {
   );
 }
 
+// Centralized theme selection helper
+function getFluentTheme(isInTeams: boolean, theme: 'default' | 'dark' | 'contrast') {
+  if (isInTeams) {
+    if (theme === 'dark') return teamsDarkTheme;
+    if (theme === 'contrast') return teamsHighContrastTheme;
+    return teamsLightTheme;
+  }
+  if (theme === 'dark') return webDarkTheme;
+  return webLightTheme;
+}
+
 function AppContent() {
-  const { context, isInitialized, theme: teamsTheme } = useTeams();
+  const { context, isInitialized } = useTeams();
   const isInTeams = !!context;
 
   const style = {
     "--sidebar-width": "20rem",
     "--sidebar-width-icon": "4rem",
-  };
-
-  // Map Teams theme to Fluent UI theme
-  const getFluentTheme = () => {
-    if (isInTeams) {
-      // Use Teams-specific themes when running in Teams
-      if (teamsTheme === 'dark') return teamsDarkTheme;
-      if (teamsTheme === 'contrast') return teamsHighContrastTheme;
-      return teamsLightTheme;
-    }
-    // Use web themes for standalone mode
-    if (teamsTheme === 'dark') return webDarkTheme;
-    return webLightTheme;
   };
 
   if (!isInitialized) {
@@ -110,21 +108,11 @@ function AppContent() {
 }
 
 function AppWithProviders() {
-  const { theme } = useTeams();
-  const isInTeams = !!useTeams().context;
-  
-  const getFluentTheme = () => {
-    if (isInTeams) {
-      if (theme === 'dark') return teamsDarkTheme;
-      if (theme === 'contrast') return teamsHighContrastTheme;
-      return teamsLightTheme;
-    }
-    if (theme === 'dark') return webDarkTheme;
-    return webLightTheme;
-  };
+  const { theme, context } = useTeams();
+  const isInTeams = !!context;
 
   return (
-    <FluentProvider theme={getFluentTheme()}>
+    <FluentProvider theme={getFluentTheme(isInTeams, theme)}>
       <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <AppContent />

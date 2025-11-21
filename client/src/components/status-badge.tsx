@@ -1,4 +1,4 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/fluent";
 import { Calendar, Clock, CheckCircle2, Archive } from "lucide-react";
 
 interface StatusBadgeProps {
@@ -11,13 +11,13 @@ export function StatusBadge({ status }: StatusBadgeProps) {
       case "scheduled":
         return {
           icon: Calendar,
-          variant: "secondary" as const,
+          variant: "tint" as const,
           label: "Scheduled",
         };
       case "in_progress":
         return {
           icon: Clock,
-          variant: "default" as const,
+          variant: "filled" as const,
           label: "In Progress",
         };
       case "completed":
@@ -25,19 +25,17 @@ export function StatusBadge({ status }: StatusBadgeProps) {
           icon: CheckCircle2,
           variant: "outline" as const,
           label: "Completed",
-          className: "border-chart-2 text-chart-2",
         };
       case "archived":
         return {
           icon: Archive,
-          variant: "outline" as const,
+          variant: "ghost" as const,
           label: "Archived",
-          className: "border-muted-foreground text-muted-foreground",
         };
       default:
         return {
           icon: Calendar,
-          variant: "secondary" as const,
+          variant: "tint" as const,
           label: status,
         };
     }
@@ -48,11 +46,10 @@ export function StatusBadge({ status }: StatusBadgeProps) {
 
   return (
     <Badge 
-      variant={config.variant} 
-      className={config.className}
+      variant={config.variant}
       data-testid={`badge-status-${status}`}
+      icon={<Icon />}
     >
-      <Icon className="w-3 h-3 mr-1" />
       {config.label}
     </Badge>
   );

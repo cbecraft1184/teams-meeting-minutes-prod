@@ -157,7 +157,7 @@ AI-powered Microsoft Teams meeting minutes management system built as a native T
 | **API Security** | JWT validation, webhook signature verification |
 | **Data Isolation** | Multi-tenant isolation via Azure AD tenant |
 | **Audit Logging** | Application Insights structured logs |
-| **Classification** | UNCLASSIFIED/CONFIDENTIAL/SECRET support |
+| **Classification** | UNCLASSIFIED/CONFIDENTIAL/SECRET/TOP_SECRET support |
 
 ---
 
@@ -172,7 +172,7 @@ AI-powered Microsoft Teams meeting minutes management system built as a native T
 - scheduledAt, duration
 - attendees (JSONB array)
 - status (scheduled/in_progress/completed/cancelled)
-- classificationLevel (UNCLASSIFIED/CONFIDENTIAL/SECRET)
+- classificationLevel (UNCLASSIFIED/CONFIDENTIAL/SECRET/TOP_SECRET)
 - recordingUrl, transcriptUrl
 - onlineMeetingId, organizerAadId, callRecordId
 - graphSyncStatus, enrichmentStatus
@@ -241,18 +241,73 @@ AI-powered Microsoft Teams meeting minutes management system built as a native T
 - timestamps
 ```
 
-**teams_bot_outbox** - Exactly-once Adaptive Card delivery
+**users** - User profiles and permissions
 ```typescript
 - id (SERIAL, PK)
-- meetingId (FK → meetings.id)
-- recipientEmail
-- cardPayload (JSONB)
+- email (unique)
+- displayName
+- clearanceLevel (UNCLASSIFIED/CONFIDENTIAL/SECRET/TOP_SECRET)
+- role (admin/approver/auditor/viewer)
+- department, organizationalUnit
+- azureAdId (Azure AD object ID)
+- azureUserPrincipalName
+- tenantId
+- lastLogin, lastGraphSync
+- timestamps
+```
+
+**meeting_templates** - Reusable meeting templates
+```typescript
+- id (UUID, PK)
+- name
+- templateType (briefing/planning/status_review/emergency_response/custom)
+- agendaTemplate (TEXT)
+- classificationLevel
+- defaultDuration
+- isActive
+- timestamps
+```
+
+**teams_conversation_references** - Teams bot conversation state
+```typescript
+- id (UUID, PK)
+- userId (Azure AD object ID)
+- conversationId, serviceUrl, tenantId
 - conversationReference (JSONB, encrypted)
-- status (pending/delivered/dead_letter)
+- timestamps
+```
+
+**sent_messages** - Audit log of sent Teams messages
+```typescript
+- id (UUID, PK)
+- meetingId (FK → meetings.id)
+- recipientUserId
+- messageType
+- activityId (Teams message ID)
+- deliveredAt
+- errorMessage
+- timestamps
+```
+
+**message_outbox** - Transactional outbox for Adaptive Card delivery
+```typescript
+- id (UUID, PK)
+- meetingId (FK → meetings.id)
+- recipientUserId
+- cardPayload (JSONB)
+- status (pending/delivered/failed/dead_letter)
 - attemptCount, maxAttempts
 - lastAttemptAt, deliveredAt
 - errorType, errorMessage
 - timestamps
+```
+
+**app_settings** - Application configuration
+```typescript
+- id (VARCHAR, PK)
+- value (JSONB)
+- description
+- updatedAt
 ```
 
 ---

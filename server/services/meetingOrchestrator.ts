@@ -300,7 +300,7 @@ async function processUploadSharePointJob(job: Job): Promise<void> {
 }
 
 /**
- * Trigger the complete approval workflow (email + SharePoint)
+ * Trigger the complete approval workflow (email + SharePoint + Teams cards)
  * Called when minutes are approved
  * Respects app settings for distribution channels
  */
@@ -341,6 +341,26 @@ export async function triggerApprovalWorkflow(params: {
     console.log(`[Orchestrator] SharePoint archival job enqueued: ${sharepointJobId}`);
   } else {
     console.log(`[Orchestrator] SharePoint archival disabled in settings - skipping`);
+  }
+
+  // Send Teams Adaptive Card notification if enabled in settings
+  if (settings.enableTeamsCardNotifications) {
+    // Get meeting and minutes data for card generation
+    const meeting = await db.query.meetings.findFirst({
+      where: (meetings, { eq }) => eq(meetings.id, meetingId)
+    });
+
+    const minutes = await db.query.meetingMinutes.findFirst({
+      where: (meetingMinutes, { eq }) => eq(meetingMinutes.id, minutesId)
+    });
+
+    if (meeting && minutes) {
+      const { teamsProactiveMessaging } = await import("./teamsProactiveMessaging");
+      await teamsProactiveMessaging.notifyMeetingProcessed(meeting, minutes);
+      console.log(`[Orchestrator] Teams card notification sent for meeting: ${meetingId}`);
+    }
+  } else {
+    console.log(`[Orchestrator] Teams card notifications disabled in settings - skipping`);
   }
 
   console.log(`[Orchestrator] Triggered approval workflow for meeting: ${meetingId}`);

@@ -21,6 +21,10 @@ import {
   shorthands,
   SelectTabData,
   SelectTabEvent,
+  Toast,
+  ToastTitle,
+  ToastBody,
+  useToastController,
 } from "@fluentui/react-components";
 import { 
   Calendar, 
@@ -39,9 +43,9 @@ import { format } from "date-fns";
 import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
 import { ProcessingStatus } from "./processing-status";
-import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { MeetingWithMinutes } from "@shared/schema";
+import { APP_TOASTER_ID } from "@/App";
 
 interface MeetingDetailsModalProps {
   meeting: MeetingWithMinutes | null;
@@ -310,7 +314,7 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const { toast } = useToast();
+  const { dispatchToast } = useToastController(APP_TOASTER_ID);
   
   const handleTabSelect = (_event: SelectTabEvent, data: SelectTabData) => {
     setSelectedTab(data.value as string);
@@ -324,18 +328,23 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
-      toast({
-        title: "Minutes approved",
-        description: "Meeting minutes have been approved and distributed to all attendees via email."
-      });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Minutes approved</ToastTitle>
+          <ToastBody>Meeting minutes have been approved and distributed to all attendees via email.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
       setShowApproveDialog(false);
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to approve minutes",
-        variant: "destructive"
-      });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to approve minutes"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
     }
   });
 
@@ -348,19 +357,24 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
-      toast({
-        title: "Minutes rejected",
-        description: "Meeting minutes have been rejected."
-      });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Minutes rejected</ToastTitle>
+          <ToastBody>Meeting minutes have been rejected.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
       setShowRejectDialog(false);
       setRejectionReason("");
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to reject minutes",
-        variant: "destructive"
-      });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to reject minutes"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
     }
   });
 

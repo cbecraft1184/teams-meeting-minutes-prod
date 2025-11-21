@@ -1,10 +1,8 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { FluentProvider, webLightTheme, webDarkTheme, teamsHighContrastTheme, teamsDarkTheme, teamsLightTheme, makeStyles, tokens, shorthands, Button } from "@fluentui/react-components";
+import { FluentProvider, webLightTheme, webDarkTheme, teamsHighContrastTheme, teamsDarkTheme, teamsLightTheme, makeStyles, tokens, shorthands, Button, Toaster } from "@fluentui/react-components";
 import { Navigation24Regular } from "@fluentui/react-icons";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { FluentNavigation } from "@/components/FluentNavigation";
@@ -16,6 +14,9 @@ import Search from "@/pages/search";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import { useState } from "react";
+
+// Export constant toaster ID for use across the app
+export const APP_TOASTER_ID = "app-toaster";
 
 function Router() {
   return (
@@ -145,10 +146,8 @@ function AppWithProviders() {
   return (
     <FluentProvider theme={getFluentTheme(isInTeams, theme)}>
       <ThemeProvider defaultTheme="light">
-        <TooltipProvider>
-          <AppContent />
-          <Toaster />
-        </TooltipProvider>
+        <Toaster toasterId={APP_TOASTER_ID} />
+        <AppContent />
       </ThemeProvider>
     </FluentProvider>
   );

@@ -1,7 +1,69 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button, makeStyles, tokens, shorthands } from "@fluentui/react-components";
+import { DismissCircle24Regular, ArrowClockwise20Regular } from "@fluentui/react-icons";
+
+const useStyles = makeStyles({
+  container: {
+    minHeight: "100vh",
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    ...shorthands.padding("16px"),
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  card: {
+    width: "100%",
+    maxWidth: "512px",
+    backgroundColor: tokens.colorNeutralBackground2,
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke2),
+    ...shorthands.padding("24px"),
+  },
+  header: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("12px"),
+    marginBottom: "16px",
+  },
+  iconContainer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "48px",
+    height: "48px",
+    ...shorthands.borderRadius("50%"),
+    backgroundColor: tokens.colorPaletteRedBackground2,
+  },
+  icon: {
+    width: "24px",
+    height: "24px",
+    color: tokens.colorPaletteRedForeground1,
+  },
+  title: {
+    fontSize: tokens.fontSizeBase400,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    marginBottom: "4px",
+  },
+  description: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  errorBox: {
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke2),
+    ...shorthands.borderRadius(tokens.borderRadiusSmall),
+    ...shorthands.padding("12px"),
+    marginBottom: "16px",
+  },
+  errorText: {
+    fontSize: tokens.fontSizeBase200,
+    fontFamily: tokens.fontFamilyMonospace,
+    color: tokens.colorNeutralForeground2,
+    wordBreak: "break-all" as const,
+  },
+});
 
 interface Props {
   children: ReactNode;
@@ -11,6 +73,42 @@ interface Props {
 interface State {
   hasError: boolean;
   error?: Error;
+}
+
+function ErrorDisplay({ error, onReset }: { error?: Error; onReset: () => void }) {
+  const styles = useStyles();
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.card}>
+        <div className={styles.header}>
+          <div className={styles.iconContainer}>
+            <DismissCircle24Regular className={styles.icon} />
+          </div>
+          <div>
+            <div className={styles.title}>Something went wrong</div>
+            <div className={styles.description}>
+              An unexpected error occurred in the application
+            </div>
+          </div>
+        </div>
+        <div className={styles.errorBox}>
+          <div className={styles.errorText}>
+            {error?.message || 'Unknown error'}
+          </div>
+        </div>
+        <Button
+          onClick={onReset}
+          appearance="primary"
+          style={{ width: "100%" }}
+          data-testid="button-reload"
+        >
+          <ArrowClockwise20Regular style={{ marginRight: "8px" }} />
+          Reload Application
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -41,40 +139,7 @@ export class ErrorBoundary extends Component<Props, State> {
         return this.props.fallback;
       }
 
-      return (
-        <div className="min-h-screen w-full flex items-center justify-center p-4 bg-background">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-12 h-12 rounded-full bg-destructive/10">
-                  <AlertCircle className="w-6 h-6 text-destructive" />
-                </div>
-                <div>
-                  <CardTitle>Something went wrong</CardTitle>
-                  <CardDescription>
-                    An unexpected error occurred in the application
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted/50 border border-border rounded-lg p-4">
-                <p className="text-sm font-mono text-muted-foreground break-all">
-                  {this.state.error?.message || 'Unknown error'}
-                </p>
-              </div>
-              <Button
-                onClick={this.handleReset}
-                className="w-full"
-                data-testid="button-reload"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Reload Application
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      );
+      return <ErrorDisplay error={this.state.error} onReset={this.handleReset} />;
     }
 
     return this.props.children;

@@ -776,6 +776,416 @@ The app runs inside Microsoft Teams as an embedded iframe.
 
 ---
 
+## End-to-End Workflow Walkthroughs
+
+This section provides complete walkthrough examples showing how different scenarios flow through the system, including how approval toggles affect the process.
+
+---
+
+### Workflow 1: Standard Meeting with Approval Required
+
+**Scenario:** NAVY personnel conduct a SECRET-level meeting. Approval workflow is **enabled**.
+
+**Step 1: Meeting Ends**
+- Users conduct Teams meeting with recording enabled
+- Meeting ends and recording stops
+- **Automatic:** Microsoft Graph webhook notifies application within 1 minute
+
+**Step 2: Background Processing (3-5 minutes)**
+- **Automatic:** Job queue fetches recording and transcript from Microsoft Graph
+- **Automatic:** Azure OpenAI GPT-4o analyzes transcript
+- **Automatic:** AI generates meeting minutes with summary, discussions, decisions, action items
+- **Result:** Meeting status changes to **"Pending Review"** (yellow badge)
+- **Notification:** Teams Adaptive Card sent to approvers (if enabled)
+
+**Step 3: Approver Review**
+- Approver opens **Meetings** page and sees "Pending Review" meeting
+- Approver clicks meeting to open details modal
+- Approver reviews **Minutes** tab for accuracy
+- Approver downloads preview documents (DOCX/PDF) from **Attachments** tab
+
+**Step 4: Approval Decision**
+- **If Approved:**
+  - Approver clicks **"Approve"** button (green)
+  - Status changes to **"Approved"** (green badge)
+  - Distribution begins automatically
+- **If Rejected:**
+  - Approver clicks **"Reject"** button (red)
+  - Status changes to **"Rejected"** (red badge)
+  - No distribution occurs
+  - System admin notified
+
+**Step 5: Distribution (if approved + channels enabled)**
+- **Email Distribution (if enabled):**
+  - All attendees receive email with:
+    - Meeting minutes summary
+    - Links to download DOCX/PDF documents
+    - Action items assigned to them
+- **SharePoint Archival (if enabled):**
+  - Documents uploaded to `Meeting Minutes` library
+  - Organized by date and classification level
+- **Teams Cards (if enabled):**
+  - Attendees receive Adaptive Card in Teams chat
+  - Card shows summary and quick actions
+
+**Total Time:** 5-10 minutes from meeting end to distribution
+
+---
+
+### Workflow 2: Auto-Approval Enabled (Faster Testing)
+
+**Scenario:** Testing environment with approval workflow **disabled**.
+
+**Step 1: Meeting Ends**
+- Same as Workflow 1
+
+**Step 2: Background Processing (3-5 minutes)**
+- Same AI generation as Workflow 1
+- **DIFFERENT:** Status automatically set to **"Approved"** (no manual review)
+- **Result:** Meeting status is **"Approved"** immediately (green badge)
+
+**Step 3: Automatic Distribution**
+- Distribution begins immediately (no approval step)
+- Email, SharePoint, Teams cards sent (if channels enabled)
+- **No human intervention required**
+
+**Step 4: Post-Processing**
+- Users can still view minutes on dashboard
+- Admins can still monitor in Meetings page
+- Documents available for download
+
+**Total Time:** 3-5 minutes from meeting end to distribution (faster)
+
+**Use Cases for Auto-Approval:**
+- ✅ Testing and development environments
+- ✅ Routine UNCLASSIFIED meetings
+- ✅ Time-sensitive meeting summaries
+- ❌ Classified meetings (should use manual approval)
+
+---
+
+### Workflow 3: Distribution Channels Disabled
+
+**Scenario:** Admin wants to capture minutes but NOT distribute them (silent mode).
+
+**Admin Configuration:**
+1. Go to **Settings** → **Workflow Settings**
+2. Set toggles:
+   - ✅ Require Approval: ON
+   - ❌ Email Distribution: OFF
+   - ❌ SharePoint Archival: OFF
+   - ❌ Teams Card Notifications: OFF
+
+**What Happens:**
+- Meeting captured and AI generates minutes (normal)
+- Approver reviews and approves minutes (normal)
+- **DIFFERENT:** No distribution occurs
+- Minutes stored in database only
+- Users can access via dashboard/search
+- Documents available for manual download
+
+**Use Cases:**
+- 📝 Internal record-keeping only
+- 📝 Draft minutes for later review
+- 📝 Testing without sending notifications
+- 📝 Highly sensitive meetings
+
+---
+
+### Workflow 4: Clearance-Based Access Control
+
+**Scenario:** Understanding what different users see based on clearance levels.
+
+**Meeting Classification:** SECRET
+
+**User 1: Admin with TOP SECRET clearance**
+- ✅ Sees this SECRET meeting (clearance allows)
+- ✅ Can view, approve, download
+- ✅ Sees ALL meetings (admin role + sufficient clearance)
+
+**User 2: Approver with CONFIDENTIAL clearance**
+- ❌ **Cannot see** this SECRET meeting (clearance insufficient)
+- Reason: CONFIDENTIAL clearance only grants access to CONFIDENTIAL and UNCLASSIFIED
+- Meeting does not appear in their Meetings list or Dashboard
+
+**User 3: Viewer with SECRET clearance who attended meeting**
+- ✅ Sees this SECRET meeting (clearance allows + attended)
+- ✅ Can view and download
+- ❌ Cannot approve (role restriction)
+
+**User 4: Auditor with SECRET clearance who did NOT attend**
+- ✅ Sees this SECRET meeting (clearance allows + auditor role)
+- ✅ Can view and download
+- ❌ Cannot approve (role restriction)
+
+**Key Principle:** Clearance acts as a filter BEFORE role permissions apply.
+
+---
+
+### Workflow 5: Rejected Minutes Recovery
+
+**Scenario:** Approver rejects minutes due to inaccuracy. What happens next?
+
+**Step 1: Rejection**
+- Approver reviews minutes and finds errors
+- Approver clicks **"Reject"** button
+- Optional: Provides rejection reason
+- Status changes to **"Rejected"** (red badge)
+
+**Step 2: Admin Notification**
+- System admin receives notification of rejection
+- Admin views rejected meeting in **Meetings** page
+- Admin investigates rejection reason
+
+**Step 3: Recovery Options**
+
+**Option A: Manual Regeneration**
+- Admin can trigger AI regeneration (if feature available)
+- New minutes generated with different AI parameters
+- Status resets to **"Pending Review"**
+- Approver reviews new version
+
+**Option B: Manual Editing (Future Feature)**
+- Admin manually edits minutes in database
+- Corrections made directly
+- Approver reviews edited version
+
+**Option C: Leave Rejected**
+- If minutes are fundamentally flawed
+- Keep status as "Rejected"
+- Meeting remains in system for audit trail
+- No distribution occurs
+
+**Current Implementation:** Option C is default (rejected minutes remain rejected)
+
+---
+
+## Permission Troubleshooting Scenarios
+
+This section provides specific troubleshooting guidance for common permission-related issues.
+
+---
+
+### Scenario 1: "Why can't I see a specific meeting?"
+
+**Symptom:** You know a meeting exists, but it doesn't appear in your Meetings list or Dashboard.
+
+**Possible Causes and Solutions:**
+
+**Cause 1: Clearance Level Restriction**
+- **Check:** What is the meeting's classification level?
+- **Check:** What is your clearance level?
+- **Solution:** You need clearance **equal to or higher** than the meeting classification
+  - If meeting is SECRET, you need SECRET or TOP SECRET clearance
+  - If meeting is CONFIDENTIAL, you need CONFIDENTIAL, SECRET, or TOP SECRET clearance
+
+**How to verify your clearance:**
+1. Ask your Azure AD administrator
+2. Check your Azure AD group memberships (e.g., `DOD-Clearance-SECRET`)
+3. If insufficient, request clearance upgrade (requires security review)
+
+**Cause 2: Role Restriction (Viewer)**
+- **Check:** Are you a Viewer?
+- **Check:** Did you attend the meeting?
+- **Solution:** Viewers can ONLY see meetings they attended
+  - If you didn't attend, you cannot see it (even with correct clearance)
+  - Admins and Auditors can see ALL meetings (within clearance)
+
+**How to verify your role:**
+1. Check which pages you can access in left navigation
+2. If only **Dashboard**, **Meetings**, **Search** → You are a Viewer or Approver
+3. If you also see **Settings** → You are an Admin
+
+**Cause 3: Meeting Not Yet Processed**
+- **Check:** Did the meeting just end?
+- **Solution:** Wait 3-5 minutes for background processing to complete
+- **Verification:** Check Dashboard for "Processing" or "Pending" status
+
+---
+
+### Scenario 2: "Why can't I approve meeting minutes?"
+
+**Symptom:** You see a meeting with "Pending Review" status, but no Approve/Reject buttons appear.
+
+**Possible Causes and Solutions:**
+
+**Cause 1: Role Restriction**
+- **Check:** What is your role?
+- **Solution:** Only **Admin** and **Approver** roles can approve minutes
+  - **Auditor** and **Viewer** roles are read-only
+  - Contact your Azure AD administrator to add you to `DOD-Role-Approver` group
+
+**How to verify:**
+1. Open a meeting with "Pending Review" status
+2. Go to **Minutes** tab
+3. If you see Approve/Reject buttons → You have approval permissions
+4. If you only see "Status: Pending Review" text → You are Auditor/Viewer
+
+**Cause 2: Meeting Already Approved/Rejected**
+- **Check:** Meeting status badge color
+  - Green badge "Approved" → Already approved (no action needed)
+  - Red badge "Rejected" → Already rejected (cannot re-approve)
+- **Solution:** Once approved or rejected, status cannot be changed (by design)
+
+**Cause 3: Clearance Level Insufficient**
+- **Check:** Meeting classification vs. your clearance
+- **Solution:** Even Approvers need appropriate clearance to approve
+  - Cannot approve SECRET meetings with only CONFIDENTIAL clearance
+  - Request clearance upgrade if needed
+
+---
+
+### Scenario 3: "Why is the Settings page not visible?"
+
+**Symptom:** Left navigation only shows Dashboard, Meetings, Search. No Settings option.
+
+**Possible Causes and Solutions:**
+
+**Cause 1: Not an Admin**
+- **Check:** Settings page is **Admin-only**
+- **Solution:** Only users in `DOD-Role-Admin` Azure AD group can access Settings
+- **How to get admin access:**
+  1. Contact your Azure AD administrator
+  2. Request addition to `DOD-Role-Admin` group
+  3. Justify business need for admin access
+  4. Wait 15 minutes for cache refresh after group change
+
+**Cause 2: Cache Not Refreshed**
+- **Check:** Were you recently added to admin group?
+- **Solution:** Azure AD group cache refreshes every 15 minutes
+- **Workaround:** Log out and log back in to force immediate cache refresh
+
+**Verification:**
+1. Ask your Azure AD admin to verify you're in `DOD-Role-Admin` group
+2. Wait 15 minutes or log out/in
+3. Refresh the page (F5)
+4. Settings should appear in left navigation
+
+---
+
+### Scenario 4: "Why don't I see all meetings?"
+
+**Symptom:** You are an Admin or Auditor, but you don't see all system meetings.
+
+**Possible Causes and Solutions:**
+
+**Cause 1: Clearance Level Filter**
+- **Fact:** Even Admins/Auditors are restricted by clearance level
+- **Example:** Admin with SECRET clearance cannot see TOP SECRET meetings
+- **Solution:** If you need to see higher-classified meetings:
+  1. Request clearance upgrade from security officer
+  2. Requires security investigation and approval
+  3. Not granted for convenience—legitimate need required
+
+**Cause 2: Meetings Not Yet Captured**
+- **Check:** Are there active Teams meetings with recording enabled?
+- **Solution:** Application only captures meetings that:
+  - Have recording enabled during the meeting
+  - Are hosted by users in your tenant
+  - Have webhook subscriptions active
+
+**Cause 3: Webhook Subscription Expired**
+- **Check:** Have webhooks expired (app down >48 hours)?
+- **Solution:** Restart application to re-create webhook subscriptions
+- **Admin Action Required:** Check Application Insights for webhook errors
+
+---
+
+### Scenario 5: "Why didn't attendees receive email/Teams cards?"
+
+**Symptom:** Minutes approved, but attendees report not receiving notifications.
+
+**Possible Causes and Solutions:**
+
+**Cause 1: Distribution Channels Disabled**
+- **Check:** Go to **Settings** → **Workflow Settings**
+- **Verify:**
+  - Is "Enable Email Distribution" toggled ON?
+  - Is "Enable Teams Card Notifications" toggled ON?
+- **Solution:** Enable the desired distribution channels
+- **Note:** Changes only affect NEW approvals (not retroactive)
+
+**Cause 2: Approval Workflow Disabled**
+- **Check:** Is "Require Approval for Minutes" toggled OFF?
+- **Scenario:** Auto-approval might send cards before you manually approved
+- **Solution:** This is expected behavior when approval is disabled
+
+**Cause 3: Email Delivery Failure**
+- **Check:** Exchange Online service health
+- **Check:** Application Insights logs for email send errors
+- **Solution:** Verify SMTP configuration and Exchange permissions
+
+**Cause 4: Teams Card Delivery Failure**
+- **Check:** Application Insights logs for Teams Bot API errors
+- **Common Issues:**
+  - Tenant permissions not granted for bot
+  - User does not have Teams app installed
+  - Network/firewall blocking Teams API calls
+- **Solution:** Contact system administrator to review logs
+
+---
+
+### Scenario 6: "Why can't I download documents?"
+
+**Symptom:** Download buttons (DOCX/PDF) don't work or return errors.
+
+**Possible Causes and Solutions:**
+
+**Cause 1: Documents Not Generated Yet**
+- **Check:** Meeting status
+  - If status is "Processing" or "Pending Review" → Documents still generating
+  - Wait for status to become "Approved" or "Pending Review" with preview available
+- **Solution:** Wait 30-60 seconds for document generation to complete
+
+**Cause 2: Browser Pop-up Blocker**
+- **Check:** Browser console for blocked pop-up warnings
+- **Solution:** Allow pop-ups for this domain in browser settings
+- **Verification:** Try download again after allowing pop-ups
+
+**Cause 3: SharePoint Permissions (if using SharePoint links)**
+- **Check:** If documents are served from SharePoint
+- **Solution:** Verify you have Read permissions on SharePoint library
+- **Contact:** SharePoint administrator to grant access
+
+---
+
+### Scenario 7: "How do I change my role or clearance?"
+
+**Symptom:** You need different permissions or access to higher-classified meetings.
+
+**Process:**
+
+**To Change Role:**
+1. Contact your **Azure AD administrator**
+2. Explain which role you need (Admin, Approver, Auditor, Viewer)
+3. Provide business justification
+4. Admin updates your Azure AD group membership
+5. Wait 15 minutes for cache refresh (or log out/in)
+
+**Azure AD Groups:**
+- `DOD-Role-Admin` → Admin role
+- `DOD-Role-Approver` → Approver role
+- `DOD-Role-Auditor` → Auditor role
+- `DOD-Role-Viewer` → Viewer role
+
+**To Change Clearance:**
+1. Contact your **Information Security Officer** or **Security Manager**
+2. Submit clearance upgrade request
+3. Undergo security investigation (if required)
+4. Receive clearance approval
+5. Security officer updates Azure AD group membership
+6. Wait 15 minutes for cache refresh
+
+**Azure AD Groups:**
+- `DOD-Clearance-TOP_SECRET` → TOP SECRET clearance
+- `DOD-Clearance-SECRET` → SECRET clearance
+- `DOD-Clearance-CONFIDENTIAL` → CONFIDENTIAL clearance
+- `DOD-Clearance-UNCLASSIFIED` → UNCLASSIFIED clearance
+
+**Important:** Clearance changes require official approval and cannot be granted for convenience.
+
+---
+
 ## Quick Reference
 
 ### Role Comparison at a Glance

@@ -18,6 +18,10 @@ export class TeamsProactiveMessagingService {
   /**
    * Send Adaptive Card with idempotency protection
    * Prevents duplicate sends via database-level concurrency control
+   * 
+   * Strategy: Mark as 'sent' BEFORE sending, rollback on failure
+   * This ensures idempotency even if process crashes mid-send
+   * 
    * @returns {success: boolean, alreadySent: boolean}
    */
   private async sendWithIdempotency(
@@ -28,9 +32,9 @@ export class TeamsProactiveMessagingService {
   ): Promise<{ success: boolean; alreadySent: boolean }> {
     // Generate idempotency key (unique per meeting + recipient + type)
     const idempotencyKey = `${meetingId}:${conversationId}:${messageType}`;
+    const MAX_ATTEMPTS = 3;
     
-    // CRITICAL: Use SELECT FOR UPDATE to lock row and prevent concurrent sends
-    // This ensures only ONE worker can attempt to send this message
+    // CRITICAL: Check status and prepare to send (with row lock)
     const result = await db.transaction(async (tx) => {
       // Try to insert new record (fails if already exists)
       const inserted = await tx.insert(sentMessages).values({
@@ -42,9 +46,26 @@ export class TeamsProactiveMessagingService {
         attemptCount: 1,
       }).onConflictDoNothing().returning();
       
-      // If insert succeeded, we're the first attempt - proceed to send
+      // If insert succeeded, we're the first attempt - get ref and mark as sent
       if (inserted.length > 0) {
-        return { shouldSend: true, alreadySent: false };
+        const ref = await tx.query.teamsConversationReferences.findFirst({
+          where: eq(teamsConversationReferences.conversationId, conversationId),
+        });
+        
+        if (!ref) {
+          throw new Error(`Conversation reference not found: ${conversationId}`);
+        }
+        
+        // CRITICAL: Pre-mark as 'sent' before actually sending
+        await tx.update(sentMessages)
+          .set({
+            status: 'sent',
+            sentAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(sentMessages.idempotencyKey, idempotencyKey));
+        
+        return { shouldSend: true, alreadySent: false, attemptCount: 1, ref };
       }
       
       // If insert failed, row already exists - lock it and check status
@@ -63,7 +84,7 @@ export class TeamsProactiveMessagingService {
       
       // Already sent successfully - don't resend
       if (existing.status === 'sent') {
-        return { shouldSend: false, alreadySent: true };
+        return { shouldSend: false, alreadySent: true, attemptCount: existing.attemptCount, ref: null };
       }
       
       // Another worker is currently sending - don't duplicate
@@ -74,35 +95,58 @@ export class TeamsProactiveMessagingService {
         
         if (pendingDuration < PENDING_TIMEOUT_MS) {
           // Still fresh, another worker is actively sending
-          return { shouldSend: false, alreadySent: false };
+          return { shouldSend: false, alreadySent: false, attemptCount: existing.attemptCount, ref: null };
         }
         
         // Stale pending (likely crash) - promote to retry
         console.warn(`[Teams Proactive] Stale pending detected (${Math.round(pendingDuration/1000)}s), assuming crash and retrying: ${idempotencyKey}`);
         await tx.update(sentMessages)
           .set({
-            status: 'pending', // Keep as pending (we're about to send)
-            attemptCount: existing.attemptCount + 1,
+            status: 'failed', // Mark as failed so we can retry
+            attemptCount: existing.attemptCount,
             lastError: 'Previous attempt timed out (likely crash)',
             updatedAt: new Date(),
           })
           .where(eq(sentMessages.idempotencyKey, idempotencyKey));
         
-        return { shouldSend: true, alreadySent: false };
+        // Fall through to failed retry logic below
       }
       
-      // Status is 'failed' - atomically transition to 'pending' for retry
-      // This prevents concurrent workers from both retrying
-      await tx.update(sentMessages)
-        .set({
-          status: 'pending', // CRITICAL: Prevents other workers from retrying
-          attemptCount: existing.attemptCount + 1,
-          lastError: null, // Clear previous error
-          updatedAt: new Date(),
-        })
-        .where(eq(sentMessages.idempotencyKey, idempotencyKey));
+      // Status is 'failed' or stale 'pending' - check if we can retry
+      if (existing.status === 'failed' || existing.status === 'pending') {
+        const newAttemptCount = existing.attemptCount + 1;
+        
+        // Check max attempts
+        if (newAttemptCount > MAX_ATTEMPTS) {
+          console.error(`[Teams Proactive] Max attempts (${MAX_ATTEMPTS}) reached: ${idempotencyKey}`);
+          return { shouldSend: false, alreadySent: false, attemptCount: existing.attemptCount, ref: null };
+        }
+        
+        // CRITICAL: Pre-mark as 'sent' and get conversation ref in same transaction
+        // If we crash after this, next attempt sees 'sent' and skips
+        const ref = await tx.query.teamsConversationReferences.findFirst({
+          where: eq(teamsConversationReferences.conversationId, conversationId),
+        });
+        
+        if (!ref) {
+          throw new Error(`Conversation reference not found: ${conversationId}`);
+        }
+        
+        await tx.update(sentMessages)
+          .set({
+            status: 'sent', // CRITICAL: Mark as sent BEFORE actually sending
+            attemptCount: newAttemptCount,
+            sentAt: new Date(),
+            lastError: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(sentMessages.idempotencyKey, idempotencyKey));
+        
+        return { shouldSend: true, alreadySent: false, attemptCount: newAttemptCount, ref };
+      }
       
-      return { shouldSend: true, alreadySent: false };
+      // Unknown status - should never happen
+      throw new Error(`Unexpected status: ${existing.status}`);
     });
     
     // If transaction determined we shouldn't send, short-circuit
@@ -110,49 +154,33 @@ export class TeamsProactiveMessagingService {
       if (result.alreadySent) {
         console.log(`[Teams Proactive] Message already sent: ${idempotencyKey}`);
       } else {
-        console.log(`[Teams Proactive] Message send in progress (concurrent worker): ${idempotencyKey}`);
+        console.log(`[Teams Proactive] Message send blocked (in progress or max attempts): ${idempotencyKey}`);
       }
       return { success: true, alreadySent: result.alreadySent };
     }
     
+    // Perform the actual send
+    // Note: Status is already 'sent' in database, so if we crash here, no retry will occur
+    // This is INTENTIONAL - better to skip one message than send duplicates
     try {
-      // Get conversation reference
-      const ref = await db.query.teamsConversationReferences.findFirst({
-        where: eq(teamsConversationReferences.conversationId, conversationId),
-      });
-      
-      if (!ref) {
-        throw new Error(`Conversation reference not found: ${conversationId}`);
-      }
-      
-      // Send via Bot Framework
       await teamsBotAdapter.sendAdaptiveCard(
-        ref.conversationReference as any,
+        result.ref!.conversationReference as any,
         card
       );
       
-      // Mark as sent
-      await db.update(sentMessages)
-        .set({
-          status: 'sent',
-          sentAt: new Date(),
-          lastError: null,
-          updatedAt: new Date(),
-        })
-        .where(eq(sentMessages.idempotencyKey, idempotencyKey));
-      
       return { success: true, alreadySent: false };
     } catch (error: any) {
-      // Record failure
+      // Send failed - rollback to 'failed' status for retry
       await db.update(sentMessages)
         .set({
           status: 'failed',
+          sentAt: null,
           lastError: error.message || 'Unknown error',
           updatedAt: new Date(),
         })
         .where(eq(sentMessages.idempotencyKey, idempotencyKey));
       
-      console.error(`[Teams Proactive] Send failed: ${idempotencyKey}`, error.message);
+      console.error(`[Teams Proactive] Send failed (attempt ${result.attemptCount}/${MAX_ATTEMPTS}): ${idempotencyKey}`, error.message);
       return { success: false, alreadySent: false };
     }
   }

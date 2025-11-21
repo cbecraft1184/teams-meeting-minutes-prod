@@ -4,7 +4,7 @@ import { teamsBotAdapter } from './teamsBot';
 import { sql, and, lt } from 'drizzle-orm';
 
 /**
- * Transactional Outbox Processor
+ * Transactional Outbox Processor with Production Telemetry
  * 
  * Polls message_outbox table and sends Adaptive Cards via Bot Framework.
  * Implements exactly-once delivery with exponential backoff retry.
@@ -14,6 +14,8 @@ import { sql, and, lt } from 'drizzle-orm';
  * - Exponential backoff: 1min → 5min → 15min
  * - Dead-letter queue after 4 failures (3 retry intervals)
  * - Transactional commit: only delete from outbox after successful send
+ * - Per-recipient error isolation (each send operation is independent)
+ * - Production-grade telemetry and observability
  * 
  * Retry Schedule:
  * - Attempt 1 → 2: Wait 1 minute
@@ -30,11 +32,82 @@ const BACKOFF_SCHEDULE_MS = [
 ];
 
 /**
- * Process one batch of outbox messages
+ * Telemetry tracker for outbox processing
+ * Production-grade observability for monitoring send operations
+ */
+interface OutboxTelemetry {
+  messagesProcessed: number;
+  sendSuccess: number;
+  sendFailureTransient: number;
+  sendFailurePermanent: number;
+  deadLetterCount: number;
+  totalLatencyMs: number;
+  errorsByType: Map<string, number>;
+}
+
+/**
+ * Error classification for retry decisions
+ */
+enum ErrorType {
+  TRANSIENT = 'transient',      // Network issues, rate limits - RETRY
+  PERMANENT = 'permanent',       // Invalid recipient, auth failed - DEAD-LETTER
+  UNKNOWN = 'unknown'            // Default - RETRY
+}
+
+/**
+ * Classify error for retry strategy and telemetry
+ */
+function classifyError(error: any): ErrorType {
+  const message = error.message?.toLowerCase() || '';
+  const code = error.code || error.statusCode;
+  
+  // Permanent errors - no point retrying
+  if (
+    message.includes('not found') ||
+    message.includes('invalid recipient') ||
+    message.includes('unauthorized') ||
+    message.includes('forbidden') ||
+    code === 404 ||
+    code === 401 ||
+    code === 403
+  ) {
+    return ErrorType.PERMANENT;
+  }
+  
+  // Transient errors - safe to retry
+  if (
+    message.includes('timeout') ||
+    message.includes('network') ||
+    message.includes('rate limit') ||
+    message.includes('too many requests') ||
+    message.includes('service unavailable') ||
+    code === 429 ||
+    code === 503 ||
+    code === 504
+  ) {
+    return ErrorType.TRANSIENT;
+  }
+  
+  // Unknown - default to retry (conservative approach)
+  return ErrorType.UNKNOWN;
+}
+
+/**
+ * Process one batch of outbox messages with production telemetry
  * @param batchSize Number of messages to process in one iteration
  * @returns Number of messages processed
  */
 export async function processOutboxMessages(batchSize: number = 10): Promise<number> {
+  const telemetry: OutboxTelemetry = {
+    messagesProcessed: 0,
+    sendSuccess: 0,
+    sendFailureTransient: 0,
+    sendFailurePermanent: 0,
+    deadLetterCount: 0,
+    totalLatencyMs: 0,
+    errorsByType: new Map()
+  };
+
   try {
     // Fetch pending messages (lock-safe for concurrent workers)
     const messages = await db
@@ -56,17 +129,22 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
       return 0;
     }
 
-    let successCount = 0;
-    let failureCount = 0;
+    telemetry.messagesProcessed = messages.length;
 
-    // Process each message
+    // Process each message independently (per-recipient error isolation)
     for (const message of messages) {
+      const sendStartTime = Date.now();
+      
       try {
         // Send Adaptive Card via Bot Framework
         await teamsBotAdapter.sendAdaptiveCard(
           message.conversationReference,
           message.cardPayload
         );
+
+        const latency = Date.now() - sendStartTime;
+        telemetry.totalLatencyMs += latency;
+        const currentAttempt = message.attemptCount + 1;
 
         // Success - delete from outbox and mark sentMessages as 'sent'
         await db.transaction(async (tx) => {
@@ -76,25 +154,50 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
             .where(sql`${messageOutbox.id} = ${message.id}`);
 
           // Update sentMessages audit trail
+          // TELEMETRY CONSISTENCY: Store actual attempt count to match logs
           await tx
             .update(sentMessages)
             .set({
               status: 'sent',
+              attemptCount: currentAttempt, // Match logged attempt number
               sentAt: new Date(),
               updatedAt: new Date(),
             })
             .where(sql`${sentMessages.id} = ${message.sentMessageId}`);
         });
 
-        successCount++;
-        console.log(`[Outbox] Message sent successfully: ${message.sentMessageId}`);
+        telemetry.sendSuccess++;
+        // TELEMETRY CONSISTENCY: Log matches database state (attemptCount updated to currentAttempt)
+        console.log(
+          `[Outbox] Send success | msg=${message.sentMessageId} | ` +
+          `attempt=${currentAttempt}/${MAX_ATTEMPTS} | latency=${latency}ms`
+        );
+        
       } catch (error: any) {
-        // Failure - increment attempt count and apply backoff
+        const latency = Date.now() - sendStartTime;
+        telemetry.totalLatencyMs += latency;
+        
+        // Classify error for retry strategy and telemetry
+        const errorType = classifyError(error);
+        const errorCode = error.code || error.statusCode || 'UNKNOWN';
         const newAttemptCount = message.attemptCount + 1;
-        const errorMessage = error.message || 'Unknown error';
+        
+        // DOD COMPLIANCE: Never log full error message (may contain PII)
+        // Only log error type and code for telemetry
+        const safeErrorSummary = `${errorType}:${errorCode}`;
+        
+        // Track error types for observability
+        telemetry.errorsByType.set(safeErrorSummary, (telemetry.errorsByType.get(safeErrorSummary) || 0) + 1);
 
-        if (newAttemptCount >= MAX_ATTEMPTS) {
-          // Move to dead-letter queue
+        // Categorize failure for telemetry
+        if (errorType === ErrorType.PERMANENT) {
+          telemetry.sendFailurePermanent++;
+        } else {
+          telemetry.sendFailureTransient++;
+        }
+
+        // Permanent error OR exceeded max attempts → Dead-letter
+        if (errorType === ErrorType.PERMANENT || newAttemptCount >= MAX_ATTEMPTS) {
           await db.transaction(async (tx) => {
             // Delete from outbox (no more retries)
             await tx
@@ -102,31 +205,40 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
               .where(sql`${messageOutbox.id} = ${message.id}`);
 
             // Mark sentMessages as permanently failed
+            // DOD COMPLIANCE: Store safe error summary in database (no PII)
             await tx
               .update(sentMessages)
               .set({
                 status: 'failed',
-                lastError: `Dead-letter after ${newAttemptCount} attempts: ${errorMessage}`,
+                lastError: `Dead-letter after ${newAttemptCount} attempts: ${safeErrorSummary}`,
                 attemptCount: newAttemptCount,
                 updatedAt: new Date(),
               })
               .where(sql`${sentMessages.id} = ${message.sentMessageId}`);
           });
 
-          console.error(`[Outbox] Message moved to dead-letter: ${message.sentMessageId} - ${errorMessage}`);
+          telemetry.deadLetterCount++;
+          // DOD COMPLIANCE: Log only safe fields (no PII from error messages)
+          console.error(
+            `[Outbox] DEAD-LETTER | msg=${message.sentMessageId} | ` +
+            `errorSummary=${safeErrorSummary} | attempts=${newAttemptCount} | ` +
+            `latency=${latency}ms`
+          );
+          
         } else {
-          // Calculate next retry time with exponential backoff
+          // Transient/Unknown error → Retry with exponential backoff
           const backoffMs = BACKOFF_SCHEDULE_MS[newAttemptCount - 1] || BACKOFF_SCHEDULE_MS[BACKOFF_SCHEDULE_MS.length - 1];
           const nextAttemptAt = new Date(Date.now() + backoffMs);
 
           // Update for retry with exponential backoff
+          // DOD COMPLIANCE: Store safe error summary (no PII)
           await db
             .update(messageOutbox)
             .set({
               attemptCount: newAttemptCount,
               lastAttemptAt: new Date(),
               nextAttemptAt: nextAttemptAt, // CRITICAL: Schedule next retry according to backoff
-              lastError: errorMessage,
+              lastError: safeErrorSummary,
             })
             .where(sql`${messageOutbox.id} = ${message.id}`);
 
@@ -135,25 +247,47 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
             .update(sentMessages)
             .set({
               attemptCount: newAttemptCount,
-              lastError: errorMessage,
+              lastError: safeErrorSummary,
               updatedAt: new Date(),
             })
             .where(sql`${sentMessages.id} = ${message.sentMessageId}`);
 
-          console.warn(`[Outbox] Message failed (attempt ${newAttemptCount}/${MAX_ATTEMPTS}), retry in ${backoffMs / 60000}min: ${message.sentMessageId} - ${errorMessage}`);
+          // DOD COMPLIANCE: Log only safe fields (no PII from error messages)
+          console.warn(
+            `[Outbox] Send failed (retrying) | msg=${message.sentMessageId} | ` +
+            `errorSummary=${safeErrorSummary} | attempt=${newAttemptCount}/${MAX_ATTEMPTS} | ` +
+            `retryIn=${Math.round(backoffMs / 60000)}min | latency=${latency}ms`
+          );
         }
-
-        failureCount++;
       }
     }
 
-    if (successCount > 0 || failureCount > 0) {
-      console.log(`[Outbox] Processed ${messages.length} messages: ${successCount} sent, ${failureCount} failed`);
+    // Emit production telemetry
+    if (telemetry.messagesProcessed > 0) {
+      const avgLatency = Math.round(telemetry.totalLatencyMs / telemetry.messagesProcessed);
+      const successRate = ((telemetry.sendSuccess / telemetry.messagesProcessed) * 100).toFixed(1);
+      
+      console.log(
+        `[Outbox Telemetry] batch=${telemetry.messagesProcessed} | ` +
+        `success=${telemetry.sendSuccess} (${successRate}%) | ` +
+        `transientFail=${telemetry.sendFailureTransient} | ` +
+        `permanentFail=${telemetry.sendFailurePermanent} | ` +
+        `deadLetter=${telemetry.deadLetterCount} | ` +
+        `avgLatency=${avgLatency}ms`
+      );
+      
+      // Log error distribution for debugging
+      if (telemetry.errorsByType.size > 0) {
+        const errorSummary = Array.from(telemetry.errorsByType.entries())
+          .map(([type, count]) => `${type}=${count}`)
+          .join(', ');
+        console.log(`[Outbox Errors] ${errorSummary}`);
+      }
     }
 
     return messages.length;
   } catch (error) {
-    console.error('[Outbox] Processor error:', error instanceof Error ? error.message : 'Unknown error');
+    console.error('[Outbox] Processor critical error:', error instanceof Error ? error.message : 'Unknown error');
     return 0;
   }
 }

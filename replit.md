@@ -176,12 +176,22 @@ An AI-powered Microsoft Teams meeting minutes management system for demonstratio
 
 ## Recent Changes
 
-- **November 2025 (Task 4)**: Added strict schema validation for all database writes
-  - Meeting data: Email validation, attendee limits, title/duration constraints
-  - Meeting minutes: Summary limits, attendees validation, array constraints
-  - Action items: Task validation, assignee email verification, future date checks
-  - All API endpoints validate before database writes (POST /api/meetings, PATCH /api/minutes, etc.)
-  - Validation errors return detailed 400 responses with field-level error messages
+- **November 2025 (Task 4)**: Added strict schema validation for all database writes (COMPLETED ✓)
+  - **Validation Coverage**: All CRUD operations validated before database writes
+    - Meeting endpoints: POST /api/meetings, PATCH /api/meetings/:id
+    - Minutes endpoints: PATCH /api/minutes/:id
+    - Action items: POST /api/action-items, PATCH /api/action-items/:id
+    - Internal services: minutesGenerator.ts (both success and failure paths)
+  - **Schema Rules**:
+    - Meetings: Email validation, 1-500 attendees, title 1-500 chars, duration regex
+    - Minutes: Summary 1-5000 chars, 1-500 attendees, max 100 discussions/decisions
+    - Action Items: Task 1-1000 chars, assignee email or "Unassigned", future dates only
+  - **Key Fixes** (multiple architect iterations):
+    - Added validation to PATCH endpoints using .partial() schemas
+    - Fixed minutesGenerator failure path to use schema-compliant placeholders
+    - Implemented proper date coercion using z.union() for JSON ISO strings
+    - All validation bypasses eliminated - zero unvalidated database writes
+  - **Error Handling**: 400 responses with detailed field-level Zod error messages
 - **November 2025 (Task 3)**: Implemented transactional outbox pattern for exactly-once delivery
   - Zero duplicates, zero message loss, crash-safe with exponential backoff (1m→5m→15m)
   - Production-grade reliability tested and verified

@@ -2,27 +2,25 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Dialog,
-  DialogContent,
-  DialogHeader,
+  DialogTrigger,
+  DialogSurface,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  DialogBody,
+  DialogActions,
+  DialogContent,
+  TabList,
+  Tab,
+  Card,
+  Badge,
+  Button,
+  Divider,
+  Textarea,
+  makeStyles,
+  tokens,
+  shorthands,
+  SelectTabData,
+  SelectTabEvent,
+} from "@fluentui/react-components";
 import { 
   Calendar, 
   Clock, 
@@ -50,11 +48,223 @@ interface MeetingDetailsModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const useStyles = makeStyles({
+  dialogSurface: {
+    maxWidth: "896px",
+    width: "90vw",
+    maxHeight: "90vh",
+    display: "flex",
+    flexDirection: "column",
+  },
+  dialogBody: {
+    display: "flex",
+    flexDirection: "column",
+    flex: "1 1 0",
+    ...shorthands.overflow("hidden"),
+  },
+  header: {
+    ...shorthands.padding("24px", "24px", "16px"),
+  },
+  headerContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    ...shorthands.gap("16px"),
+    flexWrap: "wrap",
+  },
+  titleContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    fontSize: "24px",
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    marginBottom: "8px",
+  },
+  description: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground3,
+  },
+  badgeContainer: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+  tabList: {
+    ...shorthands.padding("0", "24px"),
+  },
+  tabContent: {
+    flex: "1 1 0",
+    ...shorthands.overflow("auto"),
+    ...shorthands.padding("24px"),
+  },
+  overviewGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    ...shorthands.gap("16px"),
+    marginBottom: "24px",
+    "@media (min-width: 768px)": {
+      gridTemplateColumns: "1fr 1fr",
+    },
+  },
+  metadataItem: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+    fontSize: tokens.fontSizeBase300,
+  },
+  metadataLabel: {
+    fontWeight: tokens.fontWeightSemibold,
+  },
+  metadataValue: {
+    color: tokens.colorNeutralForeground1,
+  },
+  metadataIcon: {
+    color: tokens.colorNeutralForeground3,
+  },
+  link: {
+    color: tokens.colorBrandForeground1,
+    textDecorationLine: "none",
+    ":hover": {
+      textDecorationLine: "underline",
+    },
+  },
+  sectionTitle: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    marginBottom: "12px",
+  },
+  attendeeList: {
+    display: "flex",
+    flexWrap: "wrap",
+    ...shorthands.gap("8px"),
+  },
+  minutesHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.gap("16px"),
+    flexWrap: "wrap",
+    marginBottom: "24px",
+  },
+  minutesActions: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+  statusBadgeGroup: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+  approvedBanner: {
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke1),
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.padding("12px"),
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+    marginBottom: "24px",
+  },
+  rejectedBanner: {
+    backgroundColor: tokens.colorPaletteRedBackground1,
+    ...shorthands.border("1px", "solid", tokens.colorPaletteRedBorder1),
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.padding("12px"),
+    marginBottom: "24px",
+  },
+  rejectionLabel: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorPaletteRedForeground1,
+    marginBottom: "4px",
+  },
+  contentSection: {
+    marginBottom: "24px",
+  },
+  list: {
+    listStyleType: "none",
+    ...shorthands.padding(0),
+    ...shorthands.margin(0),
+  },
+  listItem: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground1,
+    display: "flex",
+    ...shorthands.gap("8px"),
+    marginBottom: "8px",
+  },
+  emptyState: {
+    textAlign: "center",
+    ...shorthands.padding("48px", "24px"),
+  },
+  emptyIcon: {
+    color: tokens.colorNeutralForeground3,
+    marginBottom: "12px",
+  },
+  emptyText: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground3,
+  },
+  actionItemCard: {
+    ...shorthands.padding("16px"),
+    marginBottom: "12px",
+  },
+  actionItemContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    ...shorthands.gap("16px"),
+    flexWrap: "wrap",
+  },
+  actionItemText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  actionItemTask: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    marginBottom: "4px",
+  },
+  actionItemMeta: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("12px"),
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+  },
+  actionItemBadges: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+  alertDialogContent: {
+    maxWidth: "500px",
+  },
+  alertDialogDescription: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground2,
+    marginBottom: "16px",
+  },
+  alertDialogTextarea: {
+    ...shorthands.margin("16px", "0"),
+  },
+});
+
 export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDetailsModalProps) {
+  const styles = useStyles();
+  const [selectedTab, setSelectedTab] = useState<string>("overview");
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const { toast } = useToast();
+  
+  const handleTabSelect = (_event: SelectTabEvent, data: SelectTabData) => {
+    setSelectedTab(data.value as string);
+  };
 
   const approveMutation = useMutation({
     mutationFn: async (minutesId: string) => {
@@ -111,39 +321,40 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
 
   return (
     <>
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0" data-testid="modal-meeting-details">
-        <DialogHeader className="p-6 pb-4">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-2xl font-semibold mb-2">
-                {meeting.title}
-              </DialogTitle>
-              {meeting.description && (
-                <p className="text-sm text-muted-foreground">{meeting.description}</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <StatusBadge status={meeting.status} />
-              <ClassificationBadge level={meeting.classificationLevel} />
+    <Dialog open={open} onOpenChange={(_, data) => onOpenChange(data.open)}>
+      <DialogSurface className={styles.dialogSurface} data-testid="modal-meeting-details">
+        <DialogBody className={styles.dialogBody}>
+          <div className={styles.header}>
+            <div className={styles.headerContent}>
+              <div className={styles.titleContainer}>
+                <DialogTitle className={styles.title}>
+                  {meeting.title}
+                </DialogTitle>
+                {meeting.description && (
+                  <p className={styles.description}>{meeting.description}</p>
+                )}
+              </div>
+              <div className={styles.badgeContainer}>
+                <StatusBadge status={meeting.status} />
+                <ClassificationBadge level={meeting.classificationLevel} />
+              </div>
             </div>
           </div>
-        </DialogHeader>
 
-        <Separator />
+          <Divider />
 
-        <Tabs defaultValue="overview" className="flex-1">
-          <div className="px-6">
-            <TabsList className="grid grid-cols-4 w-full">
-              <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
-              <TabsTrigger value="minutes" data-testid="tab-minutes">Minutes</TabsTrigger>
-              <TabsTrigger value="actions" data-testid="tab-actions">Action Items</TabsTrigger>
-              <TabsTrigger value="attachments" data-testid="tab-attachments">Attachments</TabsTrigger>
-            </TabsList>
+          <div className={styles.tabList}>
+            <TabList selectedValue={selectedTab} onTabSelect={handleTabSelect}>
+              <Tab value="overview" data-testid="tab-overview">Overview</Tab>
+              <Tab value="minutes" data-testid="tab-minutes">Minutes</Tab>
+              <Tab value="actions" data-testid="tab-actions">Action Items</Tab>
+              <Tab value="attachments" data-testid="tab-attachments">Attachments</Tab>
+            </TabList>
           </div>
 
-          <ScrollArea className="h-[500px]">
-            <TabsContent value="overview" className="px-6 pb-6 space-y-6">
+          <div className={styles.tabContent}>
+            {selectedTab === "overview" && (
+              <div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm">

@@ -16,6 +16,7 @@ import {
   Divider,
   Textarea,
   makeStyles,
+  mergeClasses,
   tokens,
   shorthands,
   SelectTabData,
@@ -208,7 +209,10 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase300,
     color: tokens.colorNeutralForeground3,
   },
-  actionItemCard: {
+  actionItemSurface: {
+    backgroundColor: tokens.colorNeutralBackground1,
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke1),
     ...shorthands.padding("16px"),
     marginBottom: "12px",
   },
@@ -241,16 +245,62 @@ const useStyles = makeStyles({
     alignItems: "center",
     ...shorthands.gap("8px"),
   },
-  alertDialogContent: {
+  nestedDialogSurface: {
     maxWidth: "500px",
   },
-  alertDialogDescription: {
+  dialogDescription: {
     fontSize: tokens.fontSizeBase300,
     color: tokens.colorNeutralForeground2,
     marginBottom: "16px",
   },
-  alertDialogTextarea: {
+  textareaContainer: {
     ...shorthands.margin("16px", "0"),
+  },
+  metadataContainer: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap("8px"),
+    marginBottom: "24px",
+  },
+  attendeesSection: {
+    marginTop: "24px",
+  },
+  bannerContent: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+  bannerText: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground1,
+  },
+  iconSmall: {
+    width: "12px",
+    height: "12px",
+  },
+  iconMedium: {
+    width: "16px",
+    height: "16px",
+  },
+  iconLarge: {
+    width: "48px",
+    height: "48px",
+  },
+  iconWithMargin: {
+    marginRight: "8px",
+  },
+  iconWithSmallMargin: {
+    marginRight: "4px",
+  },
+  iconDecision: {
+    width: "16px",
+    height: "16px",
+    color: tokens.colorPaletteGreenForeground1,
+    flexShrink: 0,
+    marginTop: "2px",
+  },
+  iconCentered: {
+    margin: "0 auto 12px",
   },
 });
 
@@ -355,298 +405,326 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
           <div className={styles.tabContent}>
             {selectedTab === "overview" && (
               <div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">Date:</span>
-                    <span className="text-foreground">{format(new Date(meeting.scheduledAt), "PPP")}</span>
+                <div className={styles.overviewGrid}>
+                  <div className={styles.metadataContainer}>
+                    <div className={styles.metadataItem}>
+                      <Calendar className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                      <span className={styles.metadataLabel}>Date:</span>
+                      <span className={styles.metadataValue}>{format(new Date(meeting.scheduledAt), "PPP")}</span>
+                    </div>
+                    <div className={styles.metadataItem}>
+                      <Clock className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                      <span className={styles.metadataLabel}>Duration:</span>
+                      <span className={styles.metadataValue}>{meeting.duration}</span>
+                    </div>
+                    <div className={styles.metadataItem}>
+                      <Users className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                      <span className={styles.metadataLabel}>Attendees:</span>
+                      <span className={styles.metadataValue}>{meeting.attendees.length} participants</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">Duration:</span>
-                    <span className="text-foreground">{meeting.duration}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-medium">Attendees:</span>
-                    <span className="text-foreground">{meeting.attendees.length} participants</span>
+                  
+                  {meeting.minutes && (
+                    <div className={styles.metadataContainer}>
+                      <div className={styles.metadataItem}>
+                        <FileText className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                        <span className={styles.metadataLabel}>Processing:</span>
+                        <ProcessingStatus status={meeting.minutes.processingStatus} />
+                      </div>
+                      {meeting.minutes.sharepointUrl && (
+                        <div className={styles.metadataItem}>
+                          <ExternalLink className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                          <span className={styles.metadataLabel}>SharePoint:</span>
+                          <a 
+                            href={meeting.minutes.sharepointUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className={styles.link}
+                          >
+                            View in SharePoint
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <Divider />
+
+                <div className={styles.attendeesSection}>
+                  <h4 className={styles.sectionTitle}>Attendees</h4>
+                  <div className={styles.attendeeList}>
+                    {meeting.attendees.map((attendee, index) => (
+                      <Badge key={index} appearance="outline" data-testid={`badge-attendee-${index}`}>
+                        <User className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
+                        {attendee}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
-                
-                {meeting.minutes && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <FileText className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium">Processing:</span>
-                      <ProcessingStatus status={meeting.minutes.processingStatus} />
+              </div>
+            )}
+
+            {selectedTab === "minutes" && (
+              <div>
+                {meeting.minutes ? (
+                  <>
+                    <div className={styles.minutesHeader}>
+                      <div className={styles.statusBadgeGroup}>
+                        <ProcessingStatus status={meeting.minutes.processingStatus} />
+                        {meeting.minutes.approvalStatus && (
+                          <Badge 
+                            color={
+                              meeting.minutes.approvalStatus === "approved" ? "success" :
+                              meeting.minutes.approvalStatus === "rejected" ? "danger" :
+                              "informative"
+                            }
+                            data-testid="badge-approval-status"
+                          >
+                            {meeting.minutes.approvalStatus === "pending_review" ? "Pending Review" :
+                             meeting.minutes.approvalStatus === "approved" ? "Approved" :
+                             meeting.minutes.approvalStatus === "rejected" ? "Rejected" :
+                             "Revision Requested"}
+                          </Badge>
+                        )}
+                      </div>
+                      {meeting.minutes.processingStatus === "completed" && (
+                        <div className={styles.minutesActions}>
+                          {showApprovalActions && (
+                            <>
+                              <Button 
+                                appearance="primary" 
+                                size="small" 
+                                data-testid="button-approve"
+                                onClick={() => setShowApproveDialog(true)}
+                              >
+                                <ThumbsUp className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                                Approve & Distribute
+                              </Button>
+                              <Button 
+                                appearance="primary" 
+                                size="small" 
+                                data-testid="button-reject"
+                                onClick={() => setShowRejectDialog(true)}
+                              >
+                                <ThumbsDown className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                                Reject
+                              </Button>
+                            </>
+                          )}
+                          <Button 
+                            appearance="outline" 
+                            size="small" 
+                            data-testid="button-download-docx"
+                            onClick={() => window.open(`/api/meetings/${meeting.id}/export/docx`, '_blank')}
+                          >
+                            <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                            DOCX
+                          </Button>
+                          <Button 
+                            appearance="outline" 
+                            size="small" 
+                            data-testid="button-download-pdf"
+                            onClick={() => window.open(`/api/meetings/${meeting.id}/export/pdf`, '_blank')}
+                          >
+                            <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                            PDF
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    {meeting.minutes.sharepointUrl && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium">SharePoint:</span>
-                        <a 
-                          href={meeting.minutes.sharepointUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          View in SharePoint
-                        </a>
+                    
+                    {meeting.minutes.approvalStatus === "approved" && meeting.minutes.approvedBy && (
+                      <div className={styles.approvedBanner}>
+                        <Mail className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                        <span className={styles.bannerText}>
+                          Approved by {meeting.minutes.approvedBy} on {format(new Date(meeting.minutes.approvedAt!), "PPp")}. 
+                          Minutes distributed to all attendees via email.
+                        </span>
                       </div>
                     )}
+                    
+                    {meeting.minutes.approvalStatus === "rejected" && meeting.minutes.rejectionReason && (
+                      <div className={styles.rejectedBanner}>
+                        <p className={styles.rejectionLabel}>Rejection Reason:</p>
+                        <p className={styles.bannerText}>{meeting.minutes.rejectionReason}</p>
+                      </div>
+                    )}
+
+                    {meeting.minutes.processingStatus === "completed" && (
+                      <>
+                        <div className={styles.contentSection}>
+                          <h4 className={styles.sectionTitle}>Summary</h4>
+                          <p className={styles.listItem}>{meeting.minutes.summary}</p>
+                        </div>
+
+                        <Divider />
+
+                        <div className={styles.contentSection}>
+                          <h4 className={styles.sectionTitle}>Key Discussions</h4>
+                          <ul className={styles.list}>
+                            {meeting.minutes.keyDiscussions.map((discussion, index) => (
+                              <li key={index} className={styles.listItem}>
+                                <span style={{ color: tokens.colorNeutralForeground3 }}>•</span>
+                                <span>{discussion}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <Divider />
+
+                        <div className={styles.contentSection}>
+                          <h4 className={styles.sectionTitle}>Decisions Made</h4>
+                          <ul className={styles.list}>
+                            {meeting.minutes.decisions.map((decision, index) => (
+                              <li key={index} className={styles.listItem}>
+                                <CheckCircle2 className={styles.iconDecision} />
+                                <span>{decision}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className={styles.emptyState}>
+                    <FileText className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
+                    <p className={styles.emptyText}>No minutes available for this meeting yet.</p>
                   </div>
                 )}
               </div>
+            )}
 
-              <Separator />
-
+            {selectedTab === "actions" && (
               <div>
-                <h4 className="text-sm font-semibold mb-3">Attendees</h4>
-                <div className="flex flex-wrap gap-2">
-                  {meeting.attendees.map((attendee, index) => (
-                    <Badge key={index} variant="secondary" data-testid={`badge-attendee-${index}`}>
-                      <User className="w-3 h-3 mr-1" />
-                      {attendee}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="minutes" className="px-6 pb-6 space-y-6">
-              {meeting.minutes ? (
-                <>
-                  <div className="flex items-center justify-between gap-4 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <ProcessingStatus status={meeting.minutes.processingStatus} />
-                      {meeting.minutes.approvalStatus && (
-                        <Badge 
-                          variant={
-                            meeting.minutes.approvalStatus === "approved" ? "default" :
-                            meeting.minutes.approvalStatus === "rejected" ? "destructive" :
-                            "secondary"
-                          }
-                          data-testid="badge-approval-status"
-                        >
-                          {meeting.minutes.approvalStatus === "pending_review" ? "Pending Review" :
-                           meeting.minutes.approvalStatus === "approved" ? "Approved" :
-                           meeting.minutes.approvalStatus === "rejected" ? "Rejected" :
-                           "Revision Requested"}
-                        </Badge>
-                      )}
-                    </div>
-                    {meeting.minutes.processingStatus === "completed" && (
-                      <div className="flex items-center gap-2">
-                        {showApprovalActions && (
-                          <>
-                            <Button 
-                              variant="default" 
-                              size="sm" 
-                              data-testid="button-approve"
-                              onClick={() => setShowApproveDialog(true)}
-                            >
-                              <ThumbsUp className="w-4 h-4 mr-2" />
-                              Approve & Distribute
-                            </Button>
-                            <Button 
-                              variant="destructive" 
-                              size="sm" 
-                              data-testid="button-reject"
-                              onClick={() => setShowRejectDialog(true)}
-                            >
-                              <ThumbsDown className="w-4 h-4 mr-2" />
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          data-testid="button-download-docx"
-                          onClick={() => window.open(`/api/meetings/${meeting.id}/export/docx`, '_blank')}
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          DOCX
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          data-testid="button-download-pdf"
-                          onClick={() => window.open(`/api/meetings/${meeting.id}/export/pdf`, '_blank')}
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          PDF
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {meeting.minutes.approvalStatus === "approved" && meeting.minutes.approvedBy && (
-                    <div className="bg-muted/50 border border-border rounded-lg p-3 flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-foreground">
-                        Approved by {meeting.minutes.approvedBy} on {format(new Date(meeting.minutes.approvedAt!), "PPp")}. 
-                        Minutes distributed to all attendees via email.
-                      </span>
-                    </div>
-                  )}
-                  
-                  {meeting.minutes.approvalStatus === "rejected" && meeting.minutes.rejectionReason && (
-                    <div className="bg-destructive/10 border border-destructive rounded-lg p-3">
-                      <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
-                      <p className="text-sm text-foreground">{meeting.minutes.rejectionReason}</p>
-                    </div>
-                  )}
-
-                  {meeting.minutes.processingStatus === "completed" && (
-                    <>
-                      <div>
-                        <h4 className="text-sm font-semibold mb-2">Summary</h4>
-                        <p className="text-sm text-foreground">{meeting.minutes.summary}</p>
-                      </div>
-
-                      <Separator />
-
-                      <div>
-                        <h4 className="text-sm font-semibold mb-3">Key Discussions</h4>
-                        <ul className="space-y-2">
-                          {meeting.minutes.keyDiscussions.map((discussion, index) => (
-                            <li key={index} className="text-sm text-foreground flex gap-2">
-                              <span className="text-muted-foreground">•</span>
-                              <span>{discussion}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <Separator />
-
-                      <div>
-                        <h4 className="text-sm font-semibold mb-3">Decisions Made</h4>
-                        <ul className="space-y-2">
-                          {meeting.minutes.decisions.map((decision, index) => (
-                            <li key={index} className="text-sm text-foreground flex gap-2">
-                              <CheckCircle2 className="w-4 h-4 text-chart-2 flex-shrink-0 mt-0.5" />
-                              <span>{decision}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-12">
-                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">No minutes available for this meeting yet.</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="actions" className="px-6 pb-6">
-              {meeting.actionItems && meeting.actionItems.length > 0 ? (
-                <div className="space-y-3">
-                  {meeting.actionItems.map((item) => (
-                    <Card key={item.id} data-testid={`card-action-item-${item.id}`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4 flex-wrap">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground mb-1">{item.task}</p>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span>Assigned to: <span className="text-foreground">{item.assignee}</span></span>
+                {meeting.actionItems && meeting.actionItems.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {meeting.actionItems.map((item) => (
+                      <div key={item.id} className={styles.actionItemSurface} data-testid={`card-action-item-${item.id}`}>
+                        <div className={styles.actionItemContent}>
+                          <div className={styles.actionItemText}>
+                            <p className={styles.actionItemTask}>{item.task}</p>
+                            <div className={styles.actionItemMeta}>
+                              <span>Assigned to: <span style={{ color: tokens.colorNeutralForeground1 }}>{item.assignee}</span></span>
                               {item.dueDate && (
-                                <span>Due: <span className="text-foreground">{format(new Date(item.dueDate), "PP")}</span></span>
+                                <span>Due: <span style={{ color: tokens.colorNeutralForeground1 }}>{format(new Date(item.dueDate), "PP")}</span></span>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={item.priority === "high" ? "destructive" : item.priority === "medium" ? "default" : "secondary"}>
+                          <div className={styles.actionItemBadges}>
+                            <Badge 
+                              color={item.priority === "high" ? "danger" : item.priority === "medium" ? "warning" : "informative"}
+                            >
                               {item.priority}
                             </Badge>
-                            <Badge variant={item.status === "completed" ? "outline" : "secondary"}>
+                            <Badge 
+                              appearance={item.status === "completed" ? "outline" : "filled"}
+                              color="informative"
+                            >
                               {item.status}
                             </Badge>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <CheckCircle2 className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">No action items for this meeting.</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="attachments" className="px-6 pb-6">
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">No attachments available.</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.emptyState}>
+                    <CheckCircle2 className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
+                    <p className={styles.emptyText}>No action items for this meeting.</p>
+                  </div>
+                )}
               </div>
-            </TabsContent>
-          </ScrollArea>
-        </Tabs>
-      </DialogContent>
+            )}
+
+            {selectedTab === "attachments" && (
+              <div className={styles.emptyState}>
+                <FileText className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
+                <p className={styles.emptyText}>No attachments available.</p>
+              </div>
+            )}
+          </div>
+        </DialogBody>
+      </DialogSurface>
     </Dialog>
 
-    {/* Approve Confirmation Dialog */}
-    <AlertDialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Approve Meeting Minutes?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will approve the meeting minutes and automatically distribute them to all attendees via email 
-            with DOCX and PDF attachments. This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => meeting.minutes && approveMutation.mutate(meeting.minutes.id)}
-            disabled={approveMutation.isPending}
-          >
-            {approveMutation.isPending ? "Approving..." : "Approve & Distribute"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <Dialog open={showApproveDialog} onOpenChange={(_, data) => setShowApproveDialog(data.open)}>
+      <DialogSurface className={styles.nestedDialogSurface}>
+        <DialogBody>
+          <DialogTitle>Approve Meeting Minutes?</DialogTitle>
+          <DialogContent>
+            <p className={styles.dialogDescription}>
+              This will approve the meeting minutes and automatically distribute them to all attendees via email 
+              with DOCX and PDF attachments. This action cannot be undone.
+            </p>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              appearance="secondary" 
+              onClick={() => setShowApproveDialog(false)}
+              data-testid="button-cancel-approve"
+            >
+              Cancel
+            </Button>
+            <Button
+              appearance="primary"
+              onClick={() => meeting.minutes && approveMutation.mutate(meeting.minutes.id)}
+              disabled={approveMutation.isPending}
+              data-testid="button-confirm-approve"
+            >
+              {approveMutation.isPending ? "Approving..." : "Approve & Distribute"}
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
 
-    {/* Reject Confirmation Dialog */}
-    <AlertDialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Reject Meeting Minutes?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Please provide a reason for rejecting these meeting minutes.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <div className="py-4">
-          <Textarea
-            placeholder="Enter rejection reason..."
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            rows={4}
-            data-testid="input-rejection-reason"
-          />
-        </div>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setRejectionReason("")}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => meeting.minutes && rejectMutation.mutate({
-              minutesId: meeting.minutes.id,
-              reason: rejectionReason
-            })}
-            disabled={rejectMutation.isPending || !rejectionReason.trim()}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-          >
-            {rejectMutation.isPending ? "Rejecting..." : "Reject Minutes"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <Dialog open={showRejectDialog} onOpenChange={(_, data) => setShowRejectDialog(data.open)}>
+      <DialogSurface className={styles.nestedDialogSurface}>
+        <DialogBody>
+          <DialogTitle>Reject Meeting Minutes?</DialogTitle>
+          <DialogContent>
+            <p className={styles.dialogDescription}>
+              Please provide a reason for rejecting these meeting minutes.
+            </p>
+            <div className={styles.textareaContainer}>
+              <Textarea
+                placeholder="Enter rejection reason..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                rows={4}
+                data-testid="input-rejection-reason"
+              />
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              appearance="secondary" 
+              onClick={() => {
+                setShowRejectDialog(false);
+                setRejectionReason("");
+              }}
+              data-testid="button-cancel-reject"
+            >
+              Cancel
+            </Button>
+            <Button
+              appearance="primary"
+              onClick={() => meeting.minutes && rejectMutation.mutate({
+                minutesId: meeting.minutes.id,
+                reason: rejectionReason
+              })}
+              disabled={rejectMutation.isPending || !rejectionReason.trim()}
+              data-testid="button-confirm-reject"
+            >
+              {rejectMutation.isPending ? "Rejecting..." : "Reject Minutes"}
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
     </>
   );
 }

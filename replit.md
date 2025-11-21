@@ -176,6 +176,21 @@ An AI-powered Microsoft Teams meeting minutes management system for demonstratio
 
 ## Recent Changes
 
+- **November 2025 (Task 5)**: Production-grade telemetry for Adaptive Card delivery system (COMPLETED ✓)
+  - **Per-Recipient Error Isolation**: Each Teams recipient has independent outbox entry with separate retry lifecycle
+  - **Error Classification System**:
+    - PERMANENT errors (404, 401, 403, invalid recipient) → immediate dead-letter
+    - TRANSIENT errors (429, 503, timeout, network) → exponential backoff retry (1m→5m→15m)
+    - UNKNOWN errors → conservative retry (safe default)
+  - **DOD-Compliant Telemetry**:
+    - PII-safe logging: Only message ID, error type/code, attempt count, latency
+    - Never logs: cardPayload, conversationReference, full error messages
+    - Error summaries: `transient:429`, `permanent:404`, `unknown:UNKNOWN`
+  - **Observability Features**:
+    - Structured logs with consistent attempt count reporting
+    - Batch-level success rates and error distribution
+    - Per-message latency tracking
+    - Database state matches log telemetry
 - **November 2025 (Task 4)**: Added strict schema validation for all database writes (COMPLETED ✓)
   - **Validation Coverage**: All CRUD operations validated before database writes
     - Meeting endpoints: POST /api/meetings, PATCH /api/meetings/:id

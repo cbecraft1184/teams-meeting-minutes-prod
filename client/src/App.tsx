@@ -1,6 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { FluentProvider, webLightTheme, webDarkTheme, teamsHighContrastTheme, teamsDarkTheme, teamsLightTheme } from "@fluentui/react-components";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -28,12 +29,25 @@ function Router() {
 }
 
 function AppContent() {
-  const { context, isInitialized } = useTeams();
+  const { context, isInitialized, theme: teamsTheme } = useTeams();
   const isInTeams = !!context;
 
   const style = {
     "--sidebar-width": "20rem",
     "--sidebar-width-icon": "4rem",
+  };
+
+  // Map Teams theme to Fluent UI theme
+  const getFluentTheme = () => {
+    if (isInTeams) {
+      // Use Teams-specific themes when running in Teams
+      if (teamsTheme === 'dark') return teamsDarkTheme;
+      if (teamsTheme === 'contrast') return teamsHighContrastTheme;
+      return teamsLightTheme;
+    }
+    // Use web themes for standalone mode
+    if (teamsTheme === 'dark') return webDarkTheme;
+    return webLightTheme;
   };
 
   if (!isInitialized) {
@@ -95,17 +109,38 @@ function AppContent() {
   );
 }
 
+function AppWithProviders() {
+  const { theme } = useTeams();
+  const isInTeams = !!useTeams().context;
+  
+  const getFluentTheme = () => {
+    if (isInTeams) {
+      if (theme === 'dark') return teamsDarkTheme;
+      if (theme === 'contrast') return teamsHighContrastTheme;
+      return teamsLightTheme;
+    }
+    if (theme === 'dark') return webDarkTheme;
+    return webLightTheme;
+  };
+
+  return (
+    <FluentProvider theme={getFluentTheme()}>
+      <ThemeProvider defaultTheme="light">
+        <TooltipProvider>
+          <AppContent />
+          <Toaster />
+        </TooltipProvider>
+      </ThemeProvider>
+    </FluentProvider>
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TeamsProvider>
-          <ThemeProvider defaultTheme="light">
-            <TooltipProvider>
-              <AppContent />
-              <Toaster />
-            </TooltipProvider>
-          </ThemeProvider>
+          <AppWithProviders />
         </TeamsProvider>
       </QueryClientProvider>
     </ErrorBoundary>

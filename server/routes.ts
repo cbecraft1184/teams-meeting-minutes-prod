@@ -1,7 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema } from "@shared/schema";
+import { db } from "./db";
+import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema, users } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
 import { requireWebhookAuth } from "./middleware/requireServiceAuth";
@@ -1069,20 +1071,47 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // Update session with new user
+      // Ensure user exists in database (same logic as authenticateWithMock)
+      let [dbUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, user.email))
+        .limit(1);
+
+      if (!dbUser) {
+        const [newUser] = await db
+          .insert(users)
+          .values({
+            email: user.email,
+            displayName: user.displayName,
+            clearanceLevel: user.clearanceLevel as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
+            role: user.role as "admin" | "approver" | "auditor" | "viewer",
+            department: user.department,
+            organizationalUnit: user.organizationalUnit,
+            azureAdId: user.azureAdId,
+            azureUserPrincipalName: user.azureUserPrincipalName,
+            tenantId: user.tenantId,
+            lastLogin: new Date(),
+          })
+          .onConflictDoUpdate({
+            target: users.email,
+            set: {
+              displayName: user.displayName,
+              clearanceLevel: user.clearanceLevel as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
+              role: user.role as "admin" | "approver" | "auditor" | "viewer",
+              lastLogin: new Date(),
+            }
+          })
+          .returning();
+        dbUser = newUser;
+      }
+
+      // Update session with new user ID (matches authenticateWithMock behavior)
       if (req.session) {
-        req.session.user = {
-          id: user.id,
-          email: user.email,
-          displayName: user.displayName,
-          role: user.role,
-          clearanceLevel: user.clearanceLevel,
-          department: user.department,
-          organizationalUnit: user.organizationalUnit,
-          azureAdId: user.azureAdId,
-          azureUserPrincipalName: user.azureUserPrincipalName,
-          tenantId: user.tenantId,
-        };
+        req.session.userId = dbUser.id;
+        
+        // Clear any cached Azure AD groups so they're refreshed
+        delete req.session.azureAdGroups;
 
         await new Promise<void>((resolve, reject) => {
           req.session!.save((err: any) => {

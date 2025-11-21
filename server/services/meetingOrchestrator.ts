@@ -302,6 +302,7 @@ async function processUploadSharePointJob(job: Job): Promise<void> {
 /**
  * Trigger the complete approval workflow (email + SharePoint)
  * Called when minutes are approved
+ * Respects app settings for distribution channels
  */
 export async function triggerApprovalWorkflow(params: {
   meetingId: string;
@@ -309,21 +310,38 @@ export async function triggerApprovalWorkflow(params: {
 }): Promise<{ emailJobId: string | null; sharepointJobId: string | null }> {
   const { meetingId, minutesId } = params;
 
-  // Enqueue email job
-  const emailJobId = await enqueueJob({
-    jobType: "send_email",
-    idempotencyKey: `send_email:${minutesId}`,
-    payload: { meetingId, minutesId },
-    maxRetries: 3,
-  });
+  // Get current settings to check which distribution channels are enabled
+  const { storage } = await import("../storage");
+  const settings = await storage.getSettings();
 
-  // Enqueue SharePoint upload job
-  const sharepointJobId = await enqueueJob({
-    jobType: "upload_sharepoint",
-    idempotencyKey: `upload_sharepoint:${minutesId}`,
-    payload: { meetingId, minutesId },
-    maxRetries: 3,
-  });
+  let emailJobId: string | null = null;
+  let sharepointJobId: string | null = null;
+
+  // Only enqueue email job if enabled in settings
+  if (settings.enableEmailDistribution) {
+    emailJobId = await enqueueJob({
+      jobType: "send_email",
+      idempotencyKey: `send_email:${minutesId}`,
+      payload: { meetingId, minutesId },
+      maxRetries: 3,
+    });
+    console.log(`[Orchestrator] Email distribution job enqueued: ${emailJobId}`);
+  } else {
+    console.log(`[Orchestrator] Email distribution disabled in settings - skipping`);
+  }
+
+  // Only enqueue SharePoint upload job if enabled in settings
+  if (settings.enableSharePointArchival) {
+    sharepointJobId = await enqueueJob({
+      jobType: "upload_sharepoint",
+      idempotencyKey: `upload_sharepoint:${minutesId}`,
+      payload: { meetingId, minutesId },
+      maxRetries: 3,
+    });
+    console.log(`[Orchestrator] SharePoint archival job enqueued: ${sharepointJobId}`);
+  } else {
+    console.log(`[Orchestrator] SharePoint archival disabled in settings - skipping`);
+  }
 
   console.log(`[Orchestrator] Triggered approval workflow for meeting: ${meetingId}`);
 

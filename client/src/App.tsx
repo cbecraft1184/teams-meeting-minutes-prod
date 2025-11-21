@@ -48,6 +48,20 @@ const useStyles = makeStyles({
     width: "100%",
     backgroundColor: tokens.colorNeutralBackground1,
   },
+  appContainerColumn: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100vh",
+    width: "100%",
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  loadingContainer: {
+    display: "flex",
+    height: "100vh",
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   mainContainer: {
     display: "flex",
     flexDirection: "column",
@@ -62,11 +76,34 @@ const useStyles = makeStyles({
     ...shorthands.borderBottom("1px", "solid", tokens.colorNeutralStroke2),
     backgroundColor: tokens.colorNeutralBackground1,
   },
+  headerTitle: {
+    fontSize: "18px",
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  headerActions: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("16px"),
+  },
   content: {
     flex: 1,
     overflowY: "auto",
     backgroundColor: tokens.colorNeutralBackground1,
     ...shorthands.padding("24px"),
+  },
+  contentConstrained: {
+    flex: 1,
+    overflowY: "auto",
+    backgroundColor: tokens.colorNeutralBackground1,
+    ...shorthands.padding("24px"),
+    maxWidth: "1280px",
+    marginLeft: "auto",
+    marginRight: "auto",
+    width: "100%",
   },
   classificationBadge: {
     fontSize: "12px",
@@ -87,7 +124,7 @@ function AppContent() {
 
   if (!isInitialized) {
     return (
-      <div style={{ display: "flex", height: "100vh", width: "100%", alignItems: "center", justifyContent: "center" }}>
+      <div className={styles.loadingContainer}>
         <div>Loading...</div>
       </div>
     );
@@ -95,16 +132,16 @@ function AppContent() {
 
   if (isInTeams) {
     return (
-      <div className={styles.appContainer} style={{ flexDirection: "column" }}>
+      <div className={styles.appContainerColumn}>
         <header className={styles.header}>
-          <h1 style={{ fontSize: "18px", fontWeight: tokens.fontWeightSemibold }} data-testid="text-app-title">
+          <h1 className={styles.headerTitle} data-testid="text-app-title">
             Meeting Minutes
           </h1>
           <div className={styles.classificationBadge} data-testid="badge-classification-header">
             UNCLASSIFIED
           </div>
         </header>
-        <main className={styles.content} style={{ maxWidth: "1280px", marginLeft: "auto", marginRight: "auto", width: "100%" }}>
+        <main className={styles.contentConstrained}>
           <Router />
         </main>
       </div>
@@ -123,15 +160,15 @@ function AppContent() {
             data-testid="button-sidebar-toggle"
             aria-label="Toggle navigation"
           />
-          <div style={{ flex: 1 }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <div className={styles.headerSpacer} />
+          <div className={styles.headerActions}>
             <div className={styles.classificationBadge} data-testid="badge-classification-header">
               UNCLASSIFIED
             </div>
             <ThemeToggle />
           </div>
         </header>
-        <main className={styles.content} style={{ maxWidth: "1280px", marginLeft: "auto", marginRight: "auto", width: "100%" }}>
+        <main className={styles.contentConstrained}>
           <Router />
         </main>
       </div>

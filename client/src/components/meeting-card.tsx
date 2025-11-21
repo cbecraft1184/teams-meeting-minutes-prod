@@ -1,6 +1,4 @@
-import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, Button, makeStyles, tokens, shorthands, mergeClasses } from "@fluentui/react-components";
 import { Calendar, Clock, Users, FileText, Download, Share2 } from "lucide-react";
 import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
@@ -12,84 +10,173 @@ interface MeetingCardProps {
   onViewDetails: (meeting: MeetingWithMinutes) => void;
 }
 
+const useStyles = makeStyles({
+  card: {
+    ...shorthands.padding("20px"),
+    cursor: "pointer",
+    transitionProperty: "all",
+    transitionDuration: tokens.durationNormal,
+    ":hover": {
+      backgroundColor: tokens.colorNeutralBackground1Hover,
+      boxShadow: tokens.shadow8,
+    },
+  },
+  header: {
+    paddingBottom: "16px",
+  },
+  headerContent: {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    ...shorthands.gap("16px"),
+    flexWrap: "wrap",
+  },
+  titleContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    fontSize: tokens.fontSizeBase400,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    marginBottom: "8px",
+    whiteSpace: "nowrap",
+    ...shorthands.overflow("hidden"),
+    textOverflow: "ellipsis",
+  },
+  description: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground3,
+    display: "-webkit-box",
+    WebkitLineClamp: "2",
+    WebkitBoxOrient: "vertical",
+    ...shorthands.overflow("hidden"),
+  },
+  badgeContainer: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+  content: {
+    paddingTop: "16px",
+    paddingBottom: "16px",
+  },
+  metadataGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
+    ...shorthands.gap("12px"),
+    "@media (min-width: 768px)": {
+      gridTemplateColumns: "1fr 1fr",
+    },
+  },
+  metadataItem: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground1,
+  },
+  metadataIcon: {
+    color: tokens.colorNeutralForeground3,
+  },
+  minutesAvailable: {
+    color: tokens.colorPaletteGreenForeground1,
+  },
+  footer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.gap("8px"),
+    flexWrap: "wrap",
+    paddingTop: "16px",
+  },
+  buttonGroup: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+});
+
 export function MeetingCard({ meeting, onViewDetails }: MeetingCardProps) {
+  const styles = useStyles();
+  
   return (
-    <Card className="hover-elevate" data-testid={`card-meeting-${meeting.id}`}>
-      <CardHeader className="space-y-0 pb-4">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-foreground mb-2 truncate">
+    <Card className={styles.card} data-testid={`card-meeting-${meeting.id}`}>
+      <div className={styles.header}>
+        <div className={styles.headerContent}>
+          <div className={styles.titleContainer}>
+            <h3 className={styles.title}>
               {meeting.title}
             </h3>
             {meeting.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2">
+              <p className={styles.description}>
                 {meeting.description}
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className={styles.badgeContainer}>
             <StatusBadge status={meeting.status} />
             <ClassificationBadge level={meeting.classificationLevel} size="sm" />
           </div>
         </div>
-      </CardHeader>
+      </div>
       
-      <CardContent className="space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="flex items-center gap-2 text-sm text-foreground">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
+      <div className={styles.content}>
+        <div className={styles.metadataGrid}>
+          <div className={styles.metadataItem}>
+            <Calendar className={styles.metadataIcon} style={{ width: "16px", height: "16px" }} />
             <span>{format(new Date(meeting.scheduledAt), "PPP")}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-foreground">
-            <Clock className="w-4 h-4 text-muted-foreground" />
+          <div className={styles.metadataItem}>
+            <Clock className={styles.metadataIcon} style={{ width: "16px", height: "16px" }} />
             <span>{meeting.duration}</span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-foreground">
-            <Users className="w-4 h-4 text-muted-foreground" />
+          <div className={styles.metadataItem}>
+            <Users className={styles.metadataIcon} style={{ width: "16px", height: "16px" }} />
             <span>{meeting.attendees.length} attendees</span>
           </div>
           {meeting.minutes && (
-            <div className="flex items-center gap-2 text-sm text-chart-2">
-              <FileText className="w-4 h-4" />
+            <div className={mergeClasses(styles.metadataItem, styles.minutesAvailable)}>
+              <FileText style={{ width: "16px", height: "16px" }} />
               <span>Minutes available</span>
             </div>
           )}
         </div>
-      </CardContent>
+      </div>
 
-      <CardFooter className="flex items-center justify-between gap-2 flex-wrap">
+      <div className={styles.footer}>
         <Button
-          variant="default"
-          size="sm"
+          appearance="primary"
+          size="small"
           onClick={() => onViewDetails(meeting)}
+          icon={<FileText style={{ width: "16px", height: "16px" }} />}
           data-testid={`button-view-details-${meeting.id}`}
         >
-          <FileText className="w-4 h-4 mr-2" />
           View Details
         </Button>
-        <div className="flex items-center gap-2">
+        <div className={styles.buttonGroup}>
           {meeting.minutes?.docxUrl && (
             <Button
-              variant="outline"
-              size="sm"
+              appearance="outline"
+              size="small"
+              icon={<Download style={{ width: "16px", height: "16px" }} />}
               data-testid={`button-download-${meeting.id}`}
             >
-              <Download className="w-4 h-4 mr-2" />
               Download
             </Button>
           )}
           {meeting.status === "archived" && (
             <Button
-              variant="outline"
-              size="sm"
+              appearance="outline"
+              size="small"
+              icon={<Share2 style={{ width: "16px", height: "16px" }} />}
               data-testid={`button-share-${meeting.id}`}
             >
-              <Share2 className="w-4 h-4 mr-2" />
               Share
             </Button>
           )}
         </div>
-      </CardFooter>
+      </div>
     </Card>
   );
 }

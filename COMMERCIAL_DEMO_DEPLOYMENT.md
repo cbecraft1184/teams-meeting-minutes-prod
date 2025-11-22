@@ -685,6 +685,7 @@ az webapp config appsettings set \
     GRAPH_CLIENT_ID_PROD="$GRAPH_CLIENT_ID" \
     GRAPH_CLIENT_SECRET_PROD="$GRAPH_CLIENT_SECRET" \
     GRAPH_TENANT_ID_PROD="$GRAPH_TENANT_ID" \
+    GRAPH_SENDER_EMAIL="<Your sender email address>" \
     AZURE_OPENAI_ENDPOINT_PROD="$AZURE_OPENAI_ENDPOINT" \
     AZURE_OPENAI_API_KEY_PROD="$AZURE_OPENAI_API_KEY" \
     AZURE_OPENAI_DEPLOYMENT_PROD="gpt-4o" \
@@ -702,7 +703,9 @@ az webapp config appsettings set \
 echo "✓ Environment variables configured"
 ```
 
-**Replace `<Your SharePoint site URL>`** with your SharePoint site (e.g., `https://contoso.sharepoint.com/sites/TeamSite`)
+**Replace placeholders:**
+- `<Your sender email address>` with the email address to send from (e.g., `noreply@yourdomain.com` or a service account)
+- `<Your SharePoint site URL>` with your SharePoint site (e.g., `https://contoso.sharepoint.com/sites/TeamSite`)
 
 ### Step 3.3: Initialize Database Schema
 

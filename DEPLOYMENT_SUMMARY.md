@@ -13,7 +13,7 @@ Complete deployment documentation for the AI-powered Teams Meeting Minutes syste
 **Current State:**
 - ✅ Application development complete (zero runtime errors)
 - ✅ Commercial Azure deployment procedures documented
-- ✅ Cost estimates provided ($79/month demo, $383/month production)
+- ✅ Cost estimates provided ($92/month demo, $383/month production)
 - ✅ Testing and validation procedures complete
 
 **Quick Start:**
@@ -73,7 +73,7 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
   4. Teams Integration (manifest, icons, bot deployment)
   5. Testing and Validation (end-to-end flow verification)
 - **Cost Estimates:**
-  - **20 users (demo/pilot):** $79/month
+  - **20 users (demo/pilot):** $92/month
   - **100 users (production):** $383/month
   - Cost optimization strategies (auto-scaling, reserved instances)
 - **Rollback Procedures:**
@@ -127,7 +127,7 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 │  Week 4:    End-to-end testing + user acceptance              │
 │                                                                 │
 │  Timeline: 4 weeks                                             │
-│  Cost: $79/month (demo), $383/month (production)              │
+│  Cost: $92/month (demo), $383/month (production)              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -136,8 +136,8 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 ## Cost Summary
 
 ### Demo/Pilot (20 Users)
-- **Monthly:** $79
-- **Annual:** $948
+- **Monthly:** $92
+- **Annual:** $1,104
 - **Services:** Basic B1 App Service, Burstable B2s PostgreSQL, Azure OpenAI
 
 ### Production (100 Users)
@@ -190,4 +190,4 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 - **Date:** November 21, 2024
 - **Purpose:** Azure Commercial deployment documentation
 - **Target:** Demonstration and production environments
-- **Estimated Cost:** $79/month (demo), $383/month (100 users)
+- **Estimated Cost:** $92/month (demo), $383/month (100 users)

@@ -83,10 +83,9 @@ Automated Microsoft Teams meeting minutes generation using Azure OpenAI for demo
 2. **Install dependencies:**
    ```bash
    npm install
-   cd client
-   npm install
-   cd ..
    ```
+   
+   Note: This project uses a single root `package.json` that manages all dependencies.
 
 3. **Configure environment variables:**
    
@@ -135,7 +134,7 @@ Switch users in development using the user switcher in the top-right corner.
 ## Azure Commercial Deployment
 
 ### Demo Deployment (20 users)
-**Estimated Cost:** $79/month  
+**Estimated Cost:** $92/month  
 **Timeline:** 4-6 hours
 
 **[→ View Complete Deployment Guide (COMMERCIAL_DEMO_DEPLOYMENT.md)](COMMERCIAL_DEMO_DEPLOYMENT.md)**

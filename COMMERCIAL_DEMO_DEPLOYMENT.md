@@ -46,7 +46,7 @@ Azure Commercial (East US)
 - Azure subscription with Contributor or Owner role
 - Ability to create resources in East US region
 - Azure CLI installed locally
-- **Estimated cost:** $79/month (demo), $383/month (production 100 users)
+- **Estimated cost:** $92/month (demo), $383/month (production 100 users)
 
 **Microsoft 365:**
 - Microsoft 365 E3 or E5 tenant (commercial)
@@ -570,6 +570,8 @@ echo "✓ App Service granted Key Vault access"
 export GRAPH_CLIENT_ID="<Application (client) ID>"
 export GRAPH_CLIENT_SECRET="<Client secret value>"
 export GRAPH_TENANT_ID="<Directory (tenant) ID>"
+
+# Note: These will be set in App Service with _PROD suffix (Step 3.2)
 ```
 
 ### Step 2.2: Configure Application Access Policy (PowerShell)
@@ -654,17 +656,14 @@ export MICROSOFT_APP_PASSWORD="<Bot client secret>"
 # Navigate to project directory
 cd /path/to/teams-meeting-minutes
 
-# Install ALL dependencies (including dev dependencies for build tools)
+# Install ALL dependencies (single root package.json manages all deps)
 npm install
 
 # Build TypeScript backend (compiles to dist/)
 npm run build
 
-# Build React frontend
-cd client
-npm install
-npm run build
-cd ..
+# Build React frontend (from root)
+npm run build:client
 
 # Verify build outputs
 ls -la dist/             # Backend compiled JS
@@ -1475,4 +1474,4 @@ az webapp config appsettings list --name $APP_SERVICE_NAME --resource-group $RES
 - **Date:** November 21, 2024
 - **Purpose:** Azure Commercial deployment guide
 - **Target:** Demonstration and production environments
-- **Cost:** $79/month (demo), $383/month (100 users production)
+- **Cost:** $92/month (demo), $383/month (100 users production)

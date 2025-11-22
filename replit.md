@@ -83,7 +83,7 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 - Azure OpenAI Service
 - Application Insights for monitoring
 
-**Cost**: $79/month (demo), $383/month (100 users production)
+**Cost**: $92/month (demo), $383/month (100 users production)
 
 ## External Dependencies
 
@@ -129,7 +129,7 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 - **November 2025 (Documentation - Commercial Azure)**: Complete deployment documentation for Azure Commercial (COMPLETED ✓)
   - **COMMERCIAL_DEMO_DEPLOYMENT.md**: Comprehensive step-by-step deployment guide
     - 5-phase deployment procedure (Azure resources, Azure AD, code deployment, Teams integration, testing)
-    - Cost estimates: $79/month (demo), $383/month (100 users production)
+    - Cost estimates: $92/month (demo), $383/month (100 users production)
     - Rollback procedures for application and database
     - Comprehensive troubleshooting guide
     - GitHub Actions CI/CD workflow

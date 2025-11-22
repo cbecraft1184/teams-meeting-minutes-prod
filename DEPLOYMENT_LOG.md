@@ -188,29 +188,31 @@ AzureCloud       True       Azure subscription 1  Enabled  edbe879d-bd5b-4db7-bd
 
 ---
 
-#### Step 1.3: Create PostgreSQL Flexible Server ✅ COMPLETED
+#### Step 1.3: Create PostgreSQL Flexible Server ❌ FAILED - Region Not Available
 **Time:** November 22, 2025  
-**Action:** Created PostgreSQL Flexible Server  
+**Action:** Attempted to create PostgreSQL Flexible Server in East US  
 **Screenshot:** `image_1763845966687.png`
 
-**Configuration:**
-- Server Name: `psql-teams-minutes-cb<timestamp>`
-- Version: PostgreSQL 17 (auto-upgraded from 16)
-- Tier: Burstable Standard_B2s
-- Storage: 32 GB
-- Backup Retention: 7 days
-- Public Access: Enabled (for deployment)
+**Error Encountered:**
+```
+The location 'eastus' is not accepting creations of new Flexible servers.
+Please try using another region.
+RegionDoesNotSupportAvailabilityZone
+OperationNotAllowed
+```
 
-**Result:** ✅ PostgreSQL server created successfully
+**Command Duration:** 114 seconds (failed, no resource created)
 
-**Note:** Version defaulted to 17 (newer than requested 16) - this is fine and fully compatible
+**Root Cause:** Azure East US region has capacity constraints for PostgreSQL Flexible Servers (Standard_B2s tier)
+
+**Resolution:** Switch deployment region to **East US 2** or another supported region
 
 ---
 
-#### Step 1.4: Create Database on PostgreSQL Server (NEXT)
+#### Step 1.3 (Retry): Switch to East US 2 Region (NEXT)
 **Time:** Pending  
-**Action:** Create 'meetings' database  
-**Command:** `az postgres flexible-server db create`
+**Action:** Update LOCATION variable and retry PostgreSQL server creation  
+**New Region:** East US 2 (eastus2)
 
 ---
 
@@ -256,6 +258,7 @@ AzureCloud       True       Azure subscription 1  Enabled  edbe879d-bd5b-4db7-bd
 |-------|------------|------|
 | Microsoft 365 Developer Program denied | Use existing Azure subscription tenant | Nov 22, 2025 |
 | CloudShell namespace warning | Ignored - shell is functional | Nov 22, 2025 |
+| East US region capacity constraint | Switch to East US 2 for PostgreSQL deployment | Nov 22, 2025 |
 
 ---
 
@@ -269,6 +272,7 @@ AzureCloud       True       Azure subscription 1  Enabled  edbe879d-bd5b-4db7-bd
 6. `image_1763836288409.png` - Microsoft 365 Admin Center verification ⭐✅
 7. `image_1763845816473.png` - Environment variables configuration
 8. `image_1763845878238.png` - Resource Group creation ✅
+9. `image_1763845966687.png` - PostgreSQL creation failure (East US capacity)
 
 ---
 

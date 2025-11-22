@@ -419,16 +419,38 @@ OperationNotAllowed
 
 ---
 
-#### Step 2.5: Create Bot Registration for Teams (NEXT)
-**Time:** Pending  
-**Action:** Register Azure Bot for Teams integration  
-**Location:** Azure Portal → Create a resource → Azure Bot
+#### Step 2.5: Create Bot Registration for Teams ✅ COMPLETED
+**Time:** November 22, 2025  
+**Action:** Registered Azure Bot for Teams integration  
+**Screenshot:** `image_1763852368072.png`
 
-**Required Configuration:**
-- Bot handle: Unique bot name
-- Messaging endpoint: Will be configured after App Service deployment
-- App ID: Use the Graph API app client ID (7338369d-c5c6-40cc-94cf-96cb79ed146c)
-- Pricing tier: F0 (Free)
+**Result:** ✅ Azure Bot created successfully
+
+**Bot Configuration:**
+- **Bot handle:** teams-minutes-bot
+- **Resource group:** rg-teams-minutes-demo
+- **Pricing tier:** F0 (Free)
+- **Type of App:** Single Tenant
+- **App ID:** 7338369d-c5c6-40cc-94cf-96cb79ed146c (linked to Graph API app)
+- **App Tenant ID:** edbe879d-bd5b-4db7-bdb8-70bb31490f85
+- **Deployment name:** Microsoft.AzureBot-20251122175012
+
+**Note:** Messaging endpoint will be configured after App Service deployment in Phase 3.
+
+---
+
+## 🎉 Phase 2 Complete: Azure AD Configuration
+
+**Summary:**
+- ✅ App Registration: "Teams Minutes Graph API" created
+- ✅ 7 Microsoft Graph API permissions added and granted admin consent
+- ✅ Client secret generated and stored securely
+- ✅ Azure Bot: "teams-minutes-bot" created and linked to app registration
+
+**Key IDs for Environment Variables:**
+- **GRAPH_TENANT_ID_PROD:** edbe879d-bd5b-4db7-bdb8-70bb31490f85
+- **GRAPH_CLIENT_ID_PROD:** 7338369d-c5c6-40cc-94cf-96cb79ed146c
+- **GRAPH_CLIENT_SECRET_PROD:** [Stored securely]
 
 ---
 

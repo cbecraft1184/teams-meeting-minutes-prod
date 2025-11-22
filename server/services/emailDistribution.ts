@@ -1,7 +1,7 @@
 /**
  * Email Distribution Service for Meeting Minutes
  * 
- * In production (AWS Gov Cloud):
+ * In production (Azure Commercial/Government):
  * - Uses Microsoft Graph API to send emails through Outlook
  * - Requires Azure AD authentication and Graph API permissions
  * 
@@ -11,6 +11,8 @@
 
 import type { MeetingWithMinutes } from "@shared/schema";
 import { format } from "date-fns";
+import { acquireTokenByClientCredentials } from "./microsoftIdentity";
+import { getConfig } from "./configValidator";
 
 interface EmailRecipient {
   email: string;
@@ -81,51 +83,86 @@ export class EmailDistributionService {
     body: string,
     attachments: EmailAttachment[]
   ): Promise<void> {
-    // In production deployment:
-    // 1. Get access token from Azure AD using service principal
-    // 2. Use Microsoft Graph API to send email
-    // 3. Reference: https://learn.microsoft.com/en-us/graph/api/user-sendmail
+    const config = getConfig();
+    const senderEmail = config.email.senderEmail;
 
-    console.log("📧 [Email Service] Would send via Microsoft Graph API in production");
-    console.log(`   Recipients: ${recipients.map(r => r.email).join(", ")}`);
+    if (!senderEmail) {
+      throw new Error('GRAPH_SENDER_EMAIL environment variable not configured');
+    }
+
+    console.log(`📧 [Email Service] Sending email via Microsoft Graph API`);
+    console.log(`   From: ${senderEmail}`);
+    console.log(`   To: ${recipients.map(r => r.email).join(", ")}`);
     console.log(`   Subject: ${subject}`);
+    console.log(`   Attachments: ${attachments.length}`);
 
-    // Production implementation would look like:
-    /*
-    const accessToken = await this.getGraphAccessToken();
-    
-    const message = {
-      message: {
-        subject,
-        body: {
-          contentType: "HTML",
-          content: body
+    try {
+      // Step 1: Acquire app-only access token for Graph API
+      const accessToken = await acquireTokenByClientCredentials([
+        'https://graph.microsoft.com/.default'
+      ]);
+
+      if (!accessToken) {
+        throw new Error('Failed to acquire access token for Microsoft Graph API');
+      }
+
+      // Step 2: Build email message payload
+      const message = {
+        message: {
+          subject,
+          body: {
+            contentType: "HTML",
+            content: body
+          },
+          toRecipients: recipients.map(r => ({
+            emailAddress: {
+              address: r.email,
+              name: r.name || r.email
+            }
+          })),
+          attachments: attachments.map(att => ({
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            name: att.filename,
+            contentType: att.contentType,
+            contentBytes: att.content.toString("base64")
+          }))
         },
-        toRecipients: recipients.map(r => ({
-          emailAddress: {
-            address: r.email,
-            name: r.name
-          }
-        })),
-        attachments: attachments.map(att => ({
-          "@odata.type": "#microsoft.graph.fileAttachment",
-          name: att.filename,
-          contentType: att.contentType,
-          contentBytes: att.content.toString("base64")
-        }))
-      },
-      saveToSentItems: true
-    };
+        saveToSentItems: true
+      };
 
-    await fetch(`${this.graphApiEndpoint}/me/sendMail`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(message)
-    });
-    */
+      // Step 3: Send email via Graph API /users/{userId}/sendMail endpoint
+      const response = await fetch(
+        `${this.graphApiEndpoint}/users/${senderEmail}/sendMail`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(message)
+        }
+      );
+
+      // Step 4: Handle response
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `Graph API error (${response.status})`;
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error?.message || errorMessage;
+        } catch {
+          errorMessage = errorText || errorMessage;
+        }
+
+        throw new Error(`Failed to send email via Graph API: ${errorMessage}`);
+      }
+
+      console.log(`✅ [Email Service] Email sent successfully to ${recipients.length} recipient(s)`);
+    } catch (error) {
+      console.error(`❌ [Email Service] Failed to send email:`, error instanceof Error ? error.message : 'Unknown error');
+      throw error; // Re-throw to allow retry logic in durable queue
+    }
   }
 
   /**

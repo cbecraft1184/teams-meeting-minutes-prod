@@ -402,16 +402,33 @@ OperationNotAllowed
 
 ---
 
-#### Step 2.4: Create Client Secret (NEXT)
-**Time:** Pending  
-**Action:** Generate client secret for app-only authentication  
-**Location:** Current app → Certificates & secrets
+#### Step 2.4: Create Client Secret ✅ COMPLETED
+**Time:** November 22, 2025  
+**Action:** Generated client secret for app-only authentication  
+**Screenshot:** `image_1763849202309.png`
 
-**Required:**
-- Navigate to "Certificates & secrets"
-- Create new client secret
-- Copy secret value (only shown once)
-- Store securely for environment variables
+**Result:** ✅ Client secret created successfully
+
+**Client Secret Details:**
+- **Description:** Teams Minutes Production Secret
+- **Secret ID:** 4bb5d42c-8834-4203-a724-82320ad49f41
+- **Expires:** May 21, 2026 (180 days)
+- **Secret Value:** ✅ Copied and stored securely (not logged for security)
+
+**Note:** Secret value is stored securely and will be used for `GRAPH_CLIENT_SECRET_PROD` environment variable.
+
+---
+
+#### Step 2.5: Create Bot Registration for Teams (NEXT)
+**Time:** Pending  
+**Action:** Register Azure Bot for Teams integration  
+**Location:** Azure Portal → Create a resource → Azure Bot
+
+**Required Configuration:**
+- Bot handle: Unique bot name
+- Messaging endpoint: Will be configured after App Service deployment
+- App ID: Use the Graph API app client ID (7338369d-c5c6-40cc-94cf-96cb79ed146c)
+- Pricing tier: F0 (Free)
 
 ---
 

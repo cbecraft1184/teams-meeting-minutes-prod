@@ -107,6 +107,14 @@ const REQUIRED_SECRETS: SecretCheck[] = [
     description: 'SharePoint document library name'
   },
 
+  // Email Distribution
+  {
+    key: 'GRAPH_SENDER_EMAIL',
+    required: false,
+    environment: 'both',
+    description: 'Email address to use as sender for automated emails (e.g., noreply@yourdomain.com)'
+  },
+
   // Application
   {
     key: 'SESSION_SECRET',
@@ -295,6 +303,11 @@ export function getConfig() {
       library: process.env.SHAREPOINT_LIBRARY || 'Meeting Minutes',
       clientId: process.env.SHAREPOINT_CLIENT_ID || '',
       clientSecret: process.env.SHAREPOINT_CLIENT_SECRET || '',
+    },
+
+    // Email Distribution
+    email: {
+      senderEmail: process.env.GRAPH_SENDER_EMAIL || '',
     },
 
     // Database

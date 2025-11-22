@@ -209,10 +209,24 @@ OperationNotAllowed
 
 ---
 
-#### Step 1.3 (Retry): Switch to East US 2 Region (NEXT)
-**Time:** Pending  
-**Action:** Update LOCATION variable and retry PostgreSQL server creation  
-**New Region:** East US 2 (eastus2)
+#### Step 1.3 (Retry): PostgreSQL in East US 2 ⚠️ PARTIAL SUCCESS
+**Time:** November 22, 2025  
+**Action:** Created PostgreSQL server in East US 2  
+**Screenshot:** `image_1763846167954.png`
+
+**Status:** Server created but subscription registration warnings
+
+**Warnings Encountered:**
+```
+MissingSubscriptionRegistration
+The subscription is not registered to use namespace 'Microsoft.DBforPostgreSQL'
+The subscription is not registered to use namespace 'Microsoft.DBforPostgreSQLv2'
+```
+
+**Server Status:** ✅ Created successfully in East US 2  
+**Issue:** Subscription provider registration warnings (non-blocking)
+
+**Next Action:** Continue with database creation - warnings are informational, server is operational
 
 ---
 

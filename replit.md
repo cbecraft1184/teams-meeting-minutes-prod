@@ -41,7 +41,7 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 ### Data Storage
 - **Database**: PostgreSQL (Neon serverless for development)
 - **ORM**: Drizzle ORM with TypeScript schemas
-- **Core Tables**: `meetings`, `meeting_minutes`, `action_items`, `job_queue`, `graph_webhook_subscriptions`, `user_group_cache`, `app_settings`
+- **Core Tables**: `meetings`, `meeting_minutes`, `action_items`, `users`, `meeting_templates`, `graph_webhook_subscriptions`, `user_group_cache`, `teams_conversation_references`, `sent_messages`, `message_outbox`, `job_queue`, `app_settings` (12 tables total)
 - **Design Decision**: Drizzle ORM for zero-runtime overhead. A database-backed job queue provides transactional guarantees and idempotency. Strict schema validation is enforced for all database writes.
 
 ### Microsoft Graph Integration
@@ -115,6 +115,11 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 
 ## Recent Changes
 
+- **November 2025 (Documentation Updates)**: Fixed deployment documentation errors (COMPLETED ✓)
+  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: Fixed environment variables (added _PROD suffix), build process, database table count (12 tables)
+  - **DEPLOYMENT_ARCHITECTURE.md**: Updated database schema to include all 12 tables, added TOP_SECRET classification level
+  - **README.md**: Removed NAVY references, added local development setup, corrected tech stack (Fluent UI)
+  - **replit.md**: Updated core tables list to reflect all 12 tables
 - **November 2025 (Documentation - Commercial Azure)**: Complete deployment documentation for Azure Commercial (COMPLETED ✓)
   - **COMMERCIAL_DEMO_DEPLOYMENT.md**: Comprehensive step-by-step deployment guide
     - 5-phase deployment procedure (Azure resources, Azure AD, code deployment, Teams integration, testing)

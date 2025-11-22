@@ -354,12 +354,28 @@ OperationNotAllowed
 
 ---
 
-#### Step 2.1: Register Microsoft Graph API App (NEXT)
-**Time:** Pending  
-**Action:** Create App Registration in Azure Portal (UI-based)  
-**Location:** Azure Portal → Microsoft Entra ID → App registrations
+#### Step 2.1: Register Microsoft Graph API App ✅ COMPLETED
+**Time:** November 22, 2025  
+**Action:** Created App Registration in Azure Portal  
+**Screenshot:** `image_1763847419808.png`
 
-**Required Permissions:**
+**Result:** ✅ App Registration created successfully
+
+**Application Details:**
+- **Name:** Teams Minutes Graph API
+- **Application (client) ID:** `7338369d-c5c6-40cc-94cf-96cb79ed146c`
+- **Directory (tenant) ID:** `edbe879d-bd5b-4db7-bdb8-70bb31490f85`
+- **Object ID:** `dd31e577-99d1-4476-8d38-b30197b7020`
+- **Supported account types:** Single tenant
+
+---
+
+#### Step 2.2: Add Microsoft Graph API Permissions (NEXT)
+**Time:** Pending  
+**Action:** Grant application permissions for Microsoft Graph API  
+**Location:** Current app → API permissions
+
+**Permissions to Add:**
 - OnlineMeetings.ReadWrite.All
 - OnlineMeetingTranscript.Read.All
 - OnlineMeetingRecording.Read.All

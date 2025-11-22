@@ -370,19 +370,34 @@ OperationNotAllowed
 
 ---
 
-#### Step 2.2: Add Microsoft Graph API Permissions (NEXT)
-**Time:** Pending  
-**Action:** Grant application permissions for Microsoft Graph API  
-**Location:** Current app → API permissions
+#### Step 2.2: Add Microsoft Graph API Permissions ✅ COMPLETED
+**Time:** November 22, 2025  
+**Action:** Added 7 application permissions for Microsoft Graph API  
+**Screenshot:** `image_1763848868986.png`
 
-**Permissions to Add:**
-- OnlineMeetings.ReadWrite.All
-- OnlineMeetingTranscript.Read.All
-- OnlineMeetingRecording.Read.All
-- User.Read.All
-- Mail.Send
-- Sites.ReadWrite.All
-- Calendars.ReadWrite
+**Result:** ✅ All 7 required permissions added successfully
+
+**Permissions Added (Application type):**
+1. ✅ Calendars.ReadWrite
+2. ✅ Mail.Send
+3. ✅ OnlineMeetingRecording.Read.All
+4. ✅ OnlineMeetings.ReadWrite.All
+5. ✅ OnlineMeetingTranscript.Read.All
+6. ✅ Sites.ReadWrite.All
+7. ✅ User.Read.All
+
+**Status:** All permissions show "Not granted" - admin consent required (next step)
+
+---
+
+#### Step 2.3: Grant Admin Consent (NEXT)
+**Time:** Pending  
+**Action:** Grant admin consent for all 7 application permissions  
+**Location:** API permissions page
+
+**Required Action:**
+- Click "Grant admin consent for [organization]" button
+- Confirm the consent prompt
 
 ---
 

@@ -437,6 +437,11 @@ OperationNotAllowed
 
 **Note:** Messaging endpoint will be configured after App Service deployment in Phase 3.
 
+**Bot Overview (from Azure Portal):**
+- Resource displayed at: `image_1763852446901.png`
+- Messaging endpoint: (Not configured - pending Phase 3 deployment)
+- Location: Global
+
 ---
 
 ## 🎉 Phase 2 Complete: Azure AD Configuration

@@ -23,7 +23,7 @@ Azure Commercial (East US)
 ├── Azure OpenAI: openai-teams-minutes-demo
 ├── Application Insights: appi-teams-minutes-demo
 ├── Bot Service: bot-teams-minutes-demo
-└── Key Vault: kv-teams-minutes-demo (optional)
+└── Key Vault: kv-teams-min-demo (optional, 24 char max)
 ```
 
 ### Timeline

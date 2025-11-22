@@ -432,7 +432,7 @@ All mutations validated with Drizzle-Zod schemas:
 
 Groups define two attributes:
 - **Role:** viewer / approver / admin
-- **Classification Level:** UNCLASSIFIED / CONFIDENTIAL / SECRET
+- **Classification Level:** UNCLASSIFIED / CONFIDENTIAL / SECRET / TOP_SECRET
 
 **Access Rules:**
 - Users can only view meetings ≤ their classification level

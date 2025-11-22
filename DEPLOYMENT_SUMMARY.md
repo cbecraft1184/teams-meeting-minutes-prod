@@ -38,11 +38,12 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
   - **Backend:** Node.js + Express, PostgreSQL queue
   - **AI:** Azure OpenAI (GPT-4o, Whisper)
   - **Integration:** Microsoft Graph API, Teams SDK
-- Database schema (9 tables):
+- Database schema (12 tables):
   - meetings, meeting_minutes, action_items
-  - job_queue, adaptive_card_outbox
-  - graph_webhook_subscriptions, teams_conversation_references
-  - user_group_cache, app_settings
+  - users, meeting_templates
+  - graph_webhook_subscriptions, user_group_cache
+  - teams_conversation_references, sent_messages, message_outbox
+  - job_queue, app_settings
 - **Azure AD Authentication:**
   - OAuth 2.0 + OIDC
   - Role-based access control (Admin, Approver, Auditor, Viewer)

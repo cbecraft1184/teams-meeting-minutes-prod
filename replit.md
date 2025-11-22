@@ -115,9 +115,15 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 
 ## Recent Changes
 
-- **November 2025 (Documentation Updates)**: Fixed deployment documentation errors (COMPLETED ✓)
-  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: Fixed environment variables (added _PROD suffix), build process, database table count (12 tables)
+- **November 2025 (Documentation Updates)**: Fixed deployment documentation errors and added tenant requirements (COMPLETED ✓)
+  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: 
+    - Fixed environment variables (added _PROD suffix), build process, database table count (12 tables)
+    - Added comprehensive tenant requirements section explaining that demo users must be in the same Office 365 tenant
+    - Added Microsoft 365 Developer Program setup instructions (FREE 25 E5 licenses for 90 days)
+    - Added demo user setup options with cost comparison
+    - Added bulk CSV import instructions for creating demo accounts
   - **DEPLOYMENT_ARCHITECTURE.md**: Updated database schema to include all 12 tables, added TOP_SECRET classification level
+  - **DEPLOYMENT_SUMMARY.md**: Updated from 9 to 12 tables, removed deprecated adaptive_card_outbox reference
   - **README.md**: Removed NAVY references, added local development setup, corrected tech stack (Fluent UI)
   - **replit.md**: Updated core tables list to reflect all 12 tables
 - **November 2025 (Documentation - Commercial Azure)**: Complete deployment documentation for Azure Commercial (COMPLETED ✓)

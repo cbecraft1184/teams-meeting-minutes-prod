@@ -78,6 +78,247 @@ Azure Commercial (East US)
 
 ---
 
+## Understanding Tenant Requirements for Demo Users
+
+### ⚠️ CRITICAL: All Demo Users Must Be in Your Office 365 Tenant
+
+**Custom Teams apps are tenant-scoped and can only be used by users within the same Office 365 organization where the app is uploaded.**
+
+### Why This Matters
+
+❌ **This will NOT work:**
+- Demo users have their own Office 365 accounts (different tenant)
+- You upload the app to your tenant
+- Demo users try to use the app from their tenant
+- **Result:** Users cannot see or use the app
+
+✅ **This WILL work:**
+- You create user accounts in YOUR Office 365 tenant
+- You upload the app to your tenant
+- Demo users sign in with accounts you created
+- **Result:** Users can see and use the app
+
+### What About Guest Users?
+
+Even if you invite external users as **guests** to your tenant:
+- Custom apps are only visible when guests **switch** their Teams client to your tenant
+- Guests often get "You don't have access to this app" errors with custom apps
+- This creates a confusing user experience for demos
+
+**Recommendation:** Do not rely on guest access for demos. Create dedicated accounts.
+
+---
+
+## Demo User Setup Options
+
+### Option 1: Microsoft 365 Developer Program (FREE - Recommended)
+
+**Best for:** 20-user demos, proof-of-concepts, testing
+
+**What you get:**
+- FREE Microsoft 365 E5 licenses (25 users)
+- 90-day renewable subscription (renews automatically if actively used)
+- Separate demo tenant (e.g., `yourcompany-demo.onmicrosoft.com`)
+- Full admin access
+- All features: Teams, SharePoint, Exchange, Azure AD
+
+**Setup steps:**
+
+1. **Sign up for Developer Program:**
+   ```
+   Visit: https://developer.microsoft.com/microsoft-365/dev-program
+   Click: Join now
+   Sign in with personal Microsoft account
+   ```
+
+2. **Create instant sandbox:**
+   - Choose: "Instant sandbox"
+   - Provide admin email: `admin@yourcompany-demo.onmicrosoft.com`
+   - Set admin password
+   - Wait 2-3 minutes for provisioning
+
+3. **Create demo user accounts:**
+   ```
+   1. Sign in to Microsoft 365 Admin Center:
+      https://admin.microsoft.com
+   
+   2. Go to: Users → Active users → Add a user
+   
+   3. Create 20 accounts:
+      - demo.user1@yourcompany-demo.onmicrosoft.com
+      - demo.user2@yourcompany-demo.onmicrosoft.com
+      - ... (up to demo.user20)
+   
+   4. Set passwords (or auto-generate)
+   
+   5. Assign licenses: Microsoft 365 E5 Developer
+   ```
+
+4. **Share credentials with demo users:**
+   ```
+   Email: demo.user1@yourcompany-demo.onmicrosoft.com
+   Password: [password you set]
+   Teams URL: https://teams.microsoft.com
+   ```
+
+**Cost:** $0 (FREE for 90 days, renewable)
+
+**Pros:**
+- ✅ No cost for demo period
+- ✅ 25 E5 licenses (more than 20-user need)
+- ✅ Completely separate from production
+- ✅ Can be renewed if actively used
+
+**Cons:**
+- ⚠️ Expires after 90 days of inactivity
+- ⚠️ Demo users must use provided credentials (not their own)
+
+---
+
+### Option 2: Create Accounts in Your Existing Tenant
+
+**Best for:** Long-term demos, integration with existing infrastructure
+
+**Setup steps:**
+
+1. **Purchase licenses** (if needed):
+   ```
+   Microsoft 365 Admin Center → Billing → Purchase services
+   
+   Options:
+   - Microsoft 365 Business Basic: $6/user/month
+   - Microsoft 365 E3: $36/user/month
+   - Microsoft 365 E5: $57/user/month
+   ```
+
+2. **Create user accounts:**
+   ```
+   Admin Center → Users → Active users → Add users
+   
+   Create 20 accounts:
+   - demo1@yourcompany.com
+   - demo2@yourcompany.com
+   - ... (etc.)
+   ```
+
+3. **Assign licenses** to each account
+
+4. **Share credentials** with demo users
+
+**Monthly cost for 20 users:**
+- Business Basic: $120/month
+- E3: $720/month
+- E5: $1,140/month
+
+**Pros:**
+- ✅ No expiration
+- ✅ Integrated with your existing tenant
+- ✅ Can use custom domain
+
+**Cons:**
+- ❌ Requires paid licenses
+- ⚠️ Mixed with production users (less isolation)
+
+---
+
+### Option 3: Each User Uploads to Their Own Tenant (NOT RECOMMENDED)
+
+This approach requires each demo user to:
+- Have admin access to their own tenant
+- Upload the app package themselves
+- Configure Azure AD app registrations
+- Deploy the backend to their own Azure subscription
+
+**Why this doesn't work:**
+- ❌ Not scalable (20 separate deployments)
+- ❌ Most users don't have tenant admin access
+- ❌ Your backend can't easily handle 20 different tenants
+- ❌ Not a cohesive demo experience
+
+**Do not use this approach for demos.**
+
+---
+
+## Recommended Setup for 20-User Demo
+
+### Step 1: Use Microsoft 365 Developer Program
+
+1. Sign up: https://developer.microsoft.com/microsoft-365/dev-program
+2. Create instant sandbox (2-3 minutes)
+3. Note your new tenant domain: `yourcompany-demo.onmicrosoft.com`
+
+### Step 2: Create 20 Demo Accounts
+
+Use Microsoft 365 Admin Center or bulk CSV import:
+
+**Bulk CSV method:**
+```csv
+User Name,First Name,Last Name,Display Name,Job Title,Department,Office Number,Office Phone,Mobile Phone,Fax,Address,City,State or Province,ZIP or Postal Code,Country or Region
+demo.user1,Demo,User1,Demo User 1,Tester,IT,,,,,,,,,US
+demo.user2,Demo,User2,Demo User 2,Tester,IT,,,,,,,,,US
+...
+demo.user20,Demo,User20,Demo User 20,Tester,IT,,,,,,,,,US
+```
+
+Upload via: Admin Center → Users → Active users → Add multiple users
+
+### Step 3: Assign Licenses
+
+All accounts automatically get E5 Developer licenses (included free).
+
+### Step 4: Configure Azure Resources
+
+**IMPORTANT:** Use the demo tenant for Azure AD app registrations:
+- When creating Azure AD apps in Phase 2, sign in with `admin@yourcompany-demo.onmicrosoft.com`
+- This ensures apps are registered in the demo tenant
+
+### Step 5: Distribute Credentials
+
+Send demo users their login information:
+
+```
+Subject: Teams Meeting Minutes Demo - Login Credentials
+
+Welcome to the Teams Meeting Minutes demo!
+
+Sign in to Microsoft Teams with these credentials:
+- Email: demo.user1@yourcompany-demo.onmicrosoft.com
+- Password: [password]
+- Teams URL: https://teams.microsoft.com
+
+After signing in:
+1. Click "Apps" in the left sidebar
+2. Search for "Meeting Minutes"
+3. Click "Add" to install
+
+The app will appear in your Teams sidebar.
+```
+
+---
+
+## Cost Comparison
+
+| Approach | Setup Time | Monthly Cost | Duration | Best For |
+|----------|-----------|--------------|----------|----------|
+| **Developer Program** | 10 minutes | **$0** | 90 days (renewable) | ✅ **Demos & POCs** |
+| **Existing Tenant (Basic)** | 30 minutes | $120 | Unlimited | Long-term testing |
+| **Existing Tenant (E3)** | 30 minutes | $720 | Unlimited | Production pilots |
+| **Existing Tenant (E5)** | 30 minutes | $1,140 | Unlimited | Full feature testing |
+
+---
+
+## Checklist: Before Proceeding with Deployment
+
+- [ ] Decided on tenant approach (Developer Program recommended)
+- [ ] Created demo Office 365 tenant (if using Developer Program)
+- [ ] Created 20+ user accounts in the tenant
+- [ ] Assigned licenses to all accounts
+- [ ] Documented credentials for demo users
+- [ ] Verified admin access to the tenant
+- [ ] Ready to proceed with Azure deployment
+
+---
+
 ## Phase 1: Create Azure Resources
 
 ### Step 1.1: Set Environment Variables (Local Terminal)

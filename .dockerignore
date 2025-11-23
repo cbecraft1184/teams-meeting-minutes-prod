@@ -1,0 +1,41 @@
+# Node modules (will be installed in container)
+node_modules/
+
+# Development files
+*.log
+npm-debug.log*
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Replit specific
+.replit
+replit.nix
+.config/
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts (will be rebuilt in container)
+dist/
+
+# Environment variables (will be set by Container Apps)
+.env
+.env.local
+.env.*
+
+# Documentation
+*.md
+!replit.md
+
+# Tests
+__tests__/
+*.test.ts
+*.test.js
+
+# Deployment files
+DEPLOYMENT_*.md
+COMMERCIAL_*.md

@@ -44,16 +44,16 @@ COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder /app/config ./config
 COPY --from=builder /app/teams-app ./teams-app
 
-# Expose port 5000 (required by application)
-EXPOSE 5000
+# Expose port 8080 (Azure Container Apps requirement)
+EXPOSE 8080
 
 # Set environment to production
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=8080
 
 # Health check for Azure Container Apps
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:5000/health || exit 1
+  CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Start the application (built server is at dist/server/index.js)
+CMD ["node", "dist/server/index.js"]

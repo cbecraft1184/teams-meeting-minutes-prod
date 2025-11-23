@@ -56,7 +56,7 @@ Automated Microsoft Teams meeting minutes generation using Azure OpenAI for demo
 - **Bot:** BotBuilder SDK v4
 
 ### Infrastructure
-- **Hosting:** Azure App Service (Linux, Node.js 18)
+- **Hosting:** Azure Container Apps (Linux, Node.js 18)
 - **Database:** Azure Database for PostgreSQL (Flexible Server)
 - **AI:** Azure OpenAI Service
 - **Monitoring:** Azure Application Insights
@@ -134,17 +134,17 @@ Switch users in development using the user switcher in the top-right corner.
 ## Azure Commercial Deployment
 
 ### Demo Deployment (20 users)
-**Estimated Cost:** $92/month  
+**Estimated Cost:** $85/month  
 **Timeline:** 4-6 hours
 
 **[→ View Complete Deployment Guide (COMMERCIAL_DEMO_DEPLOYMENT.md)](COMMERCIAL_DEMO_DEPLOYMENT.md)**
 
 ### Production Deployment (100 users)
-**Estimated Cost:** $383/month  
+**Estimated Cost:** $463/month  
 **Features:** Auto-scaling, high availability, monitoring
 
 **Resources:**
-- App Service: Standard S1 (2 instances)
+- Container Apps: Dedicated 2 vCPU
 - PostgreSQL: General Purpose D2s_v3
 - Azure OpenAI: GPT-4o + Whisper
 - Application Insights: Standard tier

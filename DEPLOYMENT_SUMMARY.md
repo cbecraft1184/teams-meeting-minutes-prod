@@ -13,7 +13,7 @@ Complete deployment documentation for the AI-powered Teams Meeting Minutes syste
 **Current State:**
 - ✅ Application development complete (zero runtime errors)
 - ✅ Commercial Azure deployment procedures documented
-- ✅ Cost estimates provided ($92/month demo, $383/month production)
+- ✅ Cost estimates provided ($85/month demo, $463/month production)
 - ✅ Testing and validation procedures complete
 
 **Quick Start:**
@@ -67,15 +67,15 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 
 **Key Contents:**
 - **5-Phase Deployment Procedure:**
-  1. Create Azure Resources (App Service, PostgreSQL, OpenAI, Application Insights)
+  1. Create Azure Resources (Container Registry, Container Apps Environment, Container App, PostgreSQL, OpenAI, Application Insights)
   2. Azure AD App Registrations (Graph API, Teams Bot)
-  3. Configure and Deploy Application
+  3. Configure and Deploy Application (container-based deployment)
   4. Teams Integration (manifest, icons, bot deployment)
   5. Testing and Validation (end-to-end flow verification)
 - **Cost Estimates:**
-  - **20 users (demo/pilot):** $92/month
-  - **100 users (production):** $383/month
-  - Cost optimization strategies (auto-scaling, reserved instances)
+  - **20 users (demo/pilot):** $85/month
+  - **100 users (production):** $463/month
+  - Cost optimization strategies (auto-scaling, container optimization)
 - **Rollback Procedures:**
   - Application deployment rollback
   - Database point-in-time restore
@@ -123,11 +123,11 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 │                     AZURE COMMERCIAL                            │
 │                                                                 │
 │  Week 1-2:  Azure resources provisioning                       │
-│  Week 3:    Application deployment + Teams integration         │
+│  Week 3:    Container deployment + Teams integration           │
 │  Week 4:    End-to-end testing + user acceptance              │
 │                                                                 │
 │  Timeline: 4 weeks                                             │
-│  Cost: $92/month (demo), $383/month (production)              │
+│  Cost: $85/month (demo), $463/month (production)              │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -136,15 +136,15 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 ## Cost Summary
 
 ### Demo/Pilot (20 Users)
-- **Monthly:** $92
-- **Annual:** $1,104
-- **Services:** Basic B1 App Service, Burstable B2s PostgreSQL, Azure OpenAI
+- **Monthly:** $85
+- **Annual:** $1,020
+- **Services:** Container Apps (Consumption 0.5 vCPU), Burstable B2s PostgreSQL, Azure OpenAI
 
 ### Production (100 Users)
-- **Monthly:** $383
-- **Annual:** $4,596
-- **Services:** Standard S1 App Service (2 instances), General Purpose D2s_v3 PostgreSQL, Azure OpenAI
-- **With Reserved Instances (3-year):** Save $80-120/month
+- **Monthly:** $463
+- **Annual:** $5,556
+- **Services:** Container Apps (Dedicated 2 vCPU), General Purpose D2s_v3 PostgreSQL, Azure OpenAI
+- **With Reserved Instances (3-year):** Save $100-150/month
 
 ---
 
@@ -186,8 +186,8 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
 
 ## Document Control
 
-- **Version:** 2.0
-- **Date:** November 21, 2024
-- **Purpose:** Azure Commercial deployment documentation
+- **Version:** 3.0
+- **Date:** November 23, 2025
+- **Purpose:** Azure Commercial deployment documentation (Container Apps)
 - **Target:** Demonstration and production environments
-- **Estimated Cost:** $92/month (demo), $383/month (100 users)
+- **Estimated Cost:** $85/month (demo), $463/month (100 users)

@@ -546,7 +546,7 @@ az account show --output table
 
 - User (Christopher) has multiple Microsoft accounts causing initial confusion
 - Architect recommended single-tenant approach for simplicity
-- Deployment cost: $92/month (demo), $383/month (100 users production)
+- Deployment cost: $85/month (demo), $463/month (100 users production)
 - Email distribution feature fully implemented and ready
 - All 12 database tables documented and validated
 

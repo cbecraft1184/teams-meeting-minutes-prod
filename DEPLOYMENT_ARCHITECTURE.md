@@ -21,7 +21,7 @@ AI-powered Microsoft Teams meeting minutes management system built as a native T
                      │ HTTPS/OAuth 2.0
                      ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                  Azure App Service (Node.js)                     │
+│               Azure Container Apps (Node.js)                     │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  Frontend: React + Fluent UI v9 (SPA)                     │  │
 │  │  • Dashboard, Meetings List, Search, Settings             │  │
@@ -134,7 +134,7 @@ AI-powered Microsoft Teams meeting minutes management system built as a native T
 
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
-| **Hosting** | Azure App Service (Linux, Node.js 18) | Application hosting |
+| **Hosting** | Azure Container Apps (Linux, Node.js 18) | Application hosting |
 | **Database** | Azure Database for PostgreSQL (Flexible Server) | Managed PostgreSQL |
 | **AI** | Azure OpenAI Service | GPT-4o & Whisper models |
 | **Authentication** | Microsoft Entra ID (Azure AD) | Identity & access management |
@@ -454,7 +454,7 @@ Groups define two attributes:
 **Production:**
 - Azure Key Vault for secrets
 - Managed Identity for access (no passwords)
-- Environment variables injected by App Service
+- Environment variables injected by Container Apps
 
 **Required Secrets:**
 - `GRAPH_CLIENT_ID`, `GRAPH_CLIENT_SECRET`, `GRAPH_TENANT_ID`
@@ -506,14 +506,14 @@ Groups define two attributes:
 
 ### Current Architecture (Demo - 20 users)
 
-- **App Service:** Basic B1 tier (1 core, 1.75 GB RAM)
+- **Container Apps:** Consumption 0.5 vCPU, 1 GB RAM
 - **Database:** Basic tier (1 vCore, 2 GB storage)
 - **Concurrent:** ~10-20 concurrent requests
 
 ### Enterprise Scale (100-1000 users)
 
 **Horizontal Scaling:**
-- App Service: Standard S1+ tier with auto-scale (2-10 instances)
+- Container Apps: Dedicated 2+ vCPU with auto-scale (2-10 instances)
 - Database: General Purpose tier with read replicas
 - Job workers: Dedicated worker instances
 
@@ -524,11 +524,11 @@ Groups define two attributes:
 - Batch job processing
 
 **Estimated Costs (100 users):**
-- App Service (S1): ~$70/month
-- PostgreSQL (GP 2 vCores): ~$100/month
+- Container Apps (Dedicated 2 vCPU): ~$280/month
+- PostgreSQL (GP 2 vCores): ~$133/month
 - Azure OpenAI (GPT-4o): ~$50/month (usage-based)
 - Bot Service: ~$0/month (standard tier free)
-- **Total:** ~$220/month
+- **Total:** ~$463/month
 
 ---
 
@@ -536,14 +536,15 @@ Groups define two attributes:
 
 ### Azure Resources Needed
 
-1. **Azure App Service** (Linux, Node.js 18)
-2. **Azure Database for PostgreSQL** (Flexible Server, v16)
-3. **Azure OpenAI Service** (GPT-4o + Whisper models)
-4. **Azure Bot Service** (Bot registration)
-5. **Azure Application Insights** (Monitoring)
-6. **Azure Key Vault** (Optional, for production secrets)
-7. **Microsoft Entra ID App Registration** (OAuth + Graph API)
-8. **Microsoft 365 E3+ License** (Teams, SharePoint, Exchange)
+1. **Azure Container Apps** (Linux, Node.js 18)
+2. **Azure Container Registry** (Container image storage)
+3. **Azure Database for PostgreSQL** (Flexible Server, v16)
+4. **Azure OpenAI Service** (GPT-4o + Whisper models)
+5. **Azure Bot Service** (Bot registration)
+6. **Azure Application Insights** (Monitoring)
+7. **Azure Key Vault** (Optional, for production secrets)
+8. **Microsoft Entra ID App Registration** (OAuth + Graph API)
+9. **Microsoft 365 E3+ License** (Teams, SharePoint, Exchange)
 
 ### Network Requirements
 
@@ -578,7 +579,7 @@ Groups define two attributes:
 | **Microsoft Graph** | Mock services | Real Graph API calls |
 | **Azure OpenAI** | Replit AI fallback | Azure OpenAI Service |
 | **Bot Framework** | Mock responses | Real bot messaging |
-| **HTTPS** | Replit SSL | Azure App Service SSL |
+| **HTTPS** | Replit SSL | Azure Container Apps SSL |
 | **Secrets** | Environment variables | Azure Key Vault |
 | **Monitoring** | Console logs | Application Insights |
 | **Domain** | `*.replit.dev` | `*.azurewebsites.us` (Azure Government) or custom |

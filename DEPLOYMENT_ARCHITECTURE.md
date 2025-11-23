@@ -582,7 +582,7 @@ Groups define two attributes:
 | **HTTPS** | Replit SSL | Azure Container Apps SSL |
 | **Secrets** | Environment variables | Azure Key Vault |
 | **Monitoring** | Console logs | Application Insights |
-| **Domain** | `*.replit.dev` | `*.azurewebsites.us` (Azure Government) or custom |
+| **Domain** | `*.replit.dev` | `*.azurecontainerapps.io` (Azure Commercial) or custom |
 
 ---
 

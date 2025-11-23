@@ -17,7 +17,7 @@ This directory contains the Microsoft Teams app package for deploying the AI-Pow
    - API permissions configured for Microsoft Graph
    - SSO configured
 
-2. **Backend Services Deployed** (hosted on Azure App Service)
+2. **Backend Services Deployed** (hosted on Azure Container Apps)
    - API endpoint URL
    - Webhook endpoint configured
    - Database and job workers running
@@ -30,8 +30,8 @@ Before packaging, replace these placeholders in `manifest.json`:
 |-------------|--------------|---------|
 | `{{TEAMS_APP_ID}}` | New GUID for this Teams app | `12345678-1234-1234-1234-123456789012` |
 | `{{AZURE_AD_APP_ID}}` | Azure AD App Registration Client ID | Provided by dev team |
-| `{{TAB_ENDPOINT}}` | Your App Service URL | `https://teams-minutes-app.azurewebsites.net` |
-| `{{TAB_DOMAIN}}` | Just the domain (no https://) | `teams-minutes-app.azurewebsites.net` |
+| `{{TAB_ENDPOINT}}` | Your Container App URL | `https://teams-minutes-app.orangemushroom-xxx.eastus2.azurecontainerapps.io` |
+| `{{TAB_DOMAIN}}` | Just the domain (no https://) | `teams-minutes-app.orangemushroom-xxx.eastus2.azurecontainerapps.io` |
 
 **To generate TEAMS_APP_ID:**
 ```powershell
@@ -117,7 +117,7 @@ zip -r ../teams-minutes-app.zip manifest.json icons/color.png icons/outline.png
    - Click app → Should load the dashboard
 
 2. **Check Logs**
-   - Azure App Service → Log stream
+   - Azure Container Apps → Log stream
    - Look for Teams SSO token exchanges
    - Verify no authentication errors
 
@@ -133,12 +133,12 @@ zip -r ../teams-minutes-app.zip manifest.json icons/color.png icons/outline.png
 - Verify `webApplicationInfo` in manifest matches Azure AD app
 - Check Azure AD app has correct API permissions
 - Ensure admin consent was granted for Graph permissions
-- Verify `validDomains` includes your App Service domain
+- Verify `validDomains` includes your Container App domain
 
 **App loads but shows errors:**
-- Check App Service is running (Azure portal)
+- Check Container App is running (Azure portal)
 - Verify environment variables configured correctly
-- Check App Service logs for backend errors
+- Check Container App logs for backend errors
 - Ensure database connection working
 
 **Icons don't display:**
@@ -200,15 +200,15 @@ Before giving package to IT, test it yourself:
 1. Admin uploads app package to Teams Admin Center
 2. Admin deploys to users via setup policies
 3. App appears in users' Teams left sidebar
-4. User clicks app → Teams loads tab in iframe from Azure App Service
+4. User clicks app → Teams loads tab in iframe from Azure Container Apps
 5. Tab authenticates user via Teams SSO
 6. Tab calls backend API with SSO token
 7. Backend exchanges token for Graph access via On-Behalf-Of flow
 8. Backend processes meetings, generates minutes, stores in database
 
 **Components:**
-- **Teams Tab (Frontend)**: React app hosted on Azure App Service
-- **Backend API**: Express server on Azure App Service (webhooks, jobs)
+- **Teams Tab (Frontend)**: React app hosted on Azure Container Apps
+- **Backend API**: Express server on Azure Container Apps (webhooks, jobs)
 - **Database**: PostgreSQL for meetings, minutes, job queue
 - **Azure AD**: SSO authentication and Graph API access
 - **Microsoft Graph**: Meeting recordings, transcripts, user data

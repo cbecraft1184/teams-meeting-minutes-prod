@@ -41,7 +41,8 @@ This deployment creates:
 ### Infrastructure Components
 - **Resource Group:** `tmm-demo-eastus`
 - **Virtual Network:** Hub-spoke topology with 3 subnets
-- **App Service:** Premium P1v3 with auto-scaling (1-3 instances)
+- **Container Apps:** Dedicated plan with auto-scaling (1-3 instances)
+- **Container Registry:** For application images
 - **PostgreSQL:** Flexible Server B2ms with PgBouncer, 256GB storage
 - **Storage Account:** Standard GRS with blob containers
 - **Azure OpenAI:** GPT-4o, GPT-4o-mini, Whisper models
@@ -50,9 +51,10 @@ This deployment creates:
 - **Monitoring:** Application Insights + Log Analytics
 
 ### Estimated Monthly Cost
-- **Base infrastructure:** ~$750-850/month
+- **Demo (20 users):** ~$85/month
+- **Production (100 users):** ~$463/month
 - **Variable costs:** Based on AI usage, storage, bandwidth
-- **Optimization:** Reserved instances can reduce costs by 30-40%
+- **Optimization:** Dedicated Container Apps plan for production workloads
 
 ## 🚀 Quick Start Deployment
 
@@ -83,8 +85,8 @@ The script will:
 # List all resources
 az resource list --resource-group tmm-demo-eastus --output table
 
-# Check App Service
-az webapp show --name tmm-app-demo --resource-group tmm-demo-eastus
+# Check Container App
+az containerapp show --name tmm-app-demo --resource-group tmm-demo-eastus
 
 # Check PostgreSQL
 az postgres flexible-server show --name tmm-pg-demo --resource-group tmm-demo-eastus
@@ -164,11 +166,11 @@ STORAGE_KEY=$(az storage account keys list \
 az keyvault secret set --vault-name $KEYVAULT_NAME --name storage-account-key --value "$STORAGE_KEY"
 ```
 
-### 3. Grant Key Vault Access to App Service
+### 3. Grant Key Vault Access to Container App
 
 ```bash
-# Get App Service managed identity
-APP_PRINCIPAL_ID=$(az webapp identity show \
+# Get Container App managed identity
+APP_PRINCIPAL_ID=$(az containerapp identity show \
   --name tmm-app-demo \
   --resource-group tmm-demo-eastus \
   --query principalId -o tsv)
@@ -234,8 +236,9 @@ az ad sp create-for-rbac \
 
 2. Add secrets to GitHub repository:
    - `AZURE_CREDENTIALS`: Service principal JSON output
-   - `AZURE_WEBAPP_NAME`: `tmm-app-demo`
-   - `AZURE_WEBAPP_SLOT`: `staging`
+   - `ACR_NAME`: `tmmacrdemo`
+   - `CONTAINER_APP`: `tmm-app-demo`
+   - `RESOURCE_GROUP`: `tmm-demo-eastus`
 
 3. Deploy on push to main branch (see `.github/workflows/azure-deploy.yml`)
 
@@ -266,10 +269,11 @@ VITE_API_URL=https://<frontdoor-endpoint> npm run test:e2e
 
 ### Common Issues
 
-**App Service won't start:**
+**Container App won't start:**
 - Check Application Insights logs for startup errors
 - Verify Key Vault secrets are accessible
 - Ensure managed identity has Key Vault permissions
+- Check container image is in Container Registry
 
 **Database connection failures:**
 - Verify VNet integration is configured
@@ -284,7 +288,7 @@ VITE_API_URL=https://<frontdoor-endpoint> npm run test:e2e
 ## 💰 Cost Optimization
 
 ### Recommendations
-- **App Service:** Use reserved instances for 30% savings
+- **Container Apps:** Use Dedicated plan for production workloads
 - **PostgreSQL:** Right-size after monitoring actual usage
 - **Storage:** Enable lifecycle policies to move to Cool/Archive tiers
 - **Azure OpenAI:** Use GPT-4o-mini for non-critical processing
@@ -302,7 +306,7 @@ az consumption usage list \
 
 ## 📚 Additional Resources
 
-- [Azure App Service Documentation](https://learn.microsoft.com/en-us/azure/app-service/)
+- [Azure Container Apps Documentation](https://learn.microsoft.com/en-us/azure/container-apps/)
 - [Azure Database for PostgreSQL](https://learn.microsoft.com/en-us/azure/postgresql/)
 - [Azure OpenAI Service](https://learn.microsoft.com/en-us/azure/ai-services/openai/)
 - [Microsoft Graph API](https://learn.microsoft.com/en-us/graph/)

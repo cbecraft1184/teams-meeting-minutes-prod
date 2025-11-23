@@ -1095,21 +1095,20 @@ az monitor metrics alert create \
 - Automated backups: 7-day retention (default)
 - Point-in-time restore available
 
-**App Service Backup (Optional):**
+**Container App Backup (Optional):**
 
 ```bash
-# Create storage account for backups
-az storage account create \
-  --name "<unique-storage-name>" \
-  --resource-group $RESOURCE_GROUP \
-  --location $LOCATION \
-  --sku Standard_LRS
+# Container Apps use revision-based deployment
+# Revisions are automatically retained (last 100)
 
-# Configure backup (via Azure Portal)
-# App Service → Backups → Configure
-# - Frequency: Daily
-# - Retention: 7 days
-# - Partial backup: Include database
+# To backup manually, export configuration:
+az containerapp revision list \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  -o json > container-app-backup.json
+
+# Container images are automatically retained in ACR
+# Database has automatic 7-day backup with point-in-time restore
 ```
 
 ### Step 6.3: Cost Monitoring

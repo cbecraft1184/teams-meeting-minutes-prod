@@ -29,9 +29,9 @@ RUN apk add --no-cache curl
 # Copy package files
 COPY package*.json ./
 
-# Install build tools temporarily, install dependencies, then remove tools
+# Install build tools temporarily, install all dependencies (including optional), then remove tools
 RUN apk add --no-cache --virtual .build-deps python3 make g++ && \
-    npm ci --production && \
+    npm ci --include=optional --omit=dev && \
     apk del .build-deps
 
 # Copy built application from builder stage
@@ -39,6 +39,7 @@ COPY --from=builder /app/dist ./dist
 
 # Copy runtime assets and configuration
 COPY --from=builder /app/shared ./shared
+COPY --from=builder /app/server ./server
 COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
 COPY --from=builder /app/config ./config
 COPY --from=builder /app/teams-app ./teams-app

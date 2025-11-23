@@ -77,13 +77,16 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 - Replit AI for minutes generation (no Azure OpenAI needed)
 
 ### Demo Deployment
-- Azure Commercial Cloud (East US)
-- Azure App Service (Basic tier for demo, Standard for production)
-- Azure Database for PostgreSQL (Burstable for demo, General Purpose for production)
-- Azure OpenAI Service
+- Azure Commercial Cloud (East US 2)
+- **Azure Container Apps** (Container-based deployment with auto-scaling)
+- Azure Container Registry (for container images)
+- Azure Database for PostgreSQL Flexible Server (Burstable B2s for demo, General Purpose for production)
+- Azure OpenAI Service (GPT-4o model)
 - Application Insights for monitoring
 
-**Cost**: $92/month (demo), $383/month (100 users production)
+**Deployment URL:** https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
+
+**Cost**: Estimated $85-95/month (demo with Container Apps), $350-400/month (100 users production)
 
 ## External Dependencies
 
@@ -94,7 +97,8 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 
 ### Azure Services
 - **Azure OpenAI**: GPT-4o and Whisper models
-- **Azure App Service**: Application hosting
+- **Azure Container Apps**: Application hosting
+- **Azure Container Registry**: Container image storage
 - **Azure Database for PostgreSQL**: Data persistence
 - **Application Insights**: Monitoring and logging
 

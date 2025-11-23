@@ -15,10 +15,11 @@ This guide provides step-by-step instructions to deploy the Teams Meeting Minute
 ### Deployment Architecture
 
 ```
-Azure Commercial (East US)
+Azure Commercial (East US 2)
 ├── Resource Group: rg-teams-minutes-demo
-├── App Service Plan: asp-teams-minutes (B1 tier)
-├── App Service: app-teams-minutes-demo
+├── Azure Container Registry: teamminutesacr
+├── Container Apps Environment: teams-minutes-env
+├── Container App: teams-minutes-app
 ├── PostgreSQL Flexible Server: psql-teams-minutes-demo
 ├── Azure OpenAI: openai-teams-minutes-demo
 ├── Application Insights: appi-teams-minutes-demo
@@ -26,13 +27,15 @@ Azure Commercial (East US)
 └── Key Vault: kv-teams-min-demo (optional, 24 char max)
 ```
 
+**Note:** This deployment uses Azure Container Apps instead of App Service for better scalability and simplified container management.
+
 ### Timeline
 
 | Phase | Duration | Tasks |
 |-------|----------|-------|
-| **Phase 1: Azure Resources** | 1-2 hours | Create resource group, database, OpenAI, App Service |
+| **Phase 1: Azure Resources** | 1-2 hours | Create resource group, database, OpenAI, Container Registry, Container Apps Env |
 | **Phase 2: Azure AD Setup** | 1 hour | App registrations, permissions, consent |
-| **Phase 3: Code Deployment** | 1 hour | Build app, configure environment, deploy |
+| **Phase 3: Code Deployment** | 1 hour | Build container image, deploy to Container Apps |
 | **Phase 4: Teams Integration** | 30 min | Bot registration, Teams app manifest |
 | **Phase 5: Testing** | 2-4 hours | Create test meeting, verify end-to-end flow |
 
@@ -326,9 +329,10 @@ The app will appear in your Teams sidebar.
 ```bash
 # Resource naming (change to your preferred names)
 export RESOURCE_GROUP="rg-teams-minutes-demo"
-export LOCATION="eastus"
-export APP_SERVICE_PLAN="asp-teams-minutes"
-export APP_SERVICE_NAME="app-teams-minutes-demo"  # Must be globally unique
+export LOCATION="eastus2"  # Use eastus2 for better availability
+export ACR_NAME="teamminutesacr"  # Azure Container Registry (globally unique)
+export CONTAINER_ENV="teams-minutes-env"  # Container Apps Environment
+export CONTAINER_APP="teams-minutes-app"  # Container App name
 export POSTGRES_SERVER="psql-teams-minutes-demo"  # Must be globally unique
 export OPENAI_ACCOUNT="openai-teams-minutes-demo"  # Must be globally unique
 export APP_INSIGHTS="appi-teams-minutes-demo"
@@ -463,44 +467,42 @@ export APPINSIGHTS_INSTRUMENTATIONKEY=$(az monitor app-insights component show \
 echo "APPINSIGHTS_INSTRUMENTATIONKEY: $APPINSIGHTS_INSTRUMENTATIONKEY"
 ```
 
-### Step 1.6: Create App Service Plan and App Service
+### Step 1.6: Create Azure Container Registry
 
 ```bash
-# Create App Service Plan (Basic B1 for demo)
-az appservice plan create \
-  --name $APP_SERVICE_PLAN \
+# Create Azure Container Registry
+az acr create \
+  --name $ACR_NAME \
   --resource-group $RESOURCE_GROUP \
   --location $LOCATION \
-  --is-linux \
-  --sku B1
+  --sku Basic \
+  --admin-enabled true
 
-echo "✓ App Service Plan created"
+echo "✓ Azure Container Registry created"
 
-# Create App Service
-az webapp create \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --plan $APP_SERVICE_PLAN \
-  --runtime "NODE:18-lts"
+# Get ACR credentials for later use
+ACR_USERNAME=$ACR_NAME
+ACR_PASSWORD=$(az acr credential show \
+  --name $ACR_NAME \
+  --query "passwords[0].value" -o tsv)
 
-echo "✓ App Service created"
-
-# Enable HTTPS only
-az webapp update \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --https-only true
-
-# Configure startup command (uses npm start from package.json)
-az webapp config set \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --startup-file "npm start"
-
-echo "✓ App Service configured"
+echo "ACR Username: $ACR_USERNAME"
+echo "ACR Password: [hidden]"
 ```
 
-### Step 1.7: Create Key Vault (Optional but Recommended)
+### Step 1.7: Create Container Apps Environment
+
+```bash
+# Create Container Apps Environment
+az containerapp env create \
+  --name $CONTAINER_ENV \
+  --resource-group $RESOURCE_GROUP \
+  --location $LOCATION
+
+echo "✓ Container Apps Environment created"
+```
+
+### Step 1.8: Create Key Vault (Optional but Recommended)
 
 ```bash
 az keyvault create \
@@ -511,20 +513,9 @@ az keyvault create \
   --sku standard
 
 echo "✓ Key Vault created"
-
-# Grant App Service access to Key Vault
-WEBAPP_PRINCIPAL_ID=$(az webapp identity assign \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --query "principalId" -o tsv)
-
-az keyvault set-policy \
-  --name $KEY_VAULT_NAME \
-  --object-id $WEBAPP_PRINCIPAL_ID \
-  --secret-permissions get list
-
-echo "✓ App Service granted Key Vault access"
 ```
+
+**Note:** You'll grant Container App access to Key Vault after deploying in Phase 3.4.
 
 ---
 
@@ -571,7 +562,7 @@ export GRAPH_CLIENT_ID="<Application (client) ID>"
 export GRAPH_CLIENT_SECRET="<Client secret value>"
 export GRAPH_TENANT_ID="<Directory (tenant) ID>"
 
-# Note: These will be set in App Service with _PROD suffix (Step 3.2)
+# Note: These will be set in Container App with _PROD suffix (Step 3.4)
 ```
 
 ### Step 2.2: Configure Application Access Policy (PowerShell)
@@ -636,9 +627,7 @@ export MICROSOFT_APP_PASSWORD="<Bot client secret>"
 
 **Configure Messaging Endpoint:**
 
-1. Go to Bot **Configuration**
-2. Set **Messaging endpoint:** `https://<APP_SERVICE_NAME>.azurewebsites.net/api/webhooks/bot`
-3. Click **Apply**
+*Note: Leave this blank for now. You'll update it after deploying the Container App in Phase 3.*
 
 **Enable Teams Channel:**
 
@@ -648,44 +637,101 @@ export MICROSOFT_APP_PASSWORD="<Bot client secret>"
 
 ---
 
-## Phase 3: Configure and Deploy Application
+## Phase 3: Build and Deploy Container App
 
-### Step 3.1: Build Application Code
+### Step 3.1: Create Dockerfile
 
-```bash
-# Navigate to project directory
-cd /path/to/teams-meeting-minutes
+Ensure you have a `Dockerfile` in your project root. Here's the production-ready multi-stage build:
 
-# Install ALL dependencies (single root package.json manages all deps)
-npm install
-
-# Build TypeScript backend (compiles to dist/)
-npm run build
-
-# Build React frontend (from root)
-npm run build:client
-
-# Verify build outputs
-ls -la dist/             # Backend compiled JS
-ls -la client/dist/      # Frontend built assets
-
-echo "✓ Application built successfully"
+```dockerfile
+# See Dockerfile in project root for the complete implementation
+# Key features:
+# - Multi-stage build (builder + runtime)
+# - Alpine Linux base (minimal size)
+# - Build tools cleanup after npm install
+# - Health check endpoint at /health
 ```
 
-### Step 3.2: Set Environment Variables in App Service
+### Step 3.2: Initialize Database Schema
 
 ```bash
-az webapp config appsettings set \
-  --name $APP_SERVICE_NAME \
+# Set DATABASE_URL environment variable
+export DATABASE_URL="postgresql://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWORD}@${POSTGRES_SERVER}.postgres.database.azure.com:5432/meetings?sslmode=require"
+
+# Push schema to database (Drizzle ORM)
+npm run db:push
+
+echo "✓ Database schema initialized with 12 tables"
+```
+
+### Step 3.3: Build and Push Container Image
+
+```bash
+# Upload code to Azure Cloud Shell or use Azure CLI locally
+# If using Cloud Shell: Upload a ZIP of your code, then unzip
+# unzip -q teams-minutes-app.zip -d app
+# cd app
+
+# Build and push image using Azure ACR Build (builds in Azure)
+az acr build \
+  --registry $ACR_NAME \
   --resource-group $RESOURCE_GROUP \
-  --settings \
+  --image teams-minutes:latest \
+  .
+
+echo "✓ Container image built and pushed to ACR"
+```
+
+**Alternative: Build locally and push:**
+```bash
+# Build image locally
+docker build -t $ACR_NAME.azurecr.io/teams-minutes:latest .
+
+# Login to ACR
+az acr login --name $ACR_NAME
+
+# Push image
+docker push $ACR_NAME.azurecr.io/teams-minutes:latest
+
+echo "✓ Container image pushed to ACR"
+```
+
+### Step 3.4: Deploy Container App
+
+```bash
+# Get PostgreSQL connection string
+POSTGRES_HOST=$(az postgres flexible-server show \
+  --resource-group $RESOURCE_GROUP \
+  --name $POSTGRES_SERVER \
+  --query "fullyQualifiedDomainName" -o tsv)
+
+DATABASE_URL="postgresql://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWORD}@${POSTGRES_HOST}:5432/meetings?sslmode=require"
+
+# Get ACR password
+ACR_PASSWORD=$(az acr credential show \
+  --name $ACR_NAME \
+  --query "passwords[0].value" -o tsv)
+
+# Create Container App with managed identity
+az containerapp create \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --environment $CONTAINER_ENV \
+  --image ${ACR_NAME}.azurecr.io/teams-minutes:latest \
+  --target-port 5000 \
+  --ingress external \
+  --registry-server ${ACR_NAME}.azurecr.io \
+  --registry-username $ACR_NAME \
+  --registry-password "$ACR_PASSWORD" \
+  --system-assigned \
+  --env-vars \
     NODE_ENV=production \
     DATABASE_URL="$DATABASE_URL" \
     SESSION_SECRET="$SESSION_SECRET" \
     GRAPH_CLIENT_ID_PROD="$GRAPH_CLIENT_ID" \
     GRAPH_CLIENT_SECRET_PROD="$GRAPH_CLIENT_SECRET" \
     GRAPH_TENANT_ID_PROD="$GRAPH_TENANT_ID" \
-    GRAPH_SENDER_EMAIL="<Your sender email address>" \
+    GRAPH_SENDER_EMAIL="<Your sender email>" \
     AZURE_OPENAI_ENDPOINT_PROD="$AZURE_OPENAI_ENDPOINT" \
     AZURE_OPENAI_API_KEY_PROD="$AZURE_OPENAI_API_KEY" \
     AZURE_OPENAI_DEPLOYMENT_PROD="gpt-4o" \
@@ -698,148 +744,67 @@ az webapp config appsettings set \
     SHAREPOINT_CLIENT_ID="$GRAPH_CLIENT_ID" \
     SHAREPOINT_CLIENT_SECRET="$GRAPH_CLIENT_SECRET" \
     APPINSIGHTS_INSTRUMENTATIONKEY="$APPINSIGHTS_INSTRUMENTATIONKEY" \
-    USE_MOCK_SERVICES=false
+    USE_MOCK_SERVICES=false \
+    PORT=5000
 
-echo "✓ Environment variables configured"
+echo "✓ Container App deployed"
+
+# Get Container App URL and managed identity
+CONTAINER_APP_URL=$(az containerapp show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --query "properties.configuration.ingress.fqdn" -o tsv)
+
+CONTAINER_APP_IDENTITY=$(az containerapp identity show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --query "principalId" -o tsv)
+
+echo "Container App URL: https://$CONTAINER_APP_URL"
+echo "Managed Identity: $CONTAINER_APP_IDENTITY"
 ```
 
 **Replace placeholders:**
-- `<Your sender email address>` with the email address to send from (e.g., `noreply@yourdomain.com` or a service account)
+- `<Your sender email>` with email for sending (e.g., `noreply@yourdomain.com`)
 - `<Your SharePoint site URL>` with your SharePoint site (e.g., `https://contoso.sharepoint.com/sites/TeamSite`)
 
-### Step 3.3: Initialize Database Schema
-
+**Grant Key Vault Access (if using Key Vault):**
 ```bash
-# Set DATABASE_URL environment variable
-export DATABASE_URL="postgresql://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWORD}@${POSTGRES_SERVER}.postgres.database.azure.com:5432/meetings?sslmode=require"
+# Grant Container App managed identity access to Key Vault
+az keyvault set-policy \
+  --name $KEY_VAULT_NAME \
+  --object-id $CONTAINER_APP_IDENTITY \
+  --secret-permissions get list
 
-# Push schema to database (Drizzle ORM)
-npm run db:push
-
-echo "✓ Database schema initialized with 12 tables"
+echo "✓ Container App granted Key Vault access"
 ```
 
-### Step 3.4: Deploy Application to App Service
-
-**Option A: Direct Deployment (Azure CLI)**
+### Step 3.5: Update Bot Messaging Endpoint
 
 ```bash
-# Create deployment package (INCLUDE node_modules for production dependencies)
-npm install --production
-zip -r deploy.zip dist/ node_modules/ client/dist/ package.json package-lock.json -x "*.log" ".git/*"
-
-# Deploy to App Service
-az webapp deploy \
-  --name $APP_SERVICE_NAME \
+# Update Bot with Container App URL
+az bot update \
+  --name $BOT_NAME \
   --resource-group $RESOURCE_GROUP \
-  --src-path deploy.zip \
-  --type zip
+  --endpoint "https://${CONTAINER_APP_URL}/api/teams/messages"
 
-echo "✓ Application deployed (ZIP uploaded)"
-
-# Wait for deployment to complete (30-60 seconds)
-sleep 60
-
-# Restart app
-az webapp restart \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP
-
-echo "✓ App Service restarted"
+echo "✓ Bot messaging endpoint updated"
 ```
 
-**Option B: GitHub Actions (Recommended for Continuous Deployment)**
-
-1. **Get publish profile:**
-   ```bash
-   az webapp deployment list-publishing-profiles \
-     --name $APP_SERVICE_NAME \
-     --resource-group $RESOURCE_GROUP \
-     --xml
-   ```
-
-2. **Add to GitHub Secrets:**
-   - Repository → Settings → Secrets → Actions
-   - Create secret: `AZURE_WEBAPP_PUBLISH_PROFILE`
-   - Paste the XML content
-
-3. **Create `.github/workflows/azure-deploy.yml`:**
-   ```yaml
-   name: Deploy to Azure App Service
-
-   on:
-     push:
-       branches: [main]
-
-   env:
-     AZURE_WEBAPP_NAME: app-teams-minutes-demo
-     NODE_VERSION: '18.x'
-
-   jobs:
-     build:
-       runs-on: ubuntu-latest
-       steps:
-         - uses: actions/checkout@v4
-         
-         - name: Setup Node.js
-           uses: actions/setup-node@v4
-           with:
-             node-version: ${{ env.NODE_VERSION }}
-             cache: 'npm'
-         
-         - name: Install dependencies
-           run: npm ci
-         
-         - name: Build frontend
-           run: |
-             cd client
-             npm ci
-             npm run build
-             cd ..
-         
-         - name: Upload artifact
-           uses: actions/upload-artifact@v4
-           with:
-             name: node-app
-             path: .
-
-     deploy:
-       runs-on: ubuntu-latest
-       needs: build
-       steps:
-         - name: Download artifact
-           uses: actions/download-artifact@v4
-           with:
-             name: node-app
-         
-         - name: Deploy to Azure
-           uses: azure/webapps-deploy@v2
-           with:
-             app-name: ${{ env.AZURE_WEBAPP_NAME }}
-             publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-             package: .
-   ```
-
-4. **Push to GitHub:**
-   ```bash
-   git add .github/workflows/azure-deploy.yml
-   git commit -m "Add Azure deployment workflow"
-   git push origin main
-   ```
-
-### Step 3.5: Verify Deployment
+### Step 3.6: Verify Deployment
 
 ```bash
-# Check app logs
-az webapp log tail \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP
-
 # Test health endpoint
-curl https://$APP_SERVICE_NAME.azurewebsites.net/health
+curl https://$CONTAINER_APP_URL/health
+
+# Check container logs
+az containerapp logs show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --follow
 ```
 
-**Expected response:**
+**Expected health response:**
 ```json
 {
   "status": "healthy",
@@ -885,7 +850,7 @@ Create `teams-app/manifest.json`:
   "accentColor": "#3F487F",
   "configurableTabs": [
     {
-      "configurationUrl": "https://<APP_SERVICE_NAME>.azurewebsites.net/config",
+      "configurationUrl": "https://<CONTAINER_APP_URL>/config",
       "scopes": ["team", "groupchat"]
     }
   ],
@@ -893,7 +858,7 @@ Create `teams-app/manifest.json`:
     {
       "entityId": "dashboard",
       "name": "Dashboard",
-      "contentUrl": "https://<APP_SERVICE_NAME>.azurewebsites.net",
+      "contentUrl": "https://<CONTAINER_APP_URL>",
       "scopes": ["personal"]
     }
   ],
@@ -910,7 +875,7 @@ Create `teams-app/manifest.json`:
     "messageTeamMembers"
   ],
   "validDomains": [
-    "<APP_SERVICE_NAME>.azurewebsites.net"
+    "<CONTAINER_APP_URL>"
   ],
   "webApplicationInfo": {
     "id": "<GRAPH_CLIENT_ID>",
@@ -921,7 +886,7 @@ Create `teams-app/manifest.json`:
 
 **Replace placeholders:**
 - `<MICROSOFT_APP_ID>`: Bot app ID from Step 2.3
-- `<APP_SERVICE_NAME>`: Your App Service name
+- `<CONTAINER_APP_URL>`: Your Container App FQDN (e.g., `teams-minutes-app.orangemushroom-xxx.eastus2.azurecontainerapps.io`)
 - `<GRAPH_CLIENT_ID>`: Graph API app ID from Step 2.1
 
 ### Step 4.2: Create App Icons
@@ -990,9 +955,10 @@ echo "✓ Teams app package created: teams-app/teams-minutes-app.zip"
 
 ```bash
 # Check application logs
-az webapp log tail \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP
+az containerapp logs show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --follow
 
 # Look for:
 # - "Webhook received: meeting created"
@@ -1076,7 +1042,7 @@ SELECT id, job_type, status, attempt_count FROM job_queue WHERE status != 'compl
 ```bash
 # Create 10 test meetings via API
 for i in {1..10}; do
-  curl -X POST https://$APP_SERVICE_NAME.azurewebsites.net/api/meetings \
+  curl -X POST https://$CONTAINER_APP_URL/api/meetings \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer <TEST_TOKEN>" \
     -d '{
@@ -1102,12 +1068,12 @@ az monitor action-group create \
   --short-name "TMAlerts" \
   --email-receiver "Admin Email" admin@contoso.com
 
-# Alert: High error rate
+# Alert: High error rate (Container Apps)
 az monitor metrics alert create \
   --name "High Error Rate" \
   --resource-group $RESOURCE_GROUP \
-  --scopes "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Web/sites/$APP_SERVICE_NAME" \
-  --condition "count Http5xx > 10" \
+  --scopes "/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.App/containerApps/$CONTAINER_APP" \
+  --condition "count Requests > 100" \
   --window-size 5m \
   --evaluation-frequency 1m \
   --action "TeamsMinutesAlerts"
@@ -1181,7 +1147,7 @@ az consumption usage list \
 **Resolution:**
 ```bash
 # Check webhook subscriptions
-curl https://$APP_SERVICE_NAME.azurewebsites.net/api/webhooks/subscriptions
+curl https://$CONTAINER_APP_URL/api/webhooks/subscriptions
 
 # Renew subscription (automatic background job runs every 12 hours)
 # Or manually trigger via API endpoint
@@ -1221,10 +1187,13 @@ az cognitiveservices account deployment list \
 az bot show --name $BOT_NAME --resource-group $RESOURCE_GROUP \
   --query "properties.endpoint" -o tsv
 
-# Should be: https://<APP_SERVICE_NAME>.azurewebsites.net/api/webhooks/bot
+# Should be: https://<CONTAINER_APP_URL>/api/teams/messages
 
 # Check bot logs
-az webapp log tail --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP | grep -i "bot"
+az containerapp logs show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --follow | grep -i "bot"
 ```
 
 ### Issue: SharePoint upload fails
@@ -1241,10 +1210,15 @@ curl -X GET "https://graph.microsoft.com/v1.0/sites/<SITE_ID>/drive" \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 
 # Verify SHAREPOINT_SITE_URL and SHAREPOINT_LIBRARY env vars
-az webapp config appsettings list \
-  --name $APP_SERVICE_NAME \
+az containerapp env show \
+  --name $CONTAINER_ENV \
+  --resource-group $RESOURCE_GROUP
+
+# Or check Container App environment variables directly
+az containerapp show \
+  --name $CONTAINER_APP \
   --resource-group $RESOURCE_GROUP \
-  --query "[?name=='SHAREPOINT_SITE_URL' || name=='SHAREPOINT_LIBRARY']"
+  --query "properties.template.containers[0].env" -o table
 ```
 
 ---
@@ -1274,7 +1248,8 @@ az webapp config appsettings list \
 
 | Service | SKU | Quantity | Unit Cost | Monthly Cost |
 |---------|-----|----------|-----------|--------------|
-| **App Service Plan** | Basic B1 | 1 instance | $13/month | $13 |
+| **Container Apps** | Consumption | 0.25 vCPU, 0.5 GB | $0.000024/vCPU-sec | $15 |
+| **Container Registry** | Basic | 10 GB storage | $5/month | $5 |
 | **PostgreSQL Flexible Server** | Burstable B2s | 1 server | $30/month | $30 |
 | **PostgreSQL Storage** | 32 GB SSD | 32 GB | $0.12/GB | $4 |
 | **Azure OpenAI** | GPT-4o | 500K tokens/month | $0.015/1K tokens | $8 |
@@ -1282,29 +1257,30 @@ az webapp config appsettings list \
 | **Application Insights** | Standard | 2 GB/month | $2.30/GB | $5 |
 | **Bot Service** | Free tier | 10K messages | Free | $0 |
 | **Data Transfer** | Standard | 5 GB/month | $0.087/GB | $0.50 |
-| | | | **TOTAL (Demo):** | **$78.50/month** |
+| | | | **TOTAL (Demo):** | **$85.50/month** |
 
 ### Monthly Costs (Production - 100 Users)
 
 | Service | SKU | Quantity | Monthly Cost |
 |---------|-----|----------|--------------|
-| **App Service Plan** | Standard S1 | 2 instances (avg) | $140 |
+| **Container Apps** | Dedicated (D4) | 4 vCPU, 8 GB, 2 replicas | $200 |
+| **Container Registry** | Standard | 100 GB storage | $20 |
 | **PostgreSQL** | General Purpose D2s_v3 | 1 server | $120 |
 | **PostgreSQL Storage** | 64 GB SSD | 64 GB | $8 |
 | **Azure OpenAI** | GPT-4o + Whisper | 5M tokens + 250 hours | $90 |
 | **Application Insights** | Standard | 10 GB/month | $23 |
 | **Data Transfer** | Standard | 25 GB/month | $2 |
-| | | **TOTAL (Production):** | **$383/month** |
+| | | **TOTAL (Production):** | **$463/month** |
 
 ### Cost Optimization Tips
 
-1. **Auto-scaling:** Configure App Service to scale down during non-business hours (6 PM - 6 AM)
-   - **Savings:** ~$40/month (30% reduction)
+1. **Auto-scaling:** Configure Container App to scale to zero during non-business hours (6 PM - 6 AM)
+   - **Savings:** ~$50/month (25% reduction)
 
 2. **Reserved Instances (1-3 year):**
-   - **App Service:** 20-40% savings
+   - **Container Apps (Dedicated plan):** 20-30% savings
    - **PostgreSQL:** 40-60% savings
-   - **Estimated savings:** $80-120/month for production
+   - **Estimated savings:** $90-140/month for production
 
 3. **Budget Alerts:**
    ```bash

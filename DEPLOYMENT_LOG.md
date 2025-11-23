@@ -143,7 +143,7 @@ AzureCloud       True       Azure subscription 1  Enabled  edbe879d-bd5b-4db7-bd
 
 ### Phase 1: Create Azure Resources 🚀 IN PROGRESS
 
-**Objective:** Create all required Azure infrastructure (Resource Group, App Service, PostgreSQL, Azure OpenAI)
+**Objective:** Create all required Azure infrastructure (Resource Group, Container Apps, PostgreSQL, Azure OpenAI)
 
 **Date/Time:** November 22, 2025
 
@@ -156,8 +156,7 @@ AzureCloud       True       Azure subscription 1  Enabled  edbe879d-bd5b-4db7-bd
 
 **Configuration Set:**
 - Resource Group: `rg-teams-minutes-demo`
-- Location: `eastus`
-- App Service: Unique name with timestamp
+- Location: `eastus2` (changed from eastus due to PostgreSQL capacity)
 - PostgreSQL Server: Unique name with timestamp
 - OpenAI Account: Unique name with timestamp
 - Key Vault: Unique name with timestamp
@@ -172,13 +171,13 @@ AzureCloud       True       Azure subscription 1  Enabled  edbe879d-bd5b-4db7-bd
 **Time:** November 22, 2025  
 **Action:** Created Azure Resource Group  
 **Screenshot:** `image_1763845878238.png`  
-**Command:** `az group create --name rg-teams-minutes-demo --location eastus`
+**Command:** `az group create --name rg-teams-minutes-demo --location eastus2`
 
 **Result:**
 ```json
 {
   "id": "/subscriptions/17fbbec-ad82-4747-a12e-fc8d8f2d0cbc/resourceGroups/rg-teams-minutes-demo",
-  "location": "eastus",
+  "location": "eastus2",
   "name": "rg-teams-minutes-demo",
   "provisioningState": "Succeeded"
 }
@@ -283,29 +282,31 @@ OperationNotAllowed
 
 ---
 
-#### Step 1.8: Create App Service Plan ✅ COMPLETED
+#### Step 1.8: Create App Service Plan ❌ FAILED - Quota Issues
 **Time:** November 22, 2025  
 **Action:** Created App Service Plan  
 **Screenshot:** `image_1763847001905.png`
 
-**Result:** ✅ App Service Plan created successfully
+**Result:** ⚠️ App Service Plan created, but Web App deployment failed
 
 **Configuration:**
 - Tier: Basic B1 (Linux)
 - Region: East US 2
 
+**Issue:** VM quota exhausted (see Phase 3 for resolution)
+
 ---
 
-#### Step 1.9: Create App Service ✅ COMPLETED
+#### Step 1.9: Create App Service ❌ FAILED - Quota Exhausted
 **Time:** November 22, 2025  
-**Action:** Created App Service (web hosting)  
+**Action:** Attempted to create App Service (web hosting)  
 **Screenshot:** `image_1763847001905.png`
 
-**Result:** ✅ App Service created successfully
+**Result:** ❌ Failed due to VM quota constraints
 
-**Configuration:**
-- Runtime: Node.js 20 LTS
-- Plan: Basic B1
+**Error:** "This region has quota of 1 instances for your subscription."
+
+**Resolution:** Pivoted to Azure Container Apps (see Phase 3)
 
 ---
 
@@ -323,7 +324,7 @@ OperationNotAllowed
 
 ---
 
-### ✅✅ PHASE 1 COMPLETE! All Azure Resources Created
+### ⚠️ PHASE 1 PARTIALLY COMPLETE (App Service failed - see Phase 3 for resolution)
 
 **Resources Successfully Created:**
 1. ✅ Resource Group (`rg-teams-minutes-demo`)
@@ -332,9 +333,10 @@ OperationNotAllowed
 4. ✅ Azure OpenAI Service (S0)
 5. ✅ GPT-4o Model Deployed (capacity: 100)
 6. ✅ Application Insights (monitoring)
-7. ✅ App Service Plan (Basic B1 Linux)
-8. ✅ App Service (Node.js 20 LTS)
-9. ✅ Key Vault (secrets management)
+7. ❌ App Service Plan created but Web App failed (quota exhausted)
+8. ✅ Key Vault (secrets management)
+
+**Issue Encountered:** VM quota exhausted during Web App creation. See Phase 3 for Container Apps resolution.
 
 **Total Phase 1 Duration:** ~15-20 minutes
 
@@ -435,7 +437,7 @@ OperationNotAllowed
 - **App Tenant ID:** edbe879d-bd5b-4db7-bdb8-70bb31490f85
 - **Deployment name:** Microsoft.AzureBot-20251122175012
 
-**Note:** Messaging endpoint will be configured after App Service deployment in Phase 3.
+**Note:** Messaging endpoint will be configured after Container App deployment in Phase 3.
 
 **Bot Overview (from Azure Portal):**
 - Resource displayed at: `image_1763852446901.png`
@@ -546,13 +548,188 @@ az account show --output table
 
 ---
 
-**Last Updated:** November 22, 2025  
-**Status:** 🚀 Phase 1 IN PROGRESS - Creating Azure Resources
+### Phase 3: Container Deployment 🚀 COMPLETED
 
-**Phase 0 Summary:**
-- ✅ **Tenant ID**: `edbe879d-bd5b-4db7-bdb8-70bb31490f85`
-- ✅ **Azure Subscription**: Active (Azure Commercial)
-- ✅ **Microsoft 365**: Business Standard (Teams/SharePoint/Exchange available)
-- ✅ **Admin Email**: ChristopherBecraft@ChrisBecraftmicrosoft.com
+**Objective:** Deploy application to Azure Container Apps after App Service quota issues
 
-**Current Phase:** Phase 1 - Create Azure Resources (App Service, PostgreSQL, Azure OpenAI)
+**Date/Time:** November 23, 2025
+
+---
+
+#### Background: App Service Quota Issues
+
+**Original Plan:** Deploy to Azure App Service (Basic B1)
+
+**Issue Encountered:**
+- App Service Plan created successfully
+- Web App creation failed: "This region has quota of 1 instances for your subscription. Try selecting a different region or SKU."
+- Root cause: Subscription VM quota exhausted (1 of 1 VMs used)
+
+**Resolution:** Pivot to Azure Container Apps architecture
+
+---
+
+#### Step 3.1: Delete Failed App Service Plan ✅ COMPLETED
+**Time:** November 23, 2025  
+**Action:** Cleaned up failed App Service deployment  
+**Result:** ✅ App Service Plan deleted successfully
+
+---
+
+#### Step 3.2: Create Azure Container Registry ✅ COMPLETED
+**Time:** November 23, 2025  
+**Action:** Created Azure Container Registry for container images  
+
+**Result:** ✅ Container Registry created successfully
+
+**Configuration:**
+- Name: teamminutesacr
+- SKU: Basic
+- Region: East US 2
+- Admin enabled: Yes
+
+---
+
+#### Step 3.3: Create Dockerfile ✅ COMPLETED
+**Time:** November 23, 2025  
+**Action:** Developed production-ready Dockerfile  
+**Result:** ✅ Architect-approved multi-stage build
+
+**Features:**
+- Multi-stage build (builder + runtime)
+- Alpine Linux base (minimal size)
+- Build tools cleanup after npm install
+- Health check endpoint
+- All runtime assets copied correctly
+
+---
+
+#### Step 3.4: Build and Push Container Image ✅ COMPLETED
+**Time:** November 23, 2025  
+**Action:** Built container image using Azure ACR Build  
+**Result:** ✅ Image built and pushed successfully
+
+**Build Output:**
+- Frontend bundle: 951.72 kB
+- Backend bundle: 250.2 kB
+- Image: teamminutesacr.azurecr.io/teams-minutes:latest
+- npm vulnerabilities: 4 (3 low, 1 high) - non-blocking for demo
+
+**Architect Review:** PASS - Production-ready
+
+---
+
+#### Step 3.5: Create Container Apps Environment ✅ COMPLETED
+**Time:** November 23, 2025  
+**Action:** Created Azure Container Apps Environment  
+**Result:** ✅ Environment created successfully
+
+**Configuration:**
+- Name: teams-minutes-env
+- Region: East US 2
+
+---
+
+#### Step 3.6: Deploy Container App ✅ COMPLETED
+**Time:** November 23, 2025  
+**Action:** Deployed container app with environment variables  
+**Result:** ✅ Container app deployed successfully
+
+**Configuration:**
+- Name: teams-minutes-app
+- Image: teamminutesacr.azurecr.io/teams-minutes:latest
+- Target port: 5000
+- Ingress: External (HTTPS)
+- App URL: teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
+
+**Environment Variables:**
+- NODE_ENV=production
+- DATABASE_URL=[PostgreSQL connection string]
+- SESSION_SECRET=[Generated]
+- PORT=5000
+
+---
+
+#### Step 3.7: Update Bot Messaging Endpoint ✅ COMPLETED
+**Time:** November 23, 2025  
+**Action:** Updated Azure Bot messaging endpoint to Container App URL  
+**Result:** ✅ Bot endpoint updated successfully
+
+**Endpoint:** https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/api/teams/messages
+
+---
+
+### ✅✅ PHASE 3 COMPLETE! Application Deployed to Azure Container Apps
+
+**Deployment Summary:**
+1. ✅ Pivoted from App Service to Container Apps (quota issues)
+2. ✅ Created Azure Container Registry
+3. ✅ Developed production-ready Dockerfile (architect-approved)
+4. ✅ Built and pushed container image (Azure ACR Build)
+5. ✅ Created Container Apps Environment
+6. ✅ Deployed Container App with environment variables
+7. ✅ Updated Bot messaging endpoint
+
+**Application URL:** https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
+
+**Total Phase 3 Duration:** ~45 minutes (including pivot)
+
+---
+
+## Lessons Learned: Azure Quotas
+
+**Key Insights from Deployment:**
+
+1. **App Service Plan ≠ Web App Quotas**
+   - App Service Plan creation can succeed even when Web App quota is exhausted
+   - Always check VM quota before attempting App Service deployments
+   
+2. **VM Quota Constraints**
+   - East US 2 had 1 VM quota for this subscription
+   - Silent failures are common - always check Activity Log
+   
+3. **Container Apps as Alternative**
+   - No VM quota constraints
+   - Simpler scaling model
+   - Better for microservices architecture
+   
+4. **Quota Approval Process**
+   - "Approved" quotas don't guarantee immediate availability
+   - Always verify resource creation in Activity Log
+   
+5. **Regional Availability**
+   - Different regions have different capacity
+   - East US had PostgreSQL capacity issues
+   - East US 2 worked for all resources
+
+---
+
+## Final Architecture
+
+**Azure Resources Created:**
+1. ✅ Resource Group (`rg-teams-minutes-demo`)
+2. ✅ PostgreSQL Flexible Server (East US 2, Burstable B2s)
+3. ✅ Database `meetings` 
+4. ✅ Azure OpenAI Service (S0)
+5. ✅ GPT-4o Model Deployed (capacity: 100)
+6. ✅ Application Insights (monitoring)
+7. ✅ **Azure Container Registry** (teamminutesacr)
+8. ✅ **Container Apps Environment** (teams-minutes-env)
+9. ✅ **Container App** (teams-minutes-app)
+10. ✅ Key Vault (secrets management)
+11. ✅ Azure Bot (teams-minutes-bot)
+
+**Deployment Type:** Azure Container Apps (instead of App Service)
+
+---
+
+**Last Updated:** November 23, 2025  
+**Status:** ✅ DEPLOYMENT COMPLETE
+
+**Phase 3 Summary:**
+- ✅ **Container Registry**: teamminutesacr.azurecr.io
+- ✅ **Container Image**: teams-minutes:latest
+- ✅ **Container App URL**: teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
+- ✅ **Bot Endpoint**: Configured
+
+**Next Steps:** Phase 4 - Teams App Integration (Upload manifest, test in Teams)

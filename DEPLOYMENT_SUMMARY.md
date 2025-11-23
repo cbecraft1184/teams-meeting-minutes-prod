@@ -85,9 +85,13 @@ Follow `COMMERCIAL_DEMO_DEPLOYMENT.md` for step-by-step deployment to Azure Comm
   - Database connection problems
   - OpenAI integration errors
   - SharePoint permission issues
+- **Appendices:**
+  - **Appendix A:** Credential Recovery (PostgreSQL password, Bot secrets, Graph API secrets)
+  - **Appendix B:** Updating Container App Environment Variables
+  - **Appendix C:** Quick Reference (Commands, URLs, support contacts)
+- **Mock Services Option:** Deploy without SharePoint/email using `USE_MOCK_SERVICES=true`
 - **Post-Deployment Checklist:** Comprehensive validation steps
 - **GitHub Actions CI/CD:** Automated deployment workflow
-- **Quick Reference:** Commands, URLs, support contacts
 
 **Timeline:** 4-6 hours for initial deployment, 1-2 days for complete testing
 

@@ -345,6 +345,12 @@ export POSTGRES_ADMIN_PASSWORD="SecureP@ssw0rd123!"  # Change this!
 export SESSION_SECRET=$(openssl rand -base64 32)
 
 echo "Environment variables set. Verify uniqueness of names before proceeding."
+echo ""
+echo "⚠️  IMPORTANT: Save these values to a secure password manager:"
+echo "POSTGRES_ADMIN_USER=$POSTGRES_ADMIN_USER"
+echo "POSTGRES_ADMIN_PASSWORD=$POSTGRES_ADMIN_PASSWORD"
+echo "SESSION_SECRET=$SESSION_SECRET"
+echo ""
 ```
 
 ### Step 1.2: Create Resource Group
@@ -599,7 +605,39 @@ Get-CsApplicationAccessPolicy -Identity "Teams-Minutes-Demo-Policy"
 
 ### Step 2.3: Register Teams Bot
 
+**IMPORTANT: Use "Single Tenant" for proper setup**
+
 **Via Azure Portal:**
+
+1. Navigate to **Azure Active Directory** → **App registrations**
+2. Click **+ New registration**
+3. Fill in:
+   - **Name:** `Teams Minutes Bot App`
+   - **Supported account types:** **Accounts in this organizational directory only (Single tenant)**
+   - **Redirect URI:** Leave blank
+4. Click **Register**
+5. **IMMEDIATELY SAVE:**
+   - **Application (client) ID** → This is `MICROSOFT_APP_ID`
+   - **Directory (tenant) ID** → This is `TENANT_ID`
+
+**Create Client Secret:**
+
+1. Click **Certificates & secrets** (left menu)
+2. Click **+ New client secret**
+   - **Description:** `Bot Container App Production`
+   - **Expires:** 24 months
+3. Click **Add**
+4. **IMMEDIATELY COPY the Value** (not the Secret ID) → This is `MICROSOFT_APP_PASSWORD`
+   - ⚠️ **You cannot see this again - copy it now to password manager!**
+
+**Save these values:**
+```bash
+export MICROSOFT_APP_ID="<Application (client) ID from step 5>"
+export MICROSOFT_APP_PASSWORD="<Secret Value from step 4>"
+export TENANT_ID="<Directory (tenant) ID from step 5>"
+```
+
+**Create Azure Bot Resource:**
 
 1. Search for **Azure Bot** in Create a resource
 2. Click **Create**
@@ -608,22 +646,16 @@ Get-CsApplicationAccessPolicy -Identity "Teams-Minutes-Demo-Policy"
    - **Subscription:** Your subscription
    - **Resource group:** `rg-teams-minutes-demo`
    - **Pricing tier:** F0 (Free - 10K messages/month)
-   - **Type of App:** Multi Tenant
-   - **Microsoft App ID:** Create new
-4. Click **Create**
+   - **Type of App:** Single Tenant
+   - **Microsoft App ID:** Paste `$MICROSOFT_APP_ID` from above
+   - **Microsoft App Tenant ID:** Paste `$TENANT_ID` from above
+4. Click **Review + create** → **Create**
 
 **After creation:**
 
-1. Go to **Configuration** → Note the **Microsoft App ID**
-2. Go to **Certificates & secrets** (left menu)
-3. Create new client secret
-4. **Copy the secret value**
-
-**Save these values:**
-```bash
-export MICROSOFT_APP_ID="<Bot Microsoft App ID>"
-export MICROSOFT_APP_PASSWORD="<Bot client secret>"
-```
+1. Go to Bot resource → **Configuration**
+2. When prompted for app password, paste `$MICROSOFT_APP_PASSWORD`
+3. Click **Apply**
 
 **Configure Messaging Endpoint:**
 
@@ -696,7 +728,73 @@ docker push $ACR_NAME.azurecr.io/teams-minutes:latest
 echo "✓ Container image pushed to ACR"
 ```
 
-### Step 3.4: Deploy Container App
+### Step 3.4: Optional - Configure SharePoint and Email (or use Mock Services)
+
+**IMPORTANT: SharePoint and Email are OPTIONAL features.**
+
+You have two options:
+
+#### **Option A: Use Mock Services (Recommended for Initial Deployment)**
+
+Skip SharePoint and email setup. The app will work without them - distribution features will be simulated.
+
+- ✅ Faster deployment
+- ✅ No additional configuration needed  
+- ✅ Perfect for testing and demos
+
+Set `USE_MOCK_SERVICES=true` in Step 3.5 below.
+
+#### **Option B: Configure SharePoint and Email (Production)**
+
+If you need actual SharePoint archival and email distribution:
+
+**SharePoint Setup:**
+
+1. Go to SharePoint Admin Center → **Active sites**
+2. Select or create a site (e.g., `https://contoso.sharepoint.com/sites/TeamSite`)
+3. Go to the site → **Site contents** → **+ New** → **Document library**
+4. Name: `Meeting Minutes`
+5. Save the site URL:
+   ```bash
+   export SHAREPOINT_SITE_URL="https://contoso.sharepoint.com/sites/TeamSite"
+   export SHAREPOINT_LIBRARY="Meeting Minutes"
+   ```
+
+**Email Sender Configuration:**
+
+The app sends emails using Microsoft Graph API with the `Mail.Send` permission already granted in Phase 2.1.
+
+Choose a sender email:
+- Option 1: Use a service account (e.g., `noreply@yourdomain.com`)
+- Option 2: Use your own email (e.g., `admin@yourdomain.com`)
+
+```bash
+export GRAPH_SENDER_EMAIL="noreply@yourdomain.com"
+```
+
+**Note:** The email address must exist in your Microsoft 365 tenant.
+
+**💡 Lost Credentials?** See [Appendix A: Credential Recovery](#appendix-a-credential-recovery-procedures) for SharePoint site, email sender, and Graph API secret recovery instructions (Scenarios 3, 5, 7).
+
+---
+
+### Step 3.5: Deploy Container App
+
+**⚠️ CRITICAL: USE_MOCK_SERVICES Environment Variable**
+
+- **Option A (Mock Services):** Set `USE_MOCK_SERVICES=true` in environment variables
+- **Option B (Real SharePoint/Email):** DO NOT include `USE_MOCK_SERVICES` at all (not even set to `false`)
+  - The app checks for the **presence** of this variable, not its value
+  - If present, mocking is enabled regardless of value
+  - For production, the variable must be **completely absent**
+
+**Choose your deployment:**
+
+#### **Option A: Deploy with Mock Services**
+
+Best for initial deployment, testing, and demos:
+
+
 
 ```bash
 # Get PostgreSQL connection string
@@ -712,7 +810,7 @@ ACR_PASSWORD=$(az acr credential show \
   --name $ACR_NAME \
   --query "passwords[0].value" -o tsv)
 
-# Create Container App with managed identity
+# Create Container App with MOCK SERVICES
 az containerapp create \
   --name $CONTAINER_APP \
   --resource-group $RESOURCE_GROUP \
@@ -731,7 +829,59 @@ az containerapp create \
     GRAPH_CLIENT_ID_PROD="$GRAPH_CLIENT_ID" \
     GRAPH_CLIENT_SECRET_PROD="$GRAPH_CLIENT_SECRET" \
     GRAPH_TENANT_ID_PROD="$GRAPH_TENANT_ID" \
-    GRAPH_SENDER_EMAIL="<Your sender email>" \
+    AZURE_OPENAI_ENDPOINT_PROD="$AZURE_OPENAI_ENDPOINT" \
+    AZURE_OPENAI_API_KEY_PROD="$AZURE_OPENAI_API_KEY" \
+    AZURE_OPENAI_DEPLOYMENT_PROD="gpt-4o" \
+    AZURE_OPENAI_API_VERSION_PROD="2024-02-15-preview" \
+    MICROSOFT_APP_ID="$MICROSOFT_APP_ID" \
+    MICROSOFT_APP_PASSWORD="$MICROSOFT_APP_PASSWORD" \
+    APPINSIGHTS_INSTRUMENTATIONKEY="$APPINSIGHTS_INSTRUMENTATIONKEY" \
+    USE_MOCK_SERVICES=true \
+    PORT=5000
+
+echo "✓ Container App deployed with MOCK services (no SharePoint or email)"
+```
+
+#### **Option B: Deploy with Real SharePoint and Email**
+
+Production deployment with actual SharePoint archival and email distribution:
+
+**⚠️ CRITICAL:** Do NOT include `USE_MOCK_SERVICES` variable. It must be completely absent.
+
+```bash
+# Get PostgreSQL connection string
+POSTGRES_HOST=$(az postgres flexible-server show \
+  --resource-group $RESOURCE_GROUP \
+  --name $POSTGRES_SERVER \
+  --query "fullyQualifiedDomainName" -o tsv)
+
+DATABASE_URL="postgresql://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWORD}@${POSTGRES_HOST}:5432/meetings?sslmode=require"
+
+# Get ACR password
+ACR_PASSWORD=$(az acr credential show \
+  --name $ACR_NAME \
+  --query "passwords[0].value" -o tsv)
+
+# Create Container App with REAL services (NO USE_MOCK_SERVICES variable)
+az containerapp create \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --environment $CONTAINER_ENV \
+  --image ${ACR_NAME}.azurecr.io/teams-minutes:latest \
+  --target-port 5000 \
+  --ingress external \
+  --registry-server ${ACR_NAME}.azurecr.io \
+  --registry-username $ACR_NAME \
+  --registry-password "$ACR_PASSWORD" \
+  --system-assigned \
+  --env-vars \
+    NODE_ENV=production \
+    DATABASE_URL="$DATABASE_URL" \
+    SESSION_SECRET="$SESSION_SECRET" \
+    GRAPH_CLIENT_ID_PROD="$GRAPH_CLIENT_ID" \
+    GRAPH_CLIENT_SECRET_PROD="$GRAPH_CLIENT_SECRET" \
+    GRAPH_TENANT_ID_PROD="$GRAPH_TENANT_ID" \
+    GRAPH_SENDER_EMAIL="$GRAPH_SENDER_EMAIL" \
     AZURE_OPENAI_ENDPOINT_PROD="$AZURE_OPENAI_ENDPOINT" \
     AZURE_OPENAI_API_KEY_PROD="$AZURE_OPENAI_API_KEY" \
     AZURE_OPENAI_DEPLOYMENT_PROD="gpt-4o" \
@@ -739,16 +889,19 @@ az containerapp create \
     MICROSOFT_APP_ID="$MICROSOFT_APP_ID" \
     MICROSOFT_APP_PASSWORD="$MICROSOFT_APP_PASSWORD" \
     SHAREPOINT_TENANT_ID="$GRAPH_TENANT_ID" \
-    SHAREPOINT_SITE_URL="<Your SharePoint site URL>" \
-    SHAREPOINT_LIBRARY="Meeting Minutes" \
+    SHAREPOINT_SITE_URL="$SHAREPOINT_SITE_URL" \
+    SHAREPOINT_LIBRARY="$SHAREPOINT_LIBRARY" \
     SHAREPOINT_CLIENT_ID="$GRAPH_CLIENT_ID" \
     SHAREPOINT_CLIENT_SECRET="$GRAPH_CLIENT_SECRET" \
     APPINSIGHTS_INSTRUMENTATIONKEY="$APPINSIGHTS_INSTRUMENTATIONKEY" \
-    USE_MOCK_SERVICES=false \
     PORT=5000
 
-echo "✓ Container App deployed"
+echo "✓ Container App deployed with REAL SharePoint and email services"
+```
 
+**Get Container App URL:**
+
+```bash
 # Get Container App URL and managed identity
 CONTAINER_APP_URL=$(az containerapp show \
   --name $CONTAINER_APP \
@@ -763,10 +916,6 @@ CONTAINER_APP_IDENTITY=$(az containerapp identity show \
 echo "Container App URL: https://$CONTAINER_APP_URL"
 echo "Managed Identity: $CONTAINER_APP_IDENTITY"
 ```
-
-**Replace placeholders:**
-- `<Your sender email>` with email for sending (e.g., `noreply@yourdomain.com`)
-- `<Your SharePoint site URL>` with your SharePoint site (e.g., `https://contoso.sharepoint.com/sites/TeamSite`)
 
 **Grant Key Vault Access (if using Key Vault):**
 ```bash
@@ -813,6 +962,52 @@ az containerapp logs show \
   "uptime": 123
 }
 ```
+
+### Step 3.7: (Optional) Switching from Mock to Real Services Later
+
+**If you initially deployed with mock services (Option A) and want to enable real SharePoint and email later:**
+
+#### Prerequisites:
+1. Complete SharePoint setup (create site and library - see Step 3.4 Option B)
+2. Choose email sender address (must exist in your tenant)
+3. Have Graph API credentials ready
+
+#### Switch to Real Services:
+
+```bash
+# Set your SharePoint and email configuration
+export GRAPH_SENDER_EMAIL="noreply@yourdomain.com"
+export SHAREPOINT_SITE_URL="https://contoso.sharepoint.com/sites/TeamSite"
+export SHAREPOINT_LIBRARY="Meeting Minutes"
+
+# Remove USE_MOCK_SERVICES and add real service variables
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --remove-env-vars USE_MOCK_SERVICES \
+  --set-env-vars \
+    GRAPH_SENDER_EMAIL="$GRAPH_SENDER_EMAIL" \
+    SHAREPOINT_SITE_URL="$SHAREPOINT_SITE_URL" \
+    SHAREPOINT_LIBRARY="$SHAREPOINT_LIBRARY" \
+    SHAREPOINT_TENANT_ID="$GRAPH_TENANT_ID" \
+    SHAREPOINT_CLIENT_ID="$GRAPH_CLIENT_ID" \
+    SHAREPOINT_CLIENT_SECRET="$GRAPH_CLIENT_SECRET"
+
+echo "✓ Switched to real services - SharePoint and email now active"
+```
+
+**Verify the switch:**
+```bash
+# Check environment variables
+az containerapp show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --query "properties.template.containers[0].env" -o table
+
+# USE_MOCK_SERVICES should NOT appear in the list
+```
+
+**💡 Lost Credentials?** See [Appendix A: Credential Recovery](#appendix-a-credential-recovery-procedures) - Scenario 8 for detailed switching instructions.
 
 ---
 
@@ -1416,7 +1611,365 @@ az postgres flexible-server update \
 
 ---
 
-## Appendix: Quick Reference
+## Appendix A: Credential Recovery and Missing Environment Variables
+
+**Use this section when:**
+- You've lost credentials captured during deployment
+- Container App exists but environment variables aren't configured  
+- You need to regenerate expired secrets
+
+### Scenario 1: PostgreSQL Password Lost/Unknown
+
+**Reset the admin password:**
+
+#### Via Azure Portal:
+1. Navigate to PostgreSQL server resource
+2. Click **Reset password** (left menu)
+3. Enter new password
+4. Click **Save**
+
+#### Via Azure CLI:
+```bash
+az postgres flexible-server update \
+  --name <your-postgres-server-name> \
+  --resource-group $RESOURCE_GROUP \
+  --admin-password "YourNewPassword123!"
+```
+
+**Rebuild DATABASE_URL:**
+```bash
+DATABASE_URL="postgresql://adminuser:YourNewPassword123!@<server-name>.postgres.database.azure.com:5432/meetings?sslmode=require"
+```
+
+---
+
+### Scenario 2: Bot Client Secret Lost (MICROSOFT_APP_PASSWORD)
+
+**The original secret cannot be retrieved. You must create a new one:**
+
+#### Via Azure Portal:
+1. Go to **Azure Active Directory** → **App registrations**
+2. Search for your bot app (use the MICROSOFT_APP_ID if you have it)
+3. If you can't find it (404 error or wrong tenant):
+   - **Create NEW app registration** (see Step 2.3 in main guide)
+   - Update Bot Service to use new App ID
+4. Click **Certificates & secrets**
+5. Click **+ New client secret**
+6. **Copy the value immediately**
+
+**Update Container App with new secret:**
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --replace-env-vars MICROSOFT_APP_PASSWORD="<new-secret-value>"
+```
+
+**Update Bot Service configuration:**
+```bash
+az bot update \
+  --name $BOT_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --app-password "<new-secret-value>"
+```
+
+---
+
+### Scenario 3: Graph API Client Secret Lost (GRAPH_CLIENT_SECRET_PROD)
+
+**IMPORTANT:** Client secrets cannot be retrieved after initial creation. You have two options:
+
+#### Option 1: Check if Secret is Still Available
+
+If the secret was created recently and you haven't closed the Portal window:
+
+1. Go to **Azure Active Directory** → **App registrations**
+2. Find "Teams Minutes Graph API" app
+3. Click **Certificates & secrets**
+4. Look for existing client secret with non-expired status
+   - ⚠️ **You can see the secret ID and expiry date, but NOT the value**
+   - If you still have the value saved somewhere (email, notes, clipboard), use it
+   - If not, proceed to Option 2
+
+#### Option 2: Generate New Client Secret (Recommended)
+
+**This invalidates the old secret immediately:**
+
+##### Via Azure Portal:
+1. Go to **Azure Active Directory** → **App registrations**
+2. Find "Teams Minutes Graph API" app
+3. Click **Certificates & secrets**
+4. (Optional) Delete old secret to avoid confusion:
+   - Click **...** next to old secret → **Delete**
+5. Click **+ New client secret**
+   - Description: "Teams Minutes Production - Nov 2025"
+   - Expires: Choose 24 months (recommended)
+6. **Copy the Value immediately** - you won't see it again
+   - Secret ID: `abc123...` (this is NOT the secret value)
+   - Value: `Tlb8Q~fALenhvkYYqhQ99...` (this is what you need)
+
+**Update Container App:**
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --replace-env-vars \
+    GRAPH_CLIENT_SECRET_PROD="<new-secret-value>" \
+    SHAREPOINT_CLIENT_SECRET="<new-secret-value>"
+
+# Both use the same Graph API app, so update both variables
+```
+
+**💡 Pro Tip:** Save the new secret in Azure Key Vault or password manager immediately after generation.
+
+---
+
+### Scenario 4: Container App Exists Without Environment Variables
+
+**This happens if Container App was created via Portal or environment variables weren't set during creation.**
+
+**Get all required values first:**
+
+1. **PostgreSQL** (see Scenario 1 to reset password if needed)
+2. **Graph API Client ID:**
+   ```bash
+   az ad app list --display-name "Teams Minutes Graph API" \
+     --query "[0].appId" -o tsv
+   ```
+3. **Graph Tenant ID:**
+   ```bash
+   az account show --query "tenantId" -o tsv
+   ```
+4. **Bot App ID:**
+   ```bash
+   az bot show --name $BOT_NAME --resource-group $RESOURCE_GROUP \
+     --query "properties.msaAppId" -o tsv
+   ```
+5. **Azure OpenAI:**
+   ```bash
+   az cognitiveservices account show \
+     --name <openai-name> \
+     --resource-group $RESOURCE_GROUP \
+     --query "properties.endpoint" -o tsv
+   
+   az cognitiveservices account keys list \
+     --name <openai-name> \
+     --resource-group $RESOURCE_GROUP \
+     --query "key1" -o tsv
+   ```
+6. **Application Insights:**
+   ```bash
+   az monitor app-insights component show \
+     --app <appinsights-name> \
+     --resource-group $RESOURCE_GROUP \
+     --query "instrumentationKey" -o tsv
+   ```
+
+**Configure Container App via Portal (RECOMMENDED if Azure CLI times out):**
+
+1. Go to Container App resource → **Containers** (left menu)
+2. Click **Edit and deploy**
+3. Click **Container** tab
+4. Scroll to **Environment variables**
+5. Add each variable (see DEPLOYMENT_FIX_GUIDE.md for complete list)
+6. Click **Create**
+
+**Or via Azure CLI:**
+
+See Step 3.5 in main guide for complete `az containerapp update` command with all environment variables.
+
+---
+
+### Scenario 5: SharePoint Site URL and Library Lost
+
+**Find your SharePoint site:**
+
+#### Via SharePoint Admin Center (Portal):
+1. Go to **SharePoint Admin Center** (https://admin.microsoft.com → SharePoint)
+2. Click **Active sites**
+3. Find your site → Note the URL (e.g., `https://contoso.sharepoint.com/sites/TeamSite`)
+4. Click on the site URL to open it
+5. Go to **Site contents** → Find "Meeting Minutes" library (or whatever name you used)
+6. Note the library name exactly as it appears
+
+**Set in Container App:**
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --set-env-vars \
+    SHAREPOINT_SITE_URL="https://contoso.sharepoint.com/sites/TeamSite" \
+    SHAREPOINT_LIBRARY="Meeting Minutes" \
+    SHAREPOINT_TENANT_ID="$GRAPH_TENANT_ID" \
+    SHAREPOINT_CLIENT_ID="$GRAPH_CLIENT_ID" \
+    SHAREPOINT_CLIENT_SECRET="$GRAPH_CLIENT_SECRET"
+```
+
+---
+
+### Scenario 6: No SharePoint or Email Configured
+
+**Use mock services:**
+
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --set-env-vars USE_MOCK_SERVICES=true
+```
+
+This allows the app to run without SharePoint or email configuration.
+
+**To add them later:**
+
+1. Complete SharePoint setup (see Step 3.4 Option B)
+2. Set SharePoint variables (see Scenario 5 above)
+3. Set email sender (see Scenario 7 below)  
+4. Remove USE_MOCK_SERVICES flag (see Scenario 8 below)
+
+---
+
+### Scenario 7: Email Sender Configuration Lost (GRAPH_SENDER_EMAIL)
+
+**The email address must exist in your Microsoft 365 tenant.**
+
+#### Find/Set email sender:
+
+1. Choose an email address that exists in your tenant:
+   - Service account: `noreply@yourdomain.com`
+   - Your email: `admin@yourdomain.com`
+   - Shared mailbox: `teamsminutes@yourdomain.com`
+
+2. Set in Container App:
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --set-env-vars GRAPH_SENDER_EMAIL="noreply@yourdomain.com"
+```
+
+**Note:** The email sends via Microsoft Graph API using the Mail.Send permission, so the sender address just needs to exist in your tenant.
+
+---
+
+### Scenario 8: Switching from Mock to Real Services
+
+**If you deployed with `USE_MOCK_SERVICES=true` and want to enable real SharePoint/email:**
+
+#### Prerequisites:
+1. SharePoint site and library created (see Scenario 5)
+2. Email sender configured (see Scenario 7)
+3. Have all credentials ready
+
+#### Switch to real services:
+```bash
+# Get credentials you'll need
+export GRAPH_TENANT_ID="<your-tenant-id>"
+export GRAPH_CLIENT_ID="<your-graph-client-id>"
+export GRAPH_CLIENT_SECRET="<your-graph-client-secret>"
+export SHAREPOINT_SITE_URL="https://contoso.sharepoint.com/sites/TeamSite"
+export SHAREPOINT_LIBRARY="Meeting Minutes"
+export GRAPH_SENDER_EMAIL="noreply@yourdomain.com"
+
+# Remove mock flag and add real service variables
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --remove-env-vars USE_MOCK_SERVICES \
+  --set-env-vars \
+    GRAPH_SENDER_EMAIL="$GRAPH_SENDER_EMAIL" \
+    SHAREPOINT_SITE_URL="$SHAREPOINT_SITE_URL" \
+    SHAREPOINT_LIBRARY="$SHAREPOINT_LIBRARY" \
+    SHAREPOINT_TENANT_ID="$GRAPH_TENANT_ID" \
+    SHAREPOINT_CLIENT_ID="$GRAPH_CLIENT_ID" \
+    SHAREPOINT_CLIENT_SECRET="$GRAPH_CLIENT_SECRET"
+
+echo "✓ Switched to real services - verify with test meeting"
+```
+
+---
+
+### Scenario 9: Session Secret Lost
+
+**Generate new one:**
+
+```bash
+SESSION_SECRET=$(openssl rand -base64 32)
+
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --replace-env-vars SESSION_SECRET="$SESSION_SECRET"
+```
+
+**Note:** This will invalidate existing user sessions (users must sign in again).
+
+---
+
+### Quick Credential Recovery Checklist
+
+| Credential | Recovery Method | Can Retrieve Original? |
+|------------|-----------------|------------------------|
+| **PostgreSQL Password** | Reset via Portal/CLI | ❌ No - Must reset |
+| **SESSION_SECRET** | Generate new with openssl | ❌ No - Generate new |
+| **GRAPH_CLIENT_SECRET_PROD** | Create new in App Registration | ❌ No - Create new |
+| **MICROSOFT_APP_PASSWORD** | Create new in App Registration | ❌ No - Create new |
+| **GRAPH_CLIENT_ID_PROD** | Find in App Registrations | ✅ Yes |
+| **MICROSOFT_APP_ID** | Find in Bot Configuration | ✅ Yes |
+| **GRAPH_TENANT_ID_PROD** | Find with `az account show` | ✅ Yes |
+| **AZURE_OPENAI_API_KEY_PROD** | Get from Keys and Endpoint | ✅ Yes |
+| **APPINSIGHTS_INSTRUMENTATIONKEY** | Get from Properties | ✅ Yes |
+
+---
+
+## Appendix B: Updating Existing Container App Environment Variables
+
+**If Container App already exists and you need to add/update environment variables:**
+
+### Via Azure Portal (Easiest):
+
+1. Go to Container App resource
+2. Click **Containers** → **Edit and deploy**
+3. Click **Container** tab
+4. Scroll to **Environment variables**
+5. Modify/add variables
+6. Click **Create**
+7. Wait 2-3 minutes for new revision to deploy
+
+### Via Azure CLI:
+
+**Add new variables (keeps existing ones):**
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --set-env-vars \
+    NEW_VAR_NAME="value" \
+    ANOTHER_VAR="value2"
+```
+
+**Replace ALL variables (use with caution):**
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --replace-env-vars \
+    NODE_ENV=production \
+    DATABASE_URL="..." \
+    # ... (all other vars)
+```
+
+**Update single variable:**
+```bash
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --set-env-vars USE_MOCK_SERVICES=false
+```
+
+---
+
+## Appendix C: Quick Reference
 
 ### Important URLs
 

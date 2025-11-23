@@ -119,6 +119,18 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 
 ## Recent Changes
 
+- **November 2025 (Documentation - Credential Recovery & Mock Services)**: Fixed critical deployment documentation gaps (COMPLETED ✓)
+  - **DEPLOYMENT_FIX_GUIDE.md**: New comprehensive credential recovery guide for Portal-based configuration
+  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: 
+    - Added credential capture reminders in Phase 1 & 2 (PostgreSQL password, Bot secret, Graph secret)
+    - Fixed Step 2.3 - Bot registration now creates proper single-tenant app registration first
+    - Added Step 3.4 - Optional SharePoint/email configuration with mock services option
+    - Updated Step 3.5 - Two deployment paths (with/without SharePoint & email)
+    - Added Appendix A - Complete credential recovery procedures for all scenarios
+    - Added Appendix B - Container App environment variable update procedures
+  - **DEPLOYMENT_SUMMARY.md**: Updated to reference new appendices and mock services option
+  - **Root Cause**: Original documentation assumed perfect deployment, didn't cover credential recovery, required SharePoint/email without setup instructions, lacked troubleshooting for common scenarios
+  - **Impact**: Users can now deploy with `USE_MOCK_SERVICES=true` for faster initial deployment, recover lost credentials via Portal, and configure Container Apps that exist without environment variables
 - **November 2025 (GitHub Repository Setup)**: Created GitHub repository setup guide and enhanced .gitignore (COMPLETED ✓)
   - **GITHUB_SETUP.md**: Complete guide for GitHub repository setup and automated Azure deployments
     - Part 1: Create GitHub repository (web interface or CLI)

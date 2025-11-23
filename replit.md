@@ -119,6 +119,27 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 
 ## Recent Changes
 
+- **November 2025 (GitHub Repository Setup)**: Created GitHub repository setup guide and enhanced .gitignore (COMPLETED ✓)
+  - **GITHUB_SETUP.md**: Complete guide for GitHub repository setup and automated Azure deployments
+    - Part 1: Create GitHub repository (web interface or CLI)
+    - Part 2: Push code to GitHub with authentication instructions
+    - Part 3: Configure GitHub Actions for Azure Container Apps deployment
+    - Part 4: Verify deployment workflow
+    - Part 5: Branch protection recommendations
+    - Part 6: Repository maintenance procedures
+  - **Enhanced .gitignore**: Added environment variables, logs, deployment artifacts, IDE files
+  - **Deployment Workflow**: GitHub Actions workflow for automated container builds and deployments
+  - **Security Best Practices**: Service principal setup, secrets management, branch protection
+- **November 2025 (Documentation - Container Apps)**: Fixed all App Service references in deployment documentation (COMPLETED ✓)
+  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: 
+    - Removed ALL App Service references (App Service Plan, Web App, azurewebsites.net)
+    - Updated to Azure Container Apps throughout (ACR, Container Apps Environment, Container App)
+    - Added managed identity setup for Key Vault access
+    - Updated cost estimates ($85/month demo, $463/month production)
+    - Fixed all CLI commands (`az containerapp` instead of `az webapp`)
+    - Updated rollback procedures for container-based deployments
+    - Fixed quick reference section with Container Apps URLs and commands
+  - **DEPLOYMENT_LOG.md**: Updated Phase 1 summary to reflect Container Apps architecture
 - **November 2025 (Email Distribution Implementation)**: Implemented Microsoft Graph API email distribution (COMPLETED ✓)
   - **server/services/emailDistribution.ts**: Implemented production sendViaGraphAPI method
     - Uses app-only authentication via acquireTokenByClientCredentials

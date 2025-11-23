@@ -49,7 +49,7 @@ Azure Commercial (East US 2)
 - Azure subscription with Contributor or Owner role
 - Ability to create resources in East US region
 - Azure CLI installed locally
-- **Estimated cost:** $92/month (demo), $383/month (production 100 users)
+- **Estimated cost:** $85/month (demo), $463/month (production 100 users)
 
 **Microsoft 365:**
 - Microsoft 365 E3 or E5 tenant (commercial)
@@ -1302,27 +1302,29 @@ az containerapp show \
 **If deployment fails or introduces issues:**
 
 ```bash
-# Option 1: Restore previous deployment slot (if using slots)
-az webapp deployment slot swap \
-  --name $APP_SERVICE_NAME \
+# Option 1: Deploy previous container image version
+az containerapp update \
+  --name $CONTAINER_APP \
   --resource-group $RESOURCE_GROUP \
-  --slot staging \
-  --target-slot production \
-  --action swap
+  --image ${ACR_NAME}.azurecr.io/teams-minutes:<previous-tag>
 
-# Option 2: Redeploy previous version from Git
+# Option 2: Rebuild and redeploy from previous Git commit
 git checkout <previous-working-commit>
 npm run build
-az webapp deploy \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --src-path deploy.zip \
-  --type zip
 
-# Restart app
-az webapp restart \
-  --name $APP_SERVICE_NAME \
-  --resource-group $RESOURCE_GROUP
+# Build and push previous version
+az acr build \
+  --registry $ACR_NAME \
+  --image teams-minutes:rollback-$(date +%Y%m%d-%H%M%S) \
+  --file Dockerfile .
+
+# Update Container App
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --image ${ACR_NAME}.azurecr.io/teams-minutes:rollback-<tag>
+
+# Container App restarts automatically after update
 ```
 
 ### Rollback Database Changes
@@ -1337,8 +1339,13 @@ az postgres flexible-server restore \
   --source-server $POSTGRES_SERVER \
   --restore-time "2024-11-20T14:30:00Z"
 
-# Update App Service to use restored database
-# (Update DATABASE_URL connection string)
+# Update Container App to use restored database
+NEW_DATABASE_URL="postgresql://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWORD}@${POSTGRES_SERVER}-restored.postgres.database.azure.com:5432/meetings?sslmode=require"
+
+az containerapp update \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --set-env-vars DATABASE_URL="$NEW_DATABASE_URL"
 ```
 
 **Schema rollback:**
@@ -1355,20 +1362,20 @@ psql "$DATABASE_URL" < backup-before-migration.sql
 1. **Disable webhook subscriptions** (stop new meetings from triggering jobs):
    ```bash
    # Set env var to disable webhooks temporarily
-   az webapp config appsettings set \
-     --name $APP_SERVICE_NAME \
+   az containerapp update \
+     --name $CONTAINER_APP \
      --resource-group $RESOURCE_GROUP \
-     --settings ENABLE_WEBHOOKS=false
+     --set-env-vars ENABLE_WEBHOOKS=false
    ```
 
 2. **Stop job worker** (prevents background processing):
    ```bash
-   az webapp config appsettings set \
-     --name $APP_SERVICE_NAME \
+   az containerapp update \
+     --name $CONTAINER_APP \
      --resource-group $RESOURCE_GROUP \
-     --settings ENABLE_JOB_WORKER=false
+     --set-env-vars ENABLE_JOB_WORKER=false
    
-   az webapp restart --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP
+   # Container App restarts automatically
    ```
 
 3. **Restore from last known good state:**
@@ -1394,9 +1401,9 @@ echo "Resource group deletion initiated. This may take 10-15 minutes."
 **To preserve database and delete compute only:**
 
 ```bash
-# Delete App Service Plan (keeps database)
-az appservice plan delete \
-  --name $APP_SERVICE_PLAN \
+# Delete Container App (keeps database and ACR)
+az containerapp delete \
+  --name $CONTAINER_APP \
   --resource-group $RESOURCE_GROUP \
   --yes
 
@@ -1414,8 +1421,8 @@ az postgres flexible-server update \
 
 ### Important URLs
 
-- **Application:** `https://<APP_SERVICE_NAME>.azurewebsites.net`
-- **Health Check:** `https://<APP_SERVICE_NAME>.azurewebsites.net/health`
+- **Application:** `https://<CONTAINER_APP_URL>` (from deployment output)
+- **Health Check:** `https://<CONTAINER_APP_URL>/health`
 - **Azure Portal:** `https://portal.azure.com`
 - **Teams Admin Center:** `https://admin.teams.microsoft.com`
 - **Application Insights:** `https://portal.azure.com → Resource Group → App Insights`
@@ -1424,19 +1431,29 @@ az postgres flexible-server update \
 
 ```bash
 # View logs
-az webapp log tail --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP
+az containerapp logs show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --follow
 
-# Restart app
-az webapp restart --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP
+# Restart app (updates trigger automatic restart)
+az containerapp revision restart \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP
 
 # Check database
 psql "$DATABASE_URL"
 
-# SSH into App Service
-az webapp ssh --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP
+# Exec into Container App (for debugging)
+az containerapp exec \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP
 
 # View environment variables
-az webapp config appsettings list --name $APP_SERVICE_NAME --resource-group $RESOURCE_GROUP
+az containerapp show \
+  --name $CONTAINER_APP \
+  --resource-group $RESOURCE_GROUP \
+  --query "properties.template.containers[0].env" -o table
 ```
 
 ### Support Contacts
@@ -1449,8 +1466,8 @@ az webapp config appsettings list --name $APP_SERVICE_NAME --resource-group $RES
 
 ## Document Control
 
-- **Version:** 2.0
-- **Date:** November 21, 2024
-- **Purpose:** Azure Commercial deployment guide
+- **Version:** 3.0
+- **Date:** November 23, 2025
+- **Purpose:** Azure Commercial deployment guide (Container Apps)
 - **Target:** Demonstration and production environments
-- **Cost:** $92/month (demo), $383/month (100 users production)
+- **Cost:** $85/month (demo), $463/month (100 users production)

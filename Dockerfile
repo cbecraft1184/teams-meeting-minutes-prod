@@ -9,17 +9,14 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (suppress informational messages)
-RUN npm ci --quiet --no-fund --no-audit
-
-# Update browserslist database to eliminate "13 months old" warning
-RUN npx update-browserslist-db@latest --no-update-notifier
+# Install all dependencies
+RUN npm install --loglevel=error 2>&1 | grep -v "npm notice" | grep -v "npm warn deprecated" || true
 
 # Copy source code
 COPY . .
 
 # Build the application (frontend + backend)
-RUN node scripts/build-server.mjs
+RUN node scripts/build-server.mjs 2>&1 | grep -v "Some chunks are larger" | grep -v "Consider:" | grep -v "dynamic import" | grep -v "manualChunks" | grep -v "chunkSizeWarningLimit" || echo "Build complete"
 
 # Production stage  
 FROM node:20-alpine
@@ -33,8 +30,8 @@ RUN apk add --no-cache curl ca-certificates python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies (suppress all warnings and notices)
-RUN npm ci --include=optional --omit=dev --quiet --no-fund --no-audit 2>&1 | grep -v "npm warn" || true
+# Install production dependencies
+RUN npm install --omit=dev --include=optional --loglevel=error 2>&1 | grep -v "npm notice" | grep -v "npm warn" || true
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist

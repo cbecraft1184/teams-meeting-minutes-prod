@@ -1,0 +1,51 @@
+christopher [ ~/TeamsMeetingDemo ]$ az containerapp logs show \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --follow
+{"TimeStamp": "2025-11-24T22:31:49.6805", "Log": "Connecting to the container 'teams-minutes-app'..."}
+{"TimeStamp": "2025-11-24T22:31:49.7173", "Log": "Successfully Connected to container: 'teams-minutes-app' [Revision: 'teams-minutes-app--0000009', Replica: 'teams-minutes-app--0000009-744c4785d-f7ffc']"}
+{"TimeStamp": "2025-11-24T22:31:28.2856784+00:00", "Log": "F     at async tryAcquireWorkerLock (file:///app/dist/index.js:6393:20)"}
+{"TimeStamp": "2025-11-24T22:31:28.2856807+00:00", "Log": "F     at async startJobWorker (file:///app/dist/index.js:6325:26) {"}
+{"TimeStamp": "2025-11-24T22:31:28.2856828+00:00", "Log": "F   length: 102,"}
+{"TimeStamp": "2025-11-24T22:31:28.2856851+00:00", "Log": "F   severity: 'FATAL',"}
+{"TimeStamp": "2025-11-24T22:31:28.2856872+00:00", "Log": "F   code: '3D000',"}
+{"TimeStamp": "2025-11-24T22:31:28.2856894+00:00", "Log": "F   detail: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.2856915+00:00", "Log": "F   hint: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.2856934+00:00", "Log": "F   position: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.285697+00:00", "Log": "F   internalPosition: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.2856998+00:00", "Log": "F   internalQuery: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.285702+00:00", "Log": "F   where: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.2857041+00:00", "Log": "F   schema: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.285706+00:00", "Log": "F   table: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.285708+00:00", "Log": "F   column: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.2857099+00:00", "Log": "F   dataType: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.2857123+00:00", "Log": "F   constraint: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:28.2857137+00:00", "Log": "F   file: 'postinit.c',"}
+{"TimeStamp": "2025-11-24T22:31:28.2857149+00:00", "Log": "F   line: '1044',"}
+{"TimeStamp": "2025-11-24T22:31:28.2857161+00:00", "Log": "F   routine: 'InitPostgres'"}
+{"TimeStamp": "2025-11-24T22:31:28.2857175+00:00", "Log": "F }"}
+{"TimeStamp": "2025-11-24T22:31:58.3439745+00:00", "Log": "F [JobWorker] Another instance holds the lock - entering STANDBY mode"}
+{"TimeStamp": "2025-11-24T22:31:58.344019+00:00", "Log": "F [JobWorker] Will retry lock acquisition every 30 seconds for failover..."}
+{"TimeStamp": "2025-11-24T22:31:58.3439792+00:00", "Log": "F [JobWorker] Error acquiring lock: error: database \"teams_minutes_db\" does not exist"}
+{"TimeStamp": "2025-11-24T22:31:58.3440598+00:00", "Log": "F     at /app/node_modules/pg-pool/index.js:45:11"}
+{"TimeStamp": "2025-11-24T22:31:58.3440641+00:00", "Log": "F     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)"}
+{"TimeStamp": "2025-11-24T22:31:58.3440663+00:00", "Log": "F     at async tryAcquireWorkerLock (file:///app/dist/index.js:6393:20)"}
+{"TimeStamp": "2025-11-24T22:31:58.3440684+00:00", "Log": "F     at async startJobWorker (file:///app/dist/index.js:6325:26) {"}
+{"TimeStamp": "2025-11-24T22:31:58.344071+00:00", "Log": "F   length: 102,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440733+00:00", "Log": "F   severity: 'FATAL',"}
+{"TimeStamp": "2025-11-24T22:31:58.3440754+00:00", "Log": "F   code: '3D000',"}
+{"TimeStamp": "2025-11-24T22:31:58.3440775+00:00", "Log": "F   detail: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440795+00:00", "Log": "F   hint: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440814+00:00", "Log": "F   position: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440884+00:00", "Log": "F   internalPosition: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440905+00:00", "Log": "F   internalQuery: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440931+00:00", "Log": "F   where: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440951+00:00", "Log": "F   schema: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440971+00:00", "Log": "F   table: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3440996+00:00", "Log": "F   column: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3441016+00:00", "Log": "F   dataType: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3441036+00:00", "Log": "F   constraint: undefined,"}
+{"TimeStamp": "2025-11-24T22:31:58.3441056+00:00", "Log": "F   file: 'postinit.c',"}
+{"TimeStamp": "2025-11-24T22:31:58.3441077+00:00", "Log": "F   line: '1044',"}
+{"TimeStamp": "2025-11-24T22:31:58.3441096+00:00", "Log": "F   routine: 'InitPostgres'"}
+{"TimeStamp": "2025-11-24T22:31:58.3441118+00:00", "Log": "F }"}

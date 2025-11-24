@@ -119,6 +119,16 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 
 ## Recent Changes
 
+- **November 2025 (Azure Deployment - Vite Production Bundle Fix)**: Fixed ERR_MODULE_NOT_FOUND for vite in production (IN PROGRESS 🔄)
+  - **Root Cause**: esbuild was bundling `server/vite.ts` into production bundle, causing runtime crash when vite devDependency wasn't available
+  - **Solution**: 
+    - Created `server/static.ts` with production-safe `log()` and `serveStatic()` functions (no vite dependency)
+    - Updated `server/index.ts` to use dynamic import for Vite: `const { setupVite } = await import("./vite")`
+    - Created `scripts/build-server.mjs` with esbuild flags: `--external:./vite --external:./vite.js --external:../vite.config.ts`
+    - Updated Dockerfile to use `node scripts/build-server.mjs` instead of `npm run build`
+  - **Impact**: Production bundle no longer requires vite devDependency, eliminating container startup crash
+  - **Verification**: `grep 'from "vite"' dist/index.js` returns empty after build
+  - **Status**: Code changes complete, awaiting Azure deployment test
 - **November 2025 (Documentation - Credential Recovery & Mock Services)**: Fixed critical deployment documentation gaps (COMPLETED ✓)
   - **DEPLOYMENT_FIX_GUIDE.md**: New comprehensive credential recovery guide for Portal-based configuration
   - **COMMERCIAL_DEMO_DEPLOYMENT.md**: 

@@ -1,0 +1,49 @@
+Connecting to stream...
+{"TimeStamp":"2025-11-24T18:53:14Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"Connecting to the events collector...","Reason":"StartingGettingEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24T18:53:14Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"Successfully connected to events server","Reason":"ConnectedToEventsServer","EventSource":"ContainerAppController","Count":1}
+{"TimeStamp":"2025-11-24 18:51:49.5778955 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Started container \u0027teams-minutes-app\u0027","Reason":"ContainerStarted","EventSource":"ContainerAppController","Count":3}
+{"TimeStamp":"2025-11-24 18:51:49.6517338 \u002B0000 UTC","Type":"Warning","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Container \u0027teams-minutes-app\u0027 was terminated with exit code \u00271\u0027 and reason \u0027ProcessExited\u0027","Reason":"ContainerTerminated","EventSource":"ContainerAppController","Count":3}
+{"TimeStamp":"2025-11-24 18:52:29.7028218 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Pulling image \u0027teamminutesacr.azurecr.io/teams-minutes:latest\u0027","Reason":"PullingImage","EventSource":"ContainerAppController","Count":4}
+{"TimeStamp":"2025-11-24 18:52:29.7421836 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Successfully pulled image \u0022teamminutesacr.azurecr.io/teams-minutes:latest\u0022 in 39ms. Image size: 252706816 bytes.","Reason":"PulledImage","EventSource":"ContainerAppController","Count":2}
+{"TimeStamp":"2025-11-24 18:52:29.8348967 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Created container \u0027teams-minutes-app\u0027","Reason":"ContainerCreated","EventSource":"ContainerAppController","Count":4}
+{"TimeStamp":"2025-11-24 18:52:29.850086 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Started container \u0027teams-minutes-app\u0027","Reason":"ContainerStarted","EventSource":"ContainerAppController","Count":4}
+{"TimeStamp":"2025-11-24 18:52:29.9517522 \u002B0000 UTC","Type":"Warning","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Container \u0027teams-minutes-app\u0027 was terminated with exit code \u00271\u0027 and reason \u0027ProcessExited\u0027","Reason":"ContainerTerminated","EventSource":"ContainerAppController","Count":4}
+
+{"TimeStamp":"2025-11-24 18:53:50.0075513 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Pulling image \u0027teamminutesacr.azurecr.io/teams-minutes:latest\u0027","Reason":"PullingImage","EventSource":"ContainerAppController","Count":5}
+
+{"TimeStamp":"2025-11-24 18:53:50.0472416 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Successfully pulled image \u0022teamminutesacr.azurecr.io/teams-minutes:latest\u0022 in 39ms. Image size: 252706816 bytes.","Reason":"PulledImage","EventSource":"ContainerAppController","Count":3}
+
+{"TimeStamp":"2025-11-24 18:53:50.113762 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Created container \u0027teams-minutes-app\u0027","Reason":"ContainerCreated","EventSource":"ContainerAppController","Count":5}
+
+{"TimeStamp":"2025-11-24 18:53:50.125279 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Started container \u0027teams-minutes-app\u0027","Reason":"ContainerStarted","EventSource":"ContainerAppController","Count":5}
+
+{"TimeStamp":"2025-11-24 18:53:50.2067653 \u002B0000 UTC","Type":"Warning","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Container \u0027teams-minutes-app\u0027 was terminated with exit code \u00271\u0027 and reason \u0027ProcessExited\u0027","Reason":"ContainerTerminated","EventSource":"ContainerAppController","Count":5}
+
+{"TimeStamp":"2025-11-24T18:54:50Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"No events since last 60 seconds","Reason":"NoNewEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24T18:55:51Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"No events since last 60 seconds","Reason":"NoNewEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24 18:56:30.2604292 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Pulling image \u0027teamminutesacr.azurecr.io/teams-minutes:latest\u0027","Reason":"PullingImage","EventSource":"ContainerAppController","Count":6}
+
+{"TimeStamp":"2025-11-24 18:56:30.289551131 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Successfully pulled image \u0022teamminutesacr.azurecr.io/teams-minutes:latest\u0022 in 42ms. Image size: 252706816 bytes.","Reason":"PulledImage","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24 18:56:30.3939783 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Created container \u0027teams-minutes-app\u0027","Reason":"ContainerCreated","EventSource":"ContainerAppController","Count":6}
+
+{"TimeStamp":"2025-11-24 18:56:30.4087875 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Started container \u0027teams-minutes-app\u0027","Reason":"ContainerStarted","EventSource":"ContainerAppController","Count":6}
+
+{"TimeStamp":"2025-11-24 18:56:30.547825 \u002B0000 UTC","Type":"Warning","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"teams-minutes-app--ihojkvw-797f554bff-wqtwq","Msg":"Container \u0027teams-minutes-app\u0027 was terminated with exit code \u00271\u0027 and reason \u0027ProcessExited\u0027","Reason":"ContainerTerminated","EventSource":"ContainerAppController","Count":6}
+
+{"TimeStamp":"2025-11-24 18:56:38 \u002B0000 UTC","Type":"Normal","ContainerAppName":"teams-minutes-app","RevisionName":"teams-minutes-app--ihojkvw","ReplicaName":"","Msg":"Deactivated apps/v1.Deployment k8se-apps/teams-minutes-app--ihojkvw from 1 to 0","Reason":"KEDAScaleTargetDeactivated","EventSource":"KEDA","Count":25}
+
+{"TimeStamp":"2025-11-24T18:57:39Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"No events since last 60 seconds","Reason":"NoNewEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24T18:59:14Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"No events since last 60 seconds","Reason":"NoNewEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24T19:00:15Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"No events since last 60 seconds","Reason":"NoNewEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24T19:01:15Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"No events since last 60 seconds","Reason":"NoNewEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24T19:02:16Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"No events since last 60 seconds","Reason":"NoNewEvents","EventSource":"ContainerAppController","Count":1}
+
+{"TimeStamp":"2025-11-24T19:03:14Z","Type":"Normal","ContainerAppName":null,"RevisionName":null,"ReplicaName":null,"Msg":"Shutting down events stream. Max connection open time reached","Reason":"CloseConnectionDueToTimeout","EventSource":"ContainerAppController","Count":1}

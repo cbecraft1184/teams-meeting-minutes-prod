@@ -23,8 +23,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install curl for health checks (build tools not needed after npm install)
-RUN apk add --no-cache curl
+# Install curl for health checks and ca-certificates for Azure PostgreSQL SSL
+RUN apk add --no-cache curl ca-certificates
 
 # Copy package files
 COPY package*.json ./

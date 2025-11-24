@@ -55,5 +55,5 @@ ENV PORT=8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
 
-# Start the application (built server is at dist/server/index.js)
-CMD ["node", "dist/server/index.js"]
+# Start the application (built server is at dist/index.js)
+CMD ["node", "dist/index.js"]

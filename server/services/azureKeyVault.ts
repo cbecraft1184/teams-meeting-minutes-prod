@@ -45,6 +45,14 @@ export function initializeKeyVaultClient(): void {
     return;
   }
 
+  // Check if Managed Identity is available (Azure Container Apps, App Service, etc.)
+  const msiEndpoint = process.env.MSI_ENDPOINT || process.env.IDENTITY_ENDPOINT;
+  if (!msiEndpoint) {
+    console.log('[KeyVault] No Managed Identity available - using environment variables only');
+    console.log('[KeyVault] To use Key Vault, assign a Managed Identity to this Container App');
+    return;
+  }
+
   try {
     // DefaultAzureCredential automatically uses Managed Identity when running in Azure
     // In local dev, it can use Azure CLI credentials or VS Code credentials

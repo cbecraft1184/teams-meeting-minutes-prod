@@ -16,7 +16,8 @@ RUN npm ci
 COPY . .
 
 # Build the application (frontend + backend)
-RUN npm run build
+# Use custom build script that excludes Vite from production bundle
+RUN node scripts/build-server.mjs
 
 # Production stage
 FROM node:20-alpine

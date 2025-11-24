@@ -14,7 +14,9 @@ export function log(message: string, source = "express") {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // In production, __dirname points to /app/dist (where index.js is)
+  // Frontend assets are in /app/dist/public
+  const distPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(

@@ -4,9 +4,9 @@ import { execSync } from 'child_process';
 console.log('Building frontend with Vite...');
 execSync('npx vite build', { stdio: 'inherit' });
 
-console.log('Building server with esbuild (excluding Vite)...');
+console.log('Building server with esbuild (tree-shaking dev dependencies)...');
 execSync(
-  'npx esbuild server/index.ts --platform=node --bundle --external:./vite --external:./vite.js --external:../vite.config.ts --packages=external --format=esm --outdir=dist',
+  'npx esbuild server/index.ts --platform=node --bundle --define:process.env.NODE_ENV=\'"production"\' --external:vite --packages=external --format=esm --outdir=dist',
   { stdio: 'inherit' }
 );
 

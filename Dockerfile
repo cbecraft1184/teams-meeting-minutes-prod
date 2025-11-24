@@ -30,10 +30,11 @@ RUN apk add --no-cache curl ca-certificates
 # Copy package files
 COPY package*.json ./
 
-# Install build tools temporarily, install all dependencies (including optional), then remove tools
-RUN apk add --no-cache --virtual .build-deps python3 make g++ && \
-    npm ci --include=optional --omit=dev && \
-    apk del .build-deps
+# Install build dependencies for native modules (keep for runtime)
+RUN apk add --no-cache python3 make g++
+
+# Install production dependencies
+RUN npm ci --include=optional --omit=dev
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist

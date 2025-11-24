@@ -1,5 +1,5 @@
 # Multi-stage build for Teams Meeting Minutes application
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -10,16 +10,19 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 
 # Install all dependencies
-RUN npm install --loglevel=error 2>&1 | grep -v "npm notice" | grep -v "npm warn deprecated" || true
+RUN npm install
+
+# Update browserslist database
+RUN npx update-browserslist-db@latest --no-update-notifier || true
 
 # Copy source code
 COPY . .
 
 # Build the application (frontend + backend)
-RUN node scripts/build-server.mjs 2>&1 | grep -v "Some chunks are larger" | grep -v "Consider:" | grep -v "dynamic import" | grep -v "manualChunks" | grep -v "chunkSizeWarningLimit" || echo "Build complete"
+RUN node scripts/build-server.mjs
 
 # Production stage  
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 

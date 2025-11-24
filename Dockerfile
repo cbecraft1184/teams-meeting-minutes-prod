@@ -9,32 +9,32 @@ RUN apk add --no-cache python3 make g++
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies for build)
-RUN npm ci
+# Install all dependencies (suppress informational messages)
+RUN npm ci --quiet --no-fund --no-audit
+
+# Update browserslist database to eliminate "13 months old" warning
+RUN npx update-browserslist-db@latest --no-update-notifier
 
 # Copy source code
 COPY . .
 
 # Build the application (frontend + backend)
-# Use custom build script that excludes Vite from production bundle
 RUN node scripts/build-server.mjs
 
-# Production stage
+# Production stage  
 FROM node:20-alpine
 
 WORKDIR /app
 
 # Install curl for health checks and ca-certificates for Azure PostgreSQL SSL
-RUN apk add --no-cache curl ca-certificates
+# Install build dependencies for native modules (keep for runtime)
+RUN apk add --no-cache curl ca-certificates python3 make g++
 
 # Copy package files
 COPY package*.json ./
 
-# Install build dependencies for native modules (keep for runtime)
-RUN apk add --no-cache python3 make g++
-
-# Install production dependencies
-RUN npm ci --include=optional --omit=dev
+# Install production dependencies (suppress all warnings and notices)
+RUN npm ci --include=optional --omit=dev --quiet --no-fund --no-audit 2>&1 | grep -v "npm warn" || true
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist

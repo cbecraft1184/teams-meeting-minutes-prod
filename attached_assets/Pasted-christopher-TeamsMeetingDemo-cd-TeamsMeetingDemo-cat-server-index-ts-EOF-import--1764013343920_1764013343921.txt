@@ -1,0 +1,382 @@
+christopher [ ~/TeamsMeetingDemo ]$ cd ~/TeamsMeetingDemo && cat > server/index.ts << 'EOF'
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { serveStatic, log } from "./static";
+import { validateAndLogConfig } from "./services/configValidator";
+import { startJobWorker, stopJobWorker } from "./services/jobWorker";
+import { initializeKeyVaultClient } from "./services/azureKeyVault";
+import { initializeCleanupScheduler, stopCleanupScheduler } from "./services/databaseCleanup";
+const app = express();
+declare module 'http' {interface IncomingMessage {rawBody: unknown}}
+app.use(express.json({verify: (req, _res, buf) => {req.rawBody = buf;}}));
+app.use(express.urlencoded({ extended: false }));
+app.use((req, res, next) => {const start = Date.now();const path = req.path;let capturedJsonResponse: Record<string, any> | undefined = undefined;const originalResJson = res.json;res.json = function (bodyJson, ...args) {capturedJsonResponse = bodyJson;return originalResJson.apply(res, [bodyJson, ...args]);};res.on("finish", () => {const duration = Date.now() - start;if (path.startsWith("/api")) {let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;if (capturedJsonResponse) {logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;}if (logLine.length > 80) {logLine = logLine.slice(0, 79) + "…";}log(logLine);}});next();});
+(async () => {initializeKeyVaultClient();validateAndLogConfig();const server = await registerRoutes(app);app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {const status = err.status || err.statusCode || 500;const message = err.message || "Internal Server Error";res.status(status).json({ message });throw err;});if (process.env.NODE_ENV === "development") {const { setupVite } = await import("./vite");await setupVite(app, server);} else {serveStatic(app);}const port = parseInt(process.env.PORT || '5000', 10);server.listen({port,host: "0.0.0.0",reusePort: true,}, () => {log(`serving on port ${port}`);startJobWorker().catch(console.error);initializeCleanupScheduler();});process.on('SIGTERM', () => {log('SIGTERM received, shutting down...');stopJobWorker();stopCleanupScheduler();});process.on('SIGINT', () => {log('SIGINT received, shutting down...');stopJobWorker();stopCleanupScheduler();});})();
+EOF
+cat > scripts/build-server.mjs << 'EOF'
+#!/usr/bin/env node
+import { execSync } from 'child_process';
+console.log('Building frontend with Vite...');
+execSync('npx vite build', { stdio: 'inherit' });
+console.log('Building server with esbuild (tree-shaking dev dependencies)...');
+execSync('npx esbuild server/index.ts --platform=node --bundle --define:process.env.NODE_ENV=\'"production"\' --external:vite --packages=external --format=esm --outdir=dist',{ stdio: 'inherit' });
+console.log('✅ Build complete!');
+EOF
+az acr build --registry teamminutesacr --resource-group rg-teams-minutes-demo --image teams-minutes:latest --file Dockerfile .
+Packing source code into tar to upload...
+Excluding '.gitignore' based on default ignore rules
+Excluding '.git' based on default ignore rules
+Uploading archived source code from '/tmp/build_archive_79d6203f6d914d209396b4a0e2f14465.tar.gz'...
+Sending context (250.705 MiB) to registry: teamminutesacr...
+Queued a build with ID: chj
+Waiting for an agent...
+2025/11/24 19:38:20 Downloading source code...
+2025/11/24 19:38:31 Finished downloading source code
+2025/11/24 19:38:31 Using acb_vol_1dac61b0-a8d6-4fc0-a5b7-c3d431f8ace4 as the home volume
+2025/11/24 19:38:31 Setting up Docker configuration...
+2025/11/24 19:38:32 Successfully set up Docker configuration
+2025/11/24 19:38:32 Logging in to registry: teamminutesacr.azurecr.io
+2025/11/24 19:38:32 Successfully logged into teamminutesacr.azurecr.io
+2025/11/24 19:38:32 Executing step ID: build. Timeout(sec): 28800, Working directory: '', Network: ''
+2025/11/24 19:38:32 Scanning for dependencies...
+2025/11/24 19:38:33 Successfully scanned dependencies
+2025/11/24 19:38:33 Launching container with name: build
+Sending build context to Docker daemon  120.3MB
+Step 1/23 : FROM node:20-alpine AS builder
+20-alpine: Pulling from library/node
+2d35ebdb57d9: Pulling fs layer
+60e45a9660cf: Pulling fs layer
+e74e4ed823e9: Pulling fs layer
+da04d522c98f: Pulling fs layer
+da04d522c98f: Waiting
+e74e4ed823e9: Verifying Checksum
+e74e4ed823e9: Download complete
+2d35ebdb57d9: Verifying Checksum
+2d35ebdb57d9: Download complete
+da04d522c98f: Verifying Checksum
+da04d522c98f: Download complete
+2d35ebdb57d9: Pull complete
+60e45a9660cf: Verifying Checksum
+60e45a9660cf: Download complete
+60e45a9660cf: Pull complete
+e74e4ed823e9: Pull complete
+da04d522c98f: Pull complete
+Digest: sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435
+Status: Downloaded newer image for node:20-alpine
+ ---> 2b56f2779663
+Step 2/23 : WORKDIR /app
+ ---> Running in 4488d0b76fd9
+Removing intermediate container 4488d0b76fd9
+ ---> fc61ebbb8509
+Step 3/23 : RUN apk add --no-cache python3 make g++
+ ---> Running in 8781330e4968
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz
+(1/29) Installing libstdc++-dev (14.2.0-r6)
+(2/29) Installing jansson (2.14.1-r0)
+(3/29) Installing zstd-libs (1.5.7-r0)
+(4/29) Installing binutils (2.44-r3)
+(5/29) Installing libgomp (14.2.0-r6)
+(6/29) Installing libatomic (14.2.0-r6)
+(7/29) Installing gmp (6.3.0-r3)
+(8/29) Installing isl26 (0.26-r1)
+(9/29) Installing mpfr4 (4.2.1_p1-r0)
+(10/29) Installing mpc1 (1.3.1-r1)
+(11/29) Installing gcc (14.2.0-r6)
+(12/29) Installing musl-dev (1.2.5-r10)
+(13/29) Installing g++ (14.2.0-r6)
+(14/29) Installing make (4.4.1-r3)
+(15/29) Installing libbz2 (1.0.8-r6)
+(16/29) Installing libexpat (2.7.3-r0)
+(17/29) Installing libffi (3.4.8-r0)
+(18/29) Installing gdbm (1.24-r0)
+(19/29) Installing xz-libs (5.8.1-r0)
+(20/29) Installing mpdecimal (4.0.1-r0)
+(21/29) Installing ncurses-terminfo-base (6.5_p20250503-r0)
+(22/29) Installing libncursesw (6.5_p20250503-r0)
+(23/29) Installing libpanelw (6.5_p20250503-r0)
+(24/29) Installing readline (8.2.13-r1)
+(25/29) Installing sqlite-libs (3.49.2-r1)
+(26/29) Installing python3 (3.12.12-r0)
+(27/29) Installing python3-pycache-pyc0 (3.12.12-r0)
+(28/29) Installing pyc (3.12.12-r0)
+(29/29) Installing python3-pyc (3.12.12-r0)
+Executing busybox-1.37.0-r19.trigger
+OK: 270 MiB in 47 packages
+Removing intermediate container 8781330e4968
+ ---> d341d4b9c020
+Step 4/23 : COPY package*.json ./
+ ---> 076356e0f690
+Step 5/23 : RUN npm ci
+ ---> Running in 6e6d682f67ec
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+
+added 716 packages, and audited 717 packages in 23s
+
+96 packages are looking for funding
+  run `npm fund` for details
+
+9 vulnerabilities (3 low, 5 moderate, 1 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.3
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.3
+npm notice To update run: npm install -g npm@11.6.3
+npm notice
+
+Removing intermediate container 6e6d682f67ec
+ ---> 46cf9b1bdeaa
+Step 6/23 : COPY . .
+ ---> b91ca1d3ce0d
+Step 7/23 : RUN node scripts/build-server.mjs
+ ---> Running in 56dbbb779c90
+Building frontend with Vite...
+vite v5.4.20 building for production...
+transforming...
+Browserslist: browsers data (caniuse-lite) is 13 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+✓ 4203 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/public/index.html                   0.75 kB │ gzip:   0.44 kB
+../dist/public/assets/index-g-76Od-m.css   13.17 kB │ gzip:   2.98 kB
+../dist/public/assets/index-DeNEKsDv.js   951.72 kB │ gzip: 258.80 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 12.09s
+Building server with esbuild (tree-shaking dev dependencies)...
+
+  dist/index.js  248.1kb
+
+⚡ Done in 28ms
+✅ Build complete!
+Removing intermediate container 56dbbb779c90
+ ---> f90b3131eecc
+Step 8/23 : FROM node:20-alpine
+20-alpine: Pulling from library/node
+Digest: sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435
+Status: Image is up to date for node:20-alpine
+ ---> 2b56f2779663
+Step 9/23 : WORKDIR /app
+ ---> Using cache
+ ---> fc61ebbb8509
+Step 10/23 : RUN apk add --no-cache curl ca-certificates
+ ---> Running in 7b186b992d73
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz
+(1/10) Installing ca-certificates (20250911-r0)
+(2/10) Installing brotli-libs (1.1.0-r2)
+(3/10) Installing c-ares (1.34.5-r0)
+(4/10) Installing libunistring (1.3-r0)
+(5/10) Installing libidn2 (2.3.7-r0)
+(6/10) Installing nghttp2-libs (1.65.0-r0)
+(7/10) Installing libpsl (0.21.5-r3)
+(8/10) Installing zstd-libs (1.5.7-r0)
+(9/10) Installing libcurl (8.14.1-r2)
+(10/10) Installing curl (8.14.1-r2)
+Executing busybox-1.37.0-r19.trigger
+Executing ca-certificates-20250911-r0.trigger
+OK: 15 MiB in 28 packages
+Removing intermediate container 7b186b992d73
+ ---> 4df4d33d9295
+Step 11/23 : COPY package*.json ./
+ ---> 322746f3e6ff
+Step 12/23 : RUN apk add --no-cache --virtual .build-deps python3 make g++ && npm ci --include=optional --omit=dev && apk del .build-deps
+ ---> Running in d269f4a40865
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz
+(1/29) Installing libbz2 (1.0.8-r6)
+(2/29) Installing libexpat (2.7.3-r0)
+(3/29) Installing libffi (3.4.8-r0)
+(4/29) Installing gdbm (1.24-r0)
+(5/29) Installing xz-libs (5.8.1-r0)
+(6/29) Installing mpdecimal (4.0.1-r0)
+(7/29) Installing ncurses-terminfo-base (6.5_p20250503-r0)
+(8/29) Installing libncursesw (6.5_p20250503-r0)
+(9/29) Installing libpanelw (6.5_p20250503-r0)
+(10/29) Installing readline (8.2.13-r1)
+(11/29) Installing sqlite-libs (3.49.2-r1)
+(12/29) Installing python3 (3.12.12-r0)
+(13/29) Installing python3-pycache-pyc0 (3.12.12-r0)
+(14/29) Installing pyc (3.12.12-r0)
+(15/29) Installing python3-pyc (3.12.12-r0)
+(16/29) Installing make (4.4.1-r3)
+(17/29) Installing libstdc++-dev (14.2.0-r6)
+(18/29) Installing jansson (2.14.1-r0)
+(19/29) Installing binutils (2.44-r3)
+(20/29) Installing libgomp (14.2.0-r6)
+(21/29) Installing libatomic (14.2.0-r6)
+(22/29) Installing gmp (6.3.0-r3)
+(23/29) Installing isl26 (0.26-r1)
+(24/29) Installing mpfr4 (4.2.1_p1-r0)
+(25/29) Installing mpc1 (1.3.1-r1)
+(26/29) Installing gcc (14.2.0-r6)
+(27/29) Installing musl-dev (1.2.5-r10)
+(28/29) Installing g++ (14.2.0-r6)
+(29/29) Installing .build-deps (20251124.193950)
+Executing busybox-1.37.0-r19.trigger
+OK: 275 MiB in 57 packages
+
+
+added 560 packages, and audited 561 packages in 21s
+
+69 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (3 low, 1 high)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 11.6.3
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.3
+npm notice To update run: npm install -g npm@11.6.3
+npm notice
+WARNING: opening from cache https://dl-cdn.alpinelinux.org/alpine/v3.22/main: No such file or directory
+WARNING: opening from cache https://dl-cdn.alpinelinux.org/alpine/v3.22/community: No such file or directory
+(1/29) Purging .build-deps (20251124.193950)
+(2/29) Purging python3-pyc (3.12.12-r0)
+(3/29) Purging python3-pycache-pyc0 (3.12.12-r0)
+(4/29) Purging pyc (3.12.12-r0)
+(5/29) Purging python3 (3.12.12-r0)
+(6/29) Purging make (4.4.1-r3)
+(7/29) Purging g++ (14.2.0-r6)
+(8/29) Purging libstdc++-dev (14.2.0-r6)
+(9/29) Purging gcc (14.2.0-r6)
+(10/29) Purging binutils (2.44-r3)
+(11/29) Purging libatomic (14.2.0-r6)
+(12/29) Purging libgomp (14.2.0-r6)
+(13/29) Purging musl-dev (1.2.5-r10)
+(14/29) Purging gdbm (1.24-r0)
+(15/29) Purging isl26 (0.26-r1)
+(16/29) Purging jansson (2.14.1-r0)
+(17/29) Purging libbz2 (1.0.8-r6)
+(18/29) Purging libexpat (2.7.3-r0)
+(19/29) Purging libffi (3.4.8-r0)
+(20/29) Purging libpanelw (6.5_p20250503-r0)
+(21/29) Purging mpc1 (1.3.1-r1)
+(22/29) Purging mpdecimal (4.0.1-r0)
+(23/29) Purging mpfr4 (4.2.1_p1-r0)
+(24/29) Purging readline (8.2.13-r1)
+(25/29) Purging sqlite-libs (3.49.2-r1)
+(26/29) Purging xz-libs (5.8.1-r0)
+(27/29) Purging gmp (6.3.0-r3)
+(28/29) Purging libncursesw (6.5_p20250503-r0)
+(29/29) Purging ncurses-terminfo-base (6.5_p20250503-r0)
+Executing busybox-1.37.0-r19.trigger
+OK: 15 MiB in 28 packages
+Removing intermediate container d269f4a40865
+ ---> a505de65f252
+Step 13/23 : COPY --from=builder /app/dist ./dist
+ ---> ae8503d15ff1
+Step 14/23 : COPY --from=builder /app/shared ./shared
+ ---> a0325ac18f10
+Step 15/23 : COPY --from=builder /app/server ./server
+ ---> 14d687e0a10e
+Step 16/23 : COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
+ ---> 60ced1a626d6
+Step 17/23 : COPY --from=builder /app/config ./config
+ ---> 3f27f13b8cd8
+Step 18/23 : COPY --from=builder /app/teams-app ./teams-app
+ ---> 3ee1d2418122
+Step 19/23 : EXPOSE 8080
+ ---> Running in 28e6b26efe6e
+Removing intermediate container 28e6b26efe6e
+ ---> a98601f4c128
+Step 20/23 : ENV NODE_ENV=production
+ ---> Running in a3a285453f76
+Removing intermediate container a3a285453f76
+ ---> d74b5b31746e
+Step 21/23 : ENV PORT=8080
+ ---> Running in c2694b6a7c5b
+Removing intermediate container c2694b6a7c5b
+ ---> 5bc3c4b407cc
+Step 22/23 : HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+ ---> Running in 995d9b986c00
+Removing intermediate container 995d9b986c00
+ ---> ca2da5c307f5
+Step 23/23 : CMD ["node", "dist/index.js"]
+ ---> Running in 777ff0ffda60
+Removing intermediate container 777ff0ffda60
+ ---> 1e85d523660f
+Successfully built 1e85d523660f
+Successfully tagged teamminutesacr.azurecr.io/teams-minutes:latest
+2025/11/24 19:40:55 Successfully executed container: build
+2025/11/24 19:40:55 Executing step ID: push. Timeout(sec): 3600, Working directory: '', Network: ''
+2025/11/24 19:40:55 Pushing image: teamminutesacr.azurecr.io/teams-minutes:latest, attempt 1
+The push refers to repository [teamminutesacr.azurecr.io/teams-minutes]
+6d3c6ae549a2: Preparing
+5d0b4a1d0d60: Preparing
+b36f769f3cce: Preparing
+afb5861d858d: Preparing
+af60b947bbd1: Preparing
+966a4a6c792b: Preparing
+fdc6653d94f2: Preparing
+539264a6bba3: Preparing
+41df7c25e624: Preparing
+ed1c61db917b: Preparing
+8bc61164599f: Preparing
+a81608eb20af: Preparing
+1548c3f692a1: Preparing
+256f393e029f: Preparing
+ed1c61db917b: Waiting
+8bc61164599f: Waiting
+966a4a6c792b: Waiting
+a81608eb20af: Waiting
+fdc6653d94f2: Waiting
+1548c3f692a1: Waiting
+539264a6bba3: Waiting
+41df7c25e624: Waiting
+256f393e029f: Waiting
+6d3c6ae549a2: Pushed
+5d0b4a1d0d60: Pushed
+af60b947bbd1: Pushed
+afb5861d858d: Pushed
+b36f769f3cce: Pushed
+539264a6bba3: Pushed
+ed1c61db917b: Pushed
+966a4a6c792b: Pushed
+1548c3f692a1: Layer already exists
+8bc61164599f: Layer already exists
+256f393e029f: Layer already exists
+41df7c25e624: Pushed
+a81608eb20af: Layer already exists
+
+fdc6653d94f2: Pushed
+latest: digest: sha256:6624117dd66cde792afe47ff744fa54728510234ddcee8789950ea216225d27b size: 3248
+2025/11/24 19:41:21 Successfully pushed image: teamminutesacr.azurecr.io/teams-minutes:latest
+2025/11/24 19:41:21 Step ID: build marked as successful (elapsed time in seconds: 142.358258)
+2025/11/24 19:41:21 Populating digests for step ID: build...
+2025/11/24 19:41:22 Successfully populated digests for step ID: build
+2025/11/24 19:41:22 Step ID: push marked as successful (elapsed time in seconds: 26.754804)
+2025/11/24 19:41:22 The following dependencies were found:
+2025/11/24 19:41:22 
+- image:
+    registry: teamminutesacr.azurecr.io
+    repository: teams-minutes
+    tag: latest
+    digest: sha256:6624117dd66cde792afe47ff744fa54728510234ddcee8789950ea216225d27b
+  runtime-dependency:
+    registry: registry.hub.docker.com
+    repository: library/node
+    tag: 20-alpine
+    digest: sha256:6178e78b972f79c335df281f4b7674a2d85071aae2af020ffa39f0a770265435
+  git: {}
+
+Run ID: chj was successful after 3m2s
+christopher [ ~/TeamsMeetingDemo ]$ 

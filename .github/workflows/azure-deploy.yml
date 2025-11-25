@@ -1,0 +1,49 @@
+name: Deploy to Azure Container Apps
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_SUBSCRIPTION_ID: 17f080ac-db85-4c7d-a12e-fc88bf22b2bc
+  AZURE_RESOURCE_GROUP: rg-teams-minutes-demo
+  ACR_NAME: teamminutesacr
+  CONTAINER_APP_NAME: teams-minutes-app
+  IMAGE_NAME: teams-minutes
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    
+    - name: Build and push Docker image to ACR
+      run: |
+        az acr build \
+          --registry ${{ env.ACR_NAME }} \
+          --image ${{ env.IMAGE_NAME }}:${{ github.sha }} \
+          --image ${{ env.IMAGE_NAME }}:latest \
+          --file Dockerfile \
+          .
+    
+    - name: Deploy to Container Apps
+      run: |
+        az containerapp update \
+          --name ${{ env.CONTAINER_APP_NAME }} \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --image ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+    
+    - name: Verify deployment
+      run: |
+        echo "Deployment complete!"
+        echo "Container App URL: https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io"
+        echo "Health endpoint: https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/health"

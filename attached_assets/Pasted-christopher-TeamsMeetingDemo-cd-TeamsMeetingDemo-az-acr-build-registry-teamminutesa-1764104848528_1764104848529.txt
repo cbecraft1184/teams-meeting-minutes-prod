@@ -1,0 +1,588 @@
+christopher [ ~/TeamsMeetingDemo ]$ cd ~/TeamsMeetingDemo && \
+az acr build --registry teamminutesacr --image teams-minutes-app:latest --file Dockerfile . && \
+az containerapp update --name teams-minutes-app --resource-group rg-teams-minutes-demo --image teamminutesacr.azurecr.io/teams-minutes-app:latest
+Packing source code into tar to upload...
+Excluding '.git' based on default ignore rules
+Excluding '.gitignore' based on default ignore rules
+Uploading archived source code from '/tmp/build_archive_15aedf9f6495462b945a6480fec2d274.tar.gz'...
+Sending context (1018.716 KiB) to registry: teamminutesacr...
+Queued a build with ID: chv
+Waiting for an agent...
+2025/11/25 21:03:12 Downloading source code...
+2025/11/25 21:03:13 Finished downloading source code
+2025/11/25 21:03:13 Using acb_vol_a0392c6a-156f-4779-a71a-571b35620a10 as the home volume
+2025/11/25 21:03:13 Setting up Docker configuration...
+2025/11/25 21:03:14 Successfully set up Docker configuration
+2025/11/25 21:03:14 Logging in to registry: teamminutesacr.azurecr.io
+2025/11/25 21:03:15 Successfully logged into teamminutesacr.azurecr.io
+2025/11/25 21:03:15 Executing step ID: build. Timeout(sec): 28800, Working directory: '', Network: ''
+2025/11/25 21:03:15 Scanning for dependencies...
+2025/11/25 21:03:15 Successfully scanned dependencies
+2025/11/25 21:03:15 Launching container with name: build
+Sending build context to Docker daemon  2.498MB
+Step 1/24 : FROM node:22-alpine AS builder
+22-alpine: Pulling from library/node
+2d35ebdb57d9: Pulling fs layer
+fc2cca81d0de: Pulling fs layer
+e1acb8d81a6a: Pulling fs layer
+5ff8b913658c: Pulling fs layer
+5ff8b913658c: Waiting
+2d35ebdb57d9: Verifying Checksum
+2d35ebdb57d9: Download complete
+e1acb8d81a6a: Verifying Checksum
+e1acb8d81a6a: Download complete
+5ff8b913658c: Verifying Checksum
+5ff8b913658c: Download complete
+2d35ebdb57d9: Pull complete
+fc2cca81d0de: Verifying Checksum
+fc2cca81d0de: Download complete
+fc2cca81d0de: Pull complete
+e1acb8d81a6a: Pull complete
+5ff8b913658c: Pull complete
+Digest: sha256:b2358485e3e33bc3a33114d2b1bdb18cdbe4df01bd2b257198eb51beb1f026c5
+Status: Downloaded newer image for node:22-alpine
+ ---> d14f4a9e34c6
+Step 2/24 : WORKDIR /app
+ ---> Running in 8c2d98b2af71
+Removing intermediate container 8c2d98b2af71
+ ---> d6735b61a90a
+Step 3/24 : RUN apk add --no-cache python3 make g++
+ ---> Running in 33a1e8ee7273
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz
+(1/29) Installing libstdc++-dev (14.2.0-r6)
+(2/29) Installing jansson (2.14.1-r0)
+(3/29) Installing zstd-libs (1.5.7-r0)
+(4/29) Installing binutils (2.44-r3)
+(5/29) Installing libgomp (14.2.0-r6)
+(6/29) Installing libatomic (14.2.0-r6)
+(7/29) Installing gmp (6.3.0-r3)
+(8/29) Installing isl26 (0.26-r1)
+(9/29) Installing mpfr4 (4.2.1_p1-r0)
+(10/29) Installing mpc1 (1.3.1-r1)
+(11/29) Installing gcc (14.2.0-r6)
+(12/29) Installing musl-dev (1.2.5-r10)
+(13/29) Installing g++ (14.2.0-r6)
+(14/29) Installing make (4.4.1-r3)
+(15/29) Installing libbz2 (1.0.8-r6)
+(16/29) Installing libexpat (2.7.3-r0)
+(17/29) Installing libffi (3.4.8-r0)
+(18/29) Installing gdbm (1.24-r0)
+(19/29) Installing xz-libs (5.8.1-r0)
+(20/29) Installing mpdecimal (4.0.1-r0)
+(21/29) Installing ncurses-terminfo-base (6.5_p20250503-r0)
+(22/29) Installing libncursesw (6.5_p20250503-r0)
+(23/29) Installing libpanelw (6.5_p20250503-r0)
+(24/29) Installing readline (8.2.13-r1)
+(25/29) Installing sqlite-libs (3.49.2-r1)
+(26/29) Installing python3 (3.12.12-r0)
+(27/29) Installing python3-pycache-pyc0 (3.12.12-r0)
+(28/29) Installing pyc (3.12.12-r0)
+(29/29) Installing python3-pyc (3.12.12-r0)
+Executing busybox-1.37.0-r19.trigger
+OK: 270 MiB in 47 packages
+Removing intermediate container 33a1e8ee7273
+ ---> 4d3a3c087923
+Step 4/24 : COPY package*.json ./
+ ---> 0c355de76608
+Step 5/24 : RUN npm install
+ ---> Running in 3b3a9cc06f1d
+npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+
+added 722 packages, and audited 723 packages in 23s
+
+100 packages are looking for funding
+  run `npm fund` for details
+
+5 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+npm notice
+npm notice New major version of npm available! 10.9.4 -> 11.6.4
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v11.6.4
+npm notice To update run: npm install -g npm@11.6.4
+npm notice
+
+Removing intermediate container 3b3a9cc06f1d
+ ---> 6e0ab02ff1d0
+Step 6/24 : RUN npx update-browserslist-db@latest --no-update-notifier || true
+ ---> Running in 032a2ab28d62
+Latest version:     1.0.30001757
+Installed version:  1.0.30001757
+caniuse-lite is up to date
+caniuse-lite has been successfully updated
+
+No target browser changes
+Removing intermediate container 032a2ab28d62
+ ---> 804731711dd2
+Step 7/24 : COPY . .
+ ---> 1612da2fdbd5
+Step 8/24 : RUN node scripts/build-server.mjs
+ ---> Running in dcd1d92c9864
+Building frontend with Vite...
+vite v5.4.21 building for production...
+transforming...
+✓ 4210 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/public/index.html                   0.75 kB │ gzip:   0.44 kB
+../dist/public/assets/index-Bzo5vExv.css   12.85 kB │ gzip:   2.97 kB
+../dist/public/assets/index-VosY8oyD.js   930.99 kB │ gzip: 257.50 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 10.74s
+Building server with esbuild (tree-shaking dev dependencies)...
+
+  dist/index.js  248.2kb
+
+⚡ Done in 21ms
+✅ Build complete!
+Removing intermediate container dcd1d92c9864
+ ---> ee6376f64441
+Step 9/24 : FROM node:22-alpine
+22-alpine: Pulling from library/node
+Digest: sha256:b2358485e3e33bc3a33114d2b1bdb18cdbe4df01bd2b257198eb51beb1f026c5
+Status: Image is up to date for node:22-alpine
+ ---> d14f4a9e34c6
+Step 10/24 : WORKDIR /app
+ ---> Using cache
+ ---> d6735b61a90a
+Step 11/24 : RUN apk add --no-cache curl ca-certificates python3 make g++
+ ---> Running in 7e6acdf9e4e2
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/APKINDEX.tar.gz
+(1/38) Installing ca-certificates (20250911-r0)
+(2/38) Installing brotli-libs (1.1.0-r2)
+(3/38) Installing c-ares (1.34.5-r0)
+(4/38) Installing libunistring (1.3-r0)
+(5/38) Installing libidn2 (2.3.7-r0)
+(6/38) Installing nghttp2-libs (1.65.0-r0)
+(7/38) Installing libpsl (0.21.5-r3)
+(8/38) Installing zstd-libs (1.5.7-r0)
+(9/38) Installing libcurl (8.14.1-r2)
+(10/38) Installing curl (8.14.1-r2)
+(11/38) Installing libstdc++-dev (14.2.0-r6)
+(12/38) Installing jansson (2.14.1-r0)
+(13/38) Installing binutils (2.44-r3)
+(14/38) Installing libgomp (14.2.0-r6)
+(15/38) Installing libatomic (14.2.0-r6)
+(16/38) Installing gmp (6.3.0-r3)
+(17/38) Installing isl26 (0.26-r1)
+(18/38) Installing mpfr4 (4.2.1_p1-r0)
+(19/38) Installing mpc1 (1.3.1-r1)
+(20/38) Installing gcc (14.2.0-r6)
+(21/38) Installing musl-dev (1.2.5-r10)
+(22/38) Installing g++ (14.2.0-r6)
+(23/38) Installing make (4.4.1-r3)
+(24/38) Installing libbz2 (1.0.8-r6)
+(25/38) Installing libexpat (2.7.3-r0)
+(26/38) Installing libffi (3.4.8-r0)
+(27/38) Installing gdbm (1.24-r0)
+(28/38) Installing xz-libs (5.8.1-r0)
+(29/38) Installing mpdecimal (4.0.1-r0)
+(30/38) Installing ncurses-terminfo-base (6.5_p20250503-r0)
+(31/38) Installing libncursesw (6.5_p20250503-r0)
+(32/38) Installing libpanelw (6.5_p20250503-r0)
+(33/38) Installing readline (8.2.13-r1)
+(34/38) Installing sqlite-libs (3.49.2-r1)
+(35/38) Installing python3 (3.12.12-r0)
+(36/38) Installing python3-pycache-pyc0 (3.12.12-r0)
+(37/38) Installing pyc (3.12.12-r0)
+(38/38) Installing python3-pyc (3.12.12-r0)
+Executing busybox-1.37.0-r19.trigger
+Executing ca-certificates-20250911-r0.trigger
+OK: 275 MiB in 56 packages
+Removing intermediate container 7e6acdf9e4e2
+ ---> 69271b9e752c
+Step 12/24 : COPY package*.json ./
+ ---> 287b1c2169d2
+Step 13/24 : RUN npm install --omit=dev --include=optional --loglevel=error 2>&1 | grep -v "npm notice" | grep -v "npm warn" || true
+ ---> Running in c141213f99ce
+
+
+added 564 packages, and audited 565 packages in 20s
+
+70 packages are looking for funding
+  run `npm fund` for details
+
+found 0 vulnerabilities
+
+Removing intermediate container c141213f99ce
+ ---> d9052e536640
+Step 14/24 : COPY --from=builder /app/dist ./dist
+ ---> ab72b47b730e
+Step 15/24 : COPY --from=builder /app/shared ./shared
+ ---> cf2e23d402d2
+Step 16/24 : COPY --from=builder /app/server ./server
+ ---> 07a4256abb32
+Step 17/24 : COPY --from=builder /app/drizzle.config.ts ./drizzle.config.ts
+ ---> 3d0e333bf300
+Step 18/24 : COPY --from=builder /app/config ./config
+ ---> 2b6bf592c10f
+Step 19/24 : COPY --from=builder /app/teams-app ./teams-app
+ ---> 53e63190b4bc
+Step 20/24 : EXPOSE 8080
+ ---> Running in 848aadb15fed
+Removing intermediate container 848aadb15fed
+ ---> d956508aeef2
+Step 21/24 : ENV NODE_ENV=production
+ ---> Running in c9e3157a3672
+Removing intermediate container c9e3157a3672
+ ---> da953e91de14
+Step 22/24 : ENV PORT=8080
+ ---> Running in 87d3f4592475
+Removing intermediate container 87d3f4592475
+ ---> 4551b4f98a4b
+Step 23/24 : HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3   CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+ ---> Running in 9524a30930f1
+Removing intermediate container 9524a30930f1
+ ---> 11da72af3b71
+Step 24/24 : CMD ["node", "dist/index.js"]
+ ---> Running in d1e66817850d
+Removing intermediate container d1e66817850d
+ ---> db3a3057d215
+Successfully built db3a3057d215
+Successfully tagged teamminutesacr.azurecr.io/teams-minutes-app:latest
+2025/11/25 21:05:43 Successfully executed container: build
+2025/11/25 21:05:43 Executing step ID: push. Timeout(sec): 3600, Working directory: '', Network: ''
+2025/11/25 21:05:43 Pushing image: teamminutesacr.azurecr.io/teams-minutes-app:latest, attempt 1
+The push refers to repository [teamminutesacr.azurecr.io/teams-minutes-app]
+607f0e966ce6: Preparing
+41a247fdf169: Preparing
+971a73f9e621: Preparing
+4da1b70e4c8f: Preparing
+1f1a58666504: Preparing
+7d7b27c1bd28: Preparing
+4642fbc74644: Preparing
+54bbf2500d51: Preparing
+8af6155a62e4: Preparing
+fc9ce1cc4caa: Preparing
+77d31d00e82a: Preparing
+7b2297ff8abe: Preparing
+af8869b020fb: Preparing
+256f393e029f: Preparing
+7d7b27c1bd28: Waiting
+4642fbc74644: Waiting
+54bbf2500d51: Waiting
+8af6155a62e4: Waiting
+fc9ce1cc4caa: Waiting
+77d31d00e82a: Waiting
+7b2297ff8abe: Waiting
+af8869b020fb: Waiting
+256f393e029f: Waiting
+1f1a58666504: Pushed
+971a73f9e621: Pushed
+4da1b70e4c8f: Pushed
+607f0e966ce6: Pushed
+41a247fdf169: Pushed
+54bbf2500d51: Pushed
+7d7b27c1bd28: Pushed
+fc9ce1cc4caa: Pushed
+77d31d00e82a: Pushed
+256f393e029f: Layer already exists
+7b2297ff8abe: Pushed
+af8869b020fb: Pushed
+8af6155a62e4: Pushed
+4642fbc74644: Pushed
+latest: digest: sha256:b8a1d7c70c0155d0ee271f24409de77770fe61be9d8515298843292e5de72ff6 size: 3250
+2025/11/25 21:06:30 Successfully pushed image: teamminutesacr.azurecr.io/teams-minutes-app:latest
+2025/11/25 21:06:30 Step ID: build marked as successful (elapsed time in seconds: 148.162693)
+2025/11/25 21:06:30 Populating digests for step ID: build...
+2025/11/25 21:06:31 Successfully populated digests for step ID: build
+2025/11/25 21:06:31 Step ID: push marked as successful (elapsed time in seconds: 47.755621)
+2025/11/25 21:06:31 The following dependencies were found:
+2025/11/25 21:06:31 
+- image:
+    registry: teamminutesacr.azurecr.io
+    repository: teams-minutes-app
+    tag: latest
+    digest: sha256:b8a1d7c70c0155d0ee271f24409de77770fe61be9d8515298843292e5de72ff6
+  runtime-dependency:
+    registry: registry.hub.docker.com
+    repository: library/node
+    tag: 22-alpine
+    digest: sha256:b2358485e3e33bc3a33114d2b1bdb18cdbe4df01bd2b257198eb51beb1f026c5
+  git: {}
+
+Run ID: chv was successful after 3m20s
+{
+  "id": "/subscriptions/17f080ac-db85-4c7d-a12e-fc88bf22b2bc/resourceGroups/rg-teams-minutes-demo/providers/Microsoft.App/containerapps/teams-minutes-app",
+  "identity": {
+    "type": "None"
+  },
+  "location": "East US 2",
+  "name": "teams-minutes-app",
+  "properties": {
+    "configuration": {
+      "activeRevisionsMode": "Multiple",
+      "dapr": null,
+      "identitySettings": [],
+      "ingress": {
+        "additionalPortMappings": null,
+        "allowInsecure": false,
+        "clientCertificateMode": null,
+        "corsPolicy": null,
+        "customDomains": null,
+        "exposedPort": 0,
+        "external": true,
+        "fqdn": "teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io",
+        "ipSecurityRestrictions": null,
+        "stickySessions": null,
+        "targetPort": 8080,
+        "traffic": [
+          {
+            "revisionName": "teams-minutes-app--0000009",
+            "weight": 100
+          }
+        ],
+        "transport": "Auto"
+      },
+      "maxInactiveRevisions": 100,
+      "registries": [
+        {
+          "identity": "",
+          "passwordSecretRef": "teamminutesacrazurecrio-teamminutesacr",
+          "server": "teamminutesacr.azurecr.io",
+          "username": "teamminutesacr"
+        }
+      ],
+      "runtime": null,
+      "secrets": [
+        {
+          "name": "session-secret"
+        },
+        {
+          "name": "teamminutesacrazurecrio-teamminutesacr"
+        },
+        {
+          "name": "graph-client-secret"
+        },
+        {
+          "name": "microsoft-app-id"
+        },
+        {
+          "name": "database-url"
+        },
+        {
+          "name": "graph-tenant-id"
+        },
+        {
+          "name": "use-mock-services"
+        },
+        {
+          "name": "graph-client-id"
+        },
+        {
+          "name": "microsoft-app-password"
+        }
+      ],
+      "service": null
+    },
+    "customDomainVerificationId": "F6FD72DD73BC590294B69D1B96B5363D99B424D268404C82EB09B49994CC7170",
+    "delegatedIdentities": [],
+    "environmentId": "/subscriptions/17f080ac-db85-4c7d-a12e-fc88bf22b2bc/resourceGroups/rg-teams-minutes-demo/providers/Microsoft.App/managedEnvironments/teams-minutes-env",
+    "eventStreamEndpoint": "https://eastus2.azurecontainerapps.dev/subscriptions/17f080ac-db85-4c7d-a12e-fc88bf22b2bc/resourceGroups/rg-teams-minutes-demo/containerApps/teams-minutes-app/eventstream",
+    "latestReadyRevisionName": "teams-minutes-app--0000009",
+    "latestRevisionFqdn": "teams-minutes-app--0000011.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io",
+    "latestRevisionName": "teams-minutes-app--0000011",
+    "managedEnvironmentId": "/subscriptions/17f080ac-db85-4c7d-a12e-fc88bf22b2bc/resourceGroups/rg-teams-minutes-demo/providers/Microsoft.App/managedEnvironments/teams-minutes-env",
+    "outboundIpAddresses": [
+      "20.97.130.219",
+      "20.69.200.68",
+      "52.167.135.54",
+      "52.184.149.238",
+      "52.179.250.88",
+      "52.184.149.147",
+      "52.184.198.180",
+      "52.184.138.179",
+      "52.179.253.112",
+      "52.184.190.79",
+      "52.184.141.185",
+      "52.184.151.206",
+      "20.97.132.38",
+      "4.153.163.131",
+      "20.36.242.179",
+      "20.36.243.222",
+      "20.36.243.227",
+      "20.36.243.208",
+      "128.85.230.186",
+      "4.153.163.156",
+      "20.36.242.169",
+      "4.153.163.201",
+      "20.36.244.19",
+      "20.97.133.137",
+      "20.36.244.21",
+      "20.36.243.201",
+      "128.85.220.176",
+      "128.85.212.114",
+      "135.18.214.171",
+      "20.85.91.213",
+      "128.85.239.223",
+      "4.153.23.192",
+      "4.153.23.210",
+      "4.153.23.204",
+      "20.94.122.99",
+      "4.153.23.173",
+      "20.94.122.65",
+      "20.94.122.133",
+      "20.94.122.111",
+      "20.94.122.70",
+      "20.94.122.101",
+      "20.1.250.250",
+      "20.1.251.135",
+      "20.7.131.26",
+      "20.7.130.240",
+      "20.7.131.54",
+      "20.7.131.60",
+      "20.7.131.34",
+      "20.7.131.59",
+      "20.7.131.44",
+      "20.7.131.5",
+      "20.7.131.39",
+      "20.7.131.50",
+      "20.1.251.104",
+      "172.200.51.234",
+      "172.200.52.27",
+      "172.200.51.44",
+      "172.200.51.235",
+      "172.200.51.243",
+      "172.200.51.45",
+      "172.200.51.191",
+      "172.200.51.242",
+      "172.200.52.26",
+      "172.200.51.190",
+      "20.1.251.2",
+      "4.153.75.54",
+      "172.193.97.218",
+      "68.220.18.20",
+      "172.193.72.214",
+      "20.161.102.207",
+      "130.213.148.50",
+      "68.220.243.198",
+      "13.68.118.203",
+      "13.68.119.127",
+      "52.184.147.35",
+      "52.184.147.9",
+      "20.94.111.32",
+      "20.94.110.46",
+      "135.18.222.88"
+    ],
+    "provisioningState": "Succeeded",
+    "runningStatus": "Running",
+    "template": {
+      "containers": [
+        {
+          "env": [
+            {
+              "name": "PORT"
+            },
+            {
+              "name": "NODE_ENV"
+            },
+            {
+              "name": "DATABASE_URL"
+            },
+            {
+              "name": "USE_MOCK_SERVICES"
+            },
+            {
+              "name": "MICROSOFT_APP_ID",
+              "secretRef": "microsoft-app-id"
+            },
+            {
+              "name": "MICROSOFT_APP_PASSWORD",
+              "secretRef": "microsoft-app-password"
+            },
+            {
+              "name": "GRAPH_CLIENT_ID_PROD",
+              "secretRef": "graph-client-id"
+            },
+            {
+              "name": "GRAPH_CLIENT_SECRET_PROD",
+              "secretRef": "graph-client-secret"
+            },
+            {
+              "name": "GRAPH_TENANT_ID_PROD",
+              "secretRef": "graph-tenant-id"
+            },
+            {
+              "name": "SESSION_SECRET"
+            },
+            {
+              "name": "AZURE_TENANT_ID"
+            },
+            {
+              "name": "GRAPH_CLIENT_ID"
+            },
+            {
+              "name": "GRAPH_CLIENT_SECRET"
+            },
+            {
+              "name": "BOT_APP_ID"
+            },
+            {
+              "name": "BOT_APP_PASSWORD"
+            },
+            {
+              "name": "AZURE_OPENAI_API_KEY"
+            },
+            {
+              "name": "AZURE_OPENAI_ENDPOINT"
+            },
+            {
+              "name": "AZURE_OPENAI_DEPLOYMENT_NAME"
+            },
+            {
+              "name": "SHAREPOINT_SITE_URL"
+            },
+            {
+              "name": "SHAREPOINT_LIBRARY_NAME"
+            },
+            {
+              "name": "GRAPH_SENDER_EMAIL"
+            }
+          ],
+          "image": "teamminutesacr.azurecr.io/teams-minutes-app:latest",
+          "name": "teams-minutes-app",
+          "probes": [],
+          "resources": {
+            "cpu": 0.5,
+            "ephemeralStorage": "2Gi",
+            "memory": "1Gi"
+          }
+        }
+      ],
+      "initContainers": null,
+      "revisionSuffix": "",
+      "scale": {
+        "cooldownPeriod": 300,
+        "maxReplicas": 10,
+        "minReplicas": null,
+        "pollingInterval": 30,
+        "rules": null
+      },
+      "serviceBinds": null,
+      "terminationGracePeriodSeconds": null,
+      "volumes": []
+    },
+    "workloadProfileName": "Consumption"
+  },
+  "resourceGroup": "rg-teams-minutes-demo",
+  "systemData": {
+    "createdAt": "2025-11-23T03:52:56.9443123",
+    "createdBy": "ChristopherBecraft@ChrisBecraft.onmicrosoft.com",
+    "createdByType": "User",
+    "lastModifiedAt": "2025-11-25T21:06:35.71913",
+    "lastModifiedBy": "ChristopherBecraft@ChrisBecraft.onmicrosoft.com",
+    "lastModifiedByType": "User"
+  },
+  "type": "Microsoft.App/containerApps"
+}
+christopher [ ~/TeamsMeetingDemo ]$ 

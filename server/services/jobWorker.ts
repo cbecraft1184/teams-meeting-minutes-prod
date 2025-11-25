@@ -154,6 +154,10 @@ export async function startJobWorker(): Promise<void> {
  * Stop the job worker gracefully
  */
 export function stopJobWorker(): void {
+  if (!isRunning) {
+    console.log("[JobWorker] Not running, nothing to stop");
+    return;
+  }
   console.log("[JobWorker] Stopping...");
   shouldStop = true;
 }

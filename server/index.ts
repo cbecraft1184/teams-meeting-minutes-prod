@@ -94,8 +94,12 @@ app.use((req, res, next) => {
   }, () => {
     log(`serving on port ${port}`);
     
-    // Start durable job worker after server is running
-    startJobWorker().catch(console.error);
+    // Start durable job worker after server is running (disabled until Redis/durable queue is provisioned)
+    if (process.env.ENABLE_JOB_WORKER === "true") {
+      startJobWorker().catch(console.error);
+    } else {
+      log("Job worker disabled (set ENABLE_JOB_WORKER=true to enable)");
+    }
     
     // Initialize database cleanup scheduler (runs daily)
     initializeCleanupScheduler();

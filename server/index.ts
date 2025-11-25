@@ -57,6 +57,12 @@ app.use((req, res, next) => {
   // Locally: Falls back to environment variables
   initializeKeyVaultClient();
 
+  // Run database migrations at startup (Azure production only)
+  if (process.env.NODE_ENV === "production" && process.env.RUN_MIGRATIONS === "true") {
+    const { runMigrations } = await import("./migrate");
+    await runMigrations();
+  }
+
   // Validate configuration at startup
   validateAndLogConfig();
 
@@ -101,8 +107,12 @@ app.use((req, res, next) => {
       log("Job worker disabled (set ENABLE_JOB_WORKER=true to enable)");
     }
     
-    // Initialize database cleanup scheduler (runs daily)
-    initializeCleanupScheduler();
+    // Initialize database cleanup scheduler (runs daily) - disabled until tables exist
+    if (process.env.ENABLE_CLEANUP_SCHEDULER === "true") {
+      initializeCleanupScheduler();
+    } else {
+      log("Database cleanup scheduler disabled (set ENABLE_CLEANUP_SCHEDULER=true to enable)");
+    }
   });
 
   // Graceful shutdown

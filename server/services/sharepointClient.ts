@@ -1,9 +1,16 @@
 // Reference: blueprint:sharepoint
 import { Client } from '@microsoft/microsoft-graph-client';
+import { getConfig } from './configValidator';
 
 let connectionSettings: any;
 
 async function getAccessToken() {
+  // Check if mock services are enabled (Azure production will have this set to false)
+  const config = getConfig();
+  if (config.useMockServices) {
+    throw new Error('SharePoint not available in mock mode (set USE_MOCK_SERVICES=false)');
+  }
+
   if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
     return connectionSettings.settings.access_token;
   }
@@ -16,7 +23,7 @@ async function getAccessToken() {
     : null;
 
   if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+    throw new Error('X_REPLIT_TOKEN not found for repl/depl (Replit-only SharePoint integration)');
   }
 
   connectionSettings = await fetch(

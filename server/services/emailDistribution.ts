@@ -26,8 +26,15 @@ interface EmailAttachment {
 }
 
 export class EmailDistributionService {
-  private isDevelopment = process.env.NODE_ENV === "development";
   private graphApiEndpoint = "https://graph.microsoft.com/v1.0";
+
+  /**
+   * Check if mock services are enabled
+   */
+  private get useMockServices(): boolean {
+    const config = getConfig();
+    return config.useMockServices;
+  }
 
   /**
    * Send meeting minutes to all attendees
@@ -48,7 +55,7 @@ export class EmailDistributionService {
     const subject = `Meeting Minutes: ${meeting.title}`;
     const body = this.generateEmailBody(meeting);
 
-    if (this.isDevelopment) {
+    if (this.useMockServices) {
       this.logEmailToConsole(recipients, subject, body, attachments);
       return;
     }
@@ -66,7 +73,7 @@ export class EmailDistributionService {
     const subject = `Action Required: Approve Meeting Minutes - ${meeting.title}`;
     const body = this.generateApprovalEmailBody(meeting);
 
-    if (this.isDevelopment) {
+    if (this.useMockServices) {
       this.logEmailToConsole([{ email: recipientEmail }], subject, body, []);
       return;
     }

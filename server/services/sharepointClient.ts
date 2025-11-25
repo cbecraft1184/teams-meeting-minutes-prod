@@ -68,6 +68,13 @@ export async function uploadToSharePoint(
     meetingId: string;
   }
 ): Promise<string> {
+  // Mock mode: Return mock URL without calling SharePoint
+  const config = getConfig();
+  if (config.useMockServices) {
+    console.log(`🔧 [SharePoint] Mock mode - simulating upload: ${fileName}`);
+    return `https://mock-sharepoint.example.com/sites/meetings/Documents/${fileName}`;
+  }
+
   const client = await getUncachableSharePointClient();
   
   // Extract site and library from environment

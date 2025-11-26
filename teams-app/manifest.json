@@ -45,6 +45,14 @@
       "scopes": ["personal"]
     }
   ],
+  "bots": [
+    {
+      "botId": "7338369d-c5c6-40cc-94cf-96cb79ed146c",
+      "scopes": ["personal", "team", "groupchat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
   "permissions": [
     "identity",
     "messageTeamMembers"

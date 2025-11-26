@@ -1,0 +1,14 @@
+That error message, "The value provided for bots[0].scopes[2] is invalid," means you have an unsupported or misspelled value in the scopes list for your bot within your Microsoft Teams app's manifest.json file.The path bots[0].scopes[2] tells you exactly where the problem is:bots[0]: The first (and usually only) bot definition in your manifest's bots array.scopes[2]: The third scope listed in that bot's scopes array (because array indexing starts at 0).✅ Valid Scope ValuesTeams bots can only be installed in specific contexts, which are defined by these three valid strings. Check your manifest.json and ensure the value at the third position in the scopes array is one of the following, spelled exactly as shown:Valid ScopeDescriptionpersonalA 1:1 chat between the user and the bot (also known as the "private" or "personal" scope).teamA chat within a standard Teams channel.groupChatA multi-person chat that is not a channel.Example of a Correct scopes ArrayIf your bot supports all three installation contexts, your manifest should look like this:JSON{
+  "bots": [
+    {
+      "botId": "YOUR_BOT_ID",
+      "scopes": [
+        "personal",  // [0]
+        "team",      // [1]
+        "groupChat"  // [2] <- This is the value you need to check
+      ],
+      // ... other bot properties
+    }
+  ]
+}
+Common Mistakes to CheckMisspelling: Forgetting capitalization, e.g., using "groupchat" instead of "groupChat". The scopes are case-sensitive.Unsupported Value: Trying to use a scope that is valid for other Teams capabilities (like tabs), but not for bots, such as "meeting".Extra Characters: Accidentally including a comma, space, or quote mark.🛠️ Recommended FixOpen your app's manifest.json file.Locate the bots property.Inspect the scopes array and correct the third element (scopes[2]) to be one of the valid strings: "personal", "team", or "groupChat".Re-zip the manifest and icon files.Re-upload the new .zip package to the Teams Admin Center.If you continue to have trouble, you can also use the Microsoft Teams Developer Portal (formerly App Studio) to manually edit or import your manifest, as it includes built-in validation that can help catch errors like this before you try uploading to the Admin Center.

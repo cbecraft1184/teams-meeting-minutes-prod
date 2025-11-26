@@ -48,7 +48,7 @@
   "bots": [
     {
       "botId": "1f6e6347-467e-4683-92cb-08627506bbcb",
-      "scopes": ["personal"],
+      "scopes": ["personal", "team", "groupChat"],
       "supportsFiles": false,
       "isNotificationOnly": false
     }

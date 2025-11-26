@@ -1,0 +1,22 @@
+christopher [ ~ ]$ # List all Container Apps in the subscription
+az containerapp list --query "[].{Name:name, ResourceGroup:resourceGroup, Location:location}" --output table
+
+# Or check the specific resource group
+az resource list --resource-group rg-teams-minutes-demo --output table
+Name               ResourceGroup          Location
+-----------------  ---------------------  ----------
+teams-minutes-app  rg-teams-minutes-demo  East US 2
+Name                                   ResourceGroup          Location    Type                                          Status
+-------------------------------------  ---------------------  ----------  --------------------------------------------  ---------
+teams-minutes-bot                      rg-teams-minutes-demo  global      Microsoft.BotService/botServices              Succeeded
+teams-minutes-openai                   rg-teams-minutes-demo  eastus      Microsoft.CognitiveServices/accounts          Succeeded
+kv-teams-min                           rg-teams-minutes-demo  eastus2     Microsoft.KeyVault/vaults                     Succeeded
+teams-minutes-insights                 rg-teams-minutes-demo  eastus2     Microsoft.Insights/components                 Succeeded
+Application Insights Smart Detection   rg-teams-minutes-demo  global      microsoft.insights/actiongroups               Succeeded
+teams-minutes-db                       rg-teams-minutes-demo  eastus2     Microsoft.DBforPostgreSQL/flexibleServers     Succeeded
+teamminutesacr                         rg-teams-minutes-demo  eastus2     Microsoft.ContainerRegistry/registries        Succeeded
+workspace-rgteamsminutesdemo6bjQ       rg-teams-minutes-demo  eastus2     Microsoft.OperationalInsights/workspaces      Succeeded
+teams-minutes-env                      rg-teams-minutes-demo  eastus2     Microsoft.App/managedEnvironments             Succeeded
+teams-minutes-app                      rg-teams-minutes-demo  eastus2     Microsoft.App/containerApps                   Succeeded
+teamminutesacr/cli_build_containerapp  rg-teams-minutes-demo  eastus2     Microsoft.ContainerRegistry/registries/tasks  Succeeded
+christopher [ ~ ]$ 

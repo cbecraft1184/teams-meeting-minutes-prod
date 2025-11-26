@@ -45,38 +45,6 @@
       "scopes": ["personal"]
     }
   ],
-  "bots": [
-    {
-      "botId": "5ea1c494-6869-4879-8dc2-16c7b57da3e3",
-      "scopes": ["personal", "team", "groupchat"],
-      "supportsFiles": false,
-      "isNotificationOnly": false,
-      "supportsCalling": false,
-      "supportsVideo": false
-    }
-  ],
-  "composeExtensions": [
-    {
-      "botId": "5ea1c494-6869-4879-8dc2-16c7b57da3e3",
-      "commands": [
-        {
-          "id": "searchMinutes",
-          "type": "query",
-          "title": "Search Meeting Minutes",
-          "description": "Search approved meeting minutes archive",
-          "initialRun": false,
-          "parameters": [
-            {
-              "name": "searchQuery",
-              "title": "Search",
-              "description": "Search meeting titles and content",
-              "inputType": "text"
-            }
-          ]
-        }
-      ]
-    }
-  ],
   "permissions": [
     "identity",
     "messageTeamMembers"

@@ -1,0 +1,23 @@
+christopher [ ~ ]$ az containerapp logs show \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --revision teams-minutes-app--0000012 \
+  --tail 200
+{"TimeStamp": "2025-11-26T14:25:47.64844", "Log": "Connecting to the container 'teams-minutes-app'..."}
+{"TimeStamp": "2025-11-26T14:25:47.68912", "Log": "Successfully Connected to container: 'teams-minutes-app' [Revision: 'teams-minutes-app--0000012', Replica: 'teams-minutes-app--0000012-64b9f766-xwvnj']"}
+{"TimeStamp": "2025-11-26T14:24:15.4376131+00:00", "Log": "F [Teams Bot] Initialized successfully"}
+{"TimeStamp": "2025-11-26T14:24:15.4397142+00:00", "Log": "F [KeyVault] KEY_VAULT_NAME not set - using environment variables only"}
+{"TimeStamp": "2025-11-26T14:24:15.4421412+00:00", "Log": "F [Migrations] \ud83d\udd04 Running database migrations..."}
+{"TimeStamp": "2025-11-26T14:24:17.5552778+00:00", "Log": "F [Migrations] \u274c Migration failed: Failed query: CREATE SCHEMA IF NOT EXISTS \"drizzle\""}
+{"TimeStamp": "2025-11-26T14:24:17.555323+00:00", "Log": "F params:"}
+{"TimeStamp": "2025-11-26T14:24:17.5600514+00:00", "Log": "F file:///app/dist/index.js:3264"}
+{"TimeStamp": "2025-11-26T14:24:17.5600862+00:00", "Log": "F     throw new Error(\"Database migration failed - container startup blocked\");"}
+{"TimeStamp": "2025-11-26T14:24:17.5600998+00:00", "Log": "F           ^"}
+{"TimeStamp": "2025-11-26T14:24:17.5601025+00:00", "Log": "F"}
+{"TimeStamp": "2025-11-26T14:24:17.5601049+00:00", "Log": "F Error: Database migration failed - container startup blocked"}
+{"TimeStamp": "2025-11-26T14:24:17.5601073+00:00", "Log": "F     at runMigrations (file:///app/dist/index.js:3264:11)"}
+{"TimeStamp": "2025-11-26T14:24:17.5601094+00:00", "Log": "F     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)"}
+{"TimeStamp": "2025-11-26T14:24:17.5601116+00:00", "Log": "F     at async file:///app/dist/index.js:6660:5"}
+{"TimeStamp": "2025-11-26T14:24:17.5601136+00:00", "Log": "F"}
+{"TimeStamp": "2025-11-26T14:24:17.5601157+00:00", "Log": "F Node.js v22.21.1"}
+christopher [ ~ ]$ 

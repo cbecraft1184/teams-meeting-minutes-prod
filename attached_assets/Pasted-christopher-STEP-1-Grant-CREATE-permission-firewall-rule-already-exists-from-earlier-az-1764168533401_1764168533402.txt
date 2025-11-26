@@ -1,0 +1,47 @@
+christopher [ ~ ]$ # STEP 1: Grant CREATE permission (firewall rule already exists from earlier)
+az postgres flexible-server execute \
+  --name teams-minutes-db \
+  --database-name postgres \
+  --admin-user adminuser \
+  --admin-password 'TeamsMinutes2025!Secure' \
+  --querytext "GRANT CREATE ON DATABASE teams_minutes_db TO adminuser;"
+
+# STEP 2: Clean up firewall rule
+az postgres flexible-server firewall-rule delete \
+  --name teams-minutes-db \
+  --resource-group rg-teams-minutes-demo \
+  --rule-name cloud-shell-temp \
+  --yes
+
+# STEP 3: Restart failed revision
+az containerapp revision restart \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --revision teams-minutes-app--0000012
+
+# STEP 4: Verify (60 seconds)
+sleep 60 && az containerapp revision list \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --output table
+
+# STEP 5: Confirm success in logs
+az containerapp logs show \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --revision teams-minutes-app--0000012 \
+  --tail 30
+Successfully connected to teams-minutes-db.
+Ran Database Query: 'GRANT CREATE ON DATABASE teams_minutes_db TO adminuser;'
+Retrieving first 30 rows of query output, if applicable.
+Closed the connection to teams-minutes-db
+"Restart succeeded"
+[Warning] This output may compromise security by showing the following secrets: value, properties, template, containers, env. Learn more at: https://go.microsoft.com/fwlink/?linkid=2258669
+CreatedTime                Active    Replicas    TrafficWeight    HealthState    ProvisioningState    Name
+-------------------------  --------  ----------  ---------------  -------------  -------------------  --------------------------
+2025-11-24T22:30:43+00:00  True      0           100              Healthy        Provisioned          teams-minutes-app--0000009
+2025-11-24T23:20:28+00:00  True      0           0                Unhealthy      Provisioned          teams-minutes-app--0000010
+2025-11-25T18:33:13+00:00  True      0           0                Unhealthy      Provisioned          teams-minutes-app--0000011
+2025-11-26T14:21:14+00:00  True      0           0                Unhealthy      Provisioned          teams-minutes-app--0000012
+Could not find a replica for this app
+christopher [ ~ ]$ 

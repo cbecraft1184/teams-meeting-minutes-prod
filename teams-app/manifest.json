@@ -2,13 +2,13 @@
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.20/MicrosoftTeams.schema.json",
   "manifestVersion": "1.20",
   "version": "1.0.0",
-  "id": "{{TEAMS_APP_ID}}",
-  "packageName": "com.yourcompany.teamsminutes",
+  "id": "6d94baf3-1ed6-4d34-8401-71c724305571",
+  "packageName": "com.chrisbecraft.teamsminutes",
   "developer": {
-    "name": "Your Company Name",
-    "websiteUrl": "https://yourcompany.com",
-    "privacyUrl": "https://yourcompany.com/privacy",
-    "termsOfUseUrl": "https://yourcompany.com/terms"
+    "name": "Christopher Becraft",
+    "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io",
+    "privacyUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/privacy",
+    "termsOfUseUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/terms"
   },
   "name": {
     "short": "Meeting Minutes",
@@ -27,28 +27,28 @@
     {
       "entityId": "dashboard",
       "name": "Dashboard",
-      "contentUrl": "{{TAB_ENDPOINT}}/",
-      "websiteUrl": "{{TAB_ENDPOINT}}/",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/",
       "scopes": ["personal"]
     },
     {
       "entityId": "meetings",
       "name": "Meetings",
-      "contentUrl": "{{TAB_ENDPOINT}}/meetings",
-      "websiteUrl": "{{TAB_ENDPOINT}}/meetings",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings",
       "scopes": ["personal"]
     },
     {
       "entityId": "search",
       "name": "Archive",
-      "contentUrl": "{{TAB_ENDPOINT}}/search",
-      "websiteUrl": "{{TAB_ENDPOINT}}/search",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search",
       "scopes": ["personal"]
     }
   ],
   "bots": [
     {
-      "botId": "{{MICROSOFT_APP_ID}}",
+      "botId": "5ea1c494-6869-4879-8dc2-16c7b57da3e3",
       "scopes": ["personal", "team", "groupchat"],
       "supportsFiles": false,
       "isNotificationOnly": false,
@@ -58,7 +58,7 @@
   ],
   "composeExtensions": [
     {
-      "botId": "{{MICROSOFT_APP_ID}}",
+      "botId": "5ea1c494-6869-4879-8dc2-16c7b57da3e3",
       "commands": [
         {
           "id": "searchMinutes",
@@ -83,11 +83,11 @@
     "messageTeamMembers"
   ],
   "webApplicationInfo": {
-    "id": "{{AZURE_AD_APP_ID}}",
-    "resource": "api://{{TAB_DOMAIN}}/{{AZURE_AD_APP_ID}}"
+    "id": "71383692-c5b6-40cc-94cf-96c970e414dc",
+    "resource": "api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5b6-40cc-94cf-96c970e414dc"
   },
   "validDomains": [
-    "{{TAB_DOMAIN}}",
+    "teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io",
     "token.botframework.com"
   ]
 }

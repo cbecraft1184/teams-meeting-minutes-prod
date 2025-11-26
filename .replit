@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["zip", "unzip", "azure-cli"]
+packages = ["zip", "unzip", "azure-cli", "imagemagick"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -26,6 +26,10 @@ externalPort = 3000
 [[ports]]
 localPort = 35021
 externalPort = 8000
+
+[[ports]]
+localPort = 36469
+externalPort = 8099
 
 [[ports]]
 localPort = 36531

@@ -1,0 +1,120 @@
+christopher [ ~ ]$ # 1. Check if restart created a new revision
+az containerapp revision list \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --output table
+
+# 2. Check environment variables on revision 0000012
+az containerapp revision show \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --revision teams-minutes-app--0000012 \
+  --query 'properties.template.containers[0].env' \
+  --output json
+[Warning] This output may compromise security by showing the following secrets: value, properties, template, env, containers. Learn more at: https://go.microsoft.com/fwlink/?linkid=2258669
+CreatedTime                Active    Replicas    TrafficWeight    HealthState    ProvisioningState    Name
+-------------------------  --------  ----------  ---------------  -------------  -------------------  --------------------------
+2025-11-24T22:30:43+00:00  True      0           100              Healthy        Provisioned          teams-minutes-app--0000009
+2025-11-24T23:20:28+00:00  True      0           0                Unhealthy      Provisioned          teams-minutes-app--0000010
+2025-11-25T18:33:13+00:00  True      0           0                Unhealthy      Provisioned          teams-minutes-app--0000011
+2025-11-26T14:21:14+00:00  True      0           0                Unhealthy      Provisioned          teams-minutes-app--0000012
+[Warning] This output may compromise security by showing the following secrets: value. Learn more at: https://go.microsoft.com/fwlink/?linkid=2258669
+[
+  {
+    "name": "PORT",
+    "value": "8080"
+  },
+  {
+    "name": "NODE_ENV",
+    "value": "production"
+  },
+  {
+    "name": "DATABASE_URL",
+    "value": "postgresql://adminuser:TeamsMinutes2025\\!Secure@teams-minutes-db.postgres.database.azure.com:5432/teams_minutes_db?sslmode=require"
+  },
+  {
+    "name": "USE_MOCK_SERVICES",
+    "value": "true"
+  },
+  {
+    "name": "MICROSOFT_APP_ID",
+    "secretRef": "microsoft-app-id"
+  },
+  {
+    "name": "MICROSOFT_APP_PASSWORD",
+    "secretRef": "microsoft-app-password"
+  },
+  {
+    "name": "GRAPH_CLIENT_ID_PROD",
+    "secretRef": "graph-client-id"
+  },
+  {
+    "name": "GRAPH_CLIENT_SECRET_PROD",
+    "secretRef": "graph-client-secret"
+  },
+  {
+    "name": "GRAPH_TENANT_ID_PROD",
+    "secretRef": "graph-tenant-id"
+  },
+  {
+    "name": "SESSION_SECRET",
+    "value": "1sstD4c205Mt82dhg+RuEnnWka67WP++6TFb/nEJvjE="
+  },
+  {
+    "name": "AZURE_TENANT_ID",
+    "value": "e6ba87bd-8d65-4db7-bdb8-708b31b9d985"
+  },
+  {
+    "name": "GRAPH_CLIENT_ID",
+    "value": "71383692-c5b6-40cc-94cf-96c970e414dc"
+  },
+  {
+    "name": "GRAPH_CLIENT_SECRET",
+    "value": "Tlb8Q~fALenhvkYYqhQ99I5RHc-QlE15CVBU0aiL"
+  },
+  {
+    "name": "BOT_APP_ID",
+    "value": "5ea1c494-6869-4879-8dc2-16c7b57da3e3"
+  },
+  {
+    "name": "BOT_APP_PASSWORD",
+    "value": "H3r8Q~rSwB5oyjlpg6Aym2FssXAwNokLKFqlxcy9"
+  },
+  {
+    "name": "AZURE_OPENAI_API_KEY",
+    "value": "Aom5C5D5GX7owQVDQgI4Fas9aW1Tp2kMukaA6kb8UnDv9tWHUJr1JQQJ99BKACYeBjFXJ3w3AAABACOGC3Sb"
+  },
+  {
+    "name": "AZURE_OPENAI_ENDPOINT",
+    "value": "https://eastus.api.cognitive.microsoft.com/"
+  },
+  {
+    "name": "AZURE_OPENAI_DEPLOYMENT_NAME",
+    "value": "teams-minutes-demo"
+  },
+  {
+    "name": "SHAREPOINT_SITE_URL",
+    "value": "https://chrisbecraft.sharepoint.com"
+  },
+  {
+    "name": "SHAREPOINT_LIBRARY_NAME",
+    "value": "Documents"
+  },
+  {
+    "name": "GRAPH_SENDER_EMAIL",
+    "value": "ChristopherBecraft@ChrisBecraft.onmicrosoft.com"
+  },
+  {
+    "name": "RUN_MIGRATIONS",
+    "value": "true"
+  },
+  {
+    "name": "ENABLE_JOB_WORKER",
+    "value": "false"
+  },
+  {
+    "name": "ENABLE_CLEANUP_SCHEDULER",
+    "value": "false"
+  }
+]
+christopher [ ~ ]$ 

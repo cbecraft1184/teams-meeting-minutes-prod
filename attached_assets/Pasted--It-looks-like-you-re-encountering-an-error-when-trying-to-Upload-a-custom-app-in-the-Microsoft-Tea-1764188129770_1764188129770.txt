@@ -1,0 +1,65 @@
+
+It looks like you're encountering an error when trying to Upload a custom app in the Microsoft Teams Admin center.
+
+The specific error message is:
+
+⚠️ We couldn't upload your app. Please check following errors and try again. For assistance refer to Teams app manifest schema and Validate Teams app. If you continue to have problems, contact Microsoft customer support.
+
+The value provided for 'bot[0].scopes[0]' is invalid.
+
+This error strongly suggests there is an issue with the app's manifest file, specifically with how the bot's scope is defined.
+
+Here's a breakdown of what that likely means and how to fix it:
+
+🔧 Troubleshooting the 'bot[0].scopes[0]' Error
+1. The Manifest File
+The error references 'bot[0].scopes[0]'. This path points to the configuration for the bot within your app's manifest.json file. The manifest dictates how Teams should handle and present your application.
+
+2. Invalid Scope Value
+The scopes property defines where the bot is allowed to run and interact within Microsoft Teams. A Teams bot typically supports one or more of the following standard scopes:
+
+personal: The bot is in a 1:1 chat with the user.
+
+team: The bot is running in a standard Teams channel.
+
+groupchat: The bot is running in a multi-person chat (not a channel).
+
+Your Fix:
+
+You need to open your app's manifest.json file.
+
+Navigate to the bots array.
+
+Check the scopes array inside the bot configuration.
+
+Look for a section that looks like this (it might be in an array):
+
+JSON
+{
+  "bots": [
+    {
+      "botId": "YOUR_BOT_ID",
+      "scopes": [
+        "YOUR_INVALID_SCOPE" // <-- This is where the error is
+      ],
+      // ... other bot properties
+    }
+  ]
+}
+Ensure that the value you have in the scopes array is one of the valid strings: "personal", "team", or "groupchat". If you have a misspelling (e.g., "teams" instead of "team") or an unsupported value, the upload will fail.
+
+3. Manifest Validation
+Before re-uploading, it's highly recommended to validate your entire manifest file to catch any other potential errors.
+
+You can use the Teams Developer Portal or a Teams App Manifest Validator tool online to paste your manifest and ensure it conforms to the official schema.
+
+📝 Steps to Resolve and Re-Upload
+Locate the manifest.json file for the custom app you are trying to upload.
+
+Edit the file and correct the value inside the scopes array within the bots section to use one of the valid strings ("personal", "team", or "groupchat").
+
+Validate the corrected manifest.json to ensure no new syntax errors were introduced.
+
+Re-zip the app package (the manifest file and any icons) into a new .zip file.
+
+Go back to the Teams Admin center and try the Upload a custom app process again with the new .zip file.

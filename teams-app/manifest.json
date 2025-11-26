@@ -3,7 +3,6 @@
   "manifestVersion": "1.20",
   "version": "1.0.0",
   "id": "6d94baf3-1ed6-4d34-8401-71c724305571",
-  "packageName": "com.chrisbecraft.teamsminutes",
   "developer": {
     "name": "Christopher Becraft",
     "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io",
@@ -19,8 +18,8 @@
     "full": "Automatically capture Teams meetings, generate AI-powered meeting minutes using Azure OpenAI, manage approval workflow, and archive approved minutes to SharePoint. Designed for 20-user demo pilots with Commercial and NAVY ERP environments."
   },
   "icons": {
-    "outline": "icons/outline.png",
-    "color": "icons/color.png"
+    "outline": "outline.png",
+    "color": "color.png"
   },
   "accentColor": "#4464EE",
   "staticTabs": [

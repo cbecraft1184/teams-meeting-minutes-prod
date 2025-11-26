@@ -1,0 +1,143 @@
+christopher [ ~ ]$ # Get ALL information in one shot - run this single command block
+az containerapp revision show \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --revision teams-minutes-app--0000009 \
+  --query "properties.template.containers[0].env" \
+  --output json > /tmp/working-revision-env.json
+
+az postgres flexible-server execute \
+  --name teams-minutes-db \
+  --database-name postgres \
+  --admin-user adminuser \
+  --admin-password 'TeamsMinutes2025!Secure' \
+  --querytext "SELECT rolname, rolcanlogin FROM pg_roles;" > /tmp/postgres-roles.json
+
+# Then show me both files
+cat /tmp/working-revision-env.json
+cat /tmp/postgres-roles.json
+WARNING: Successfully connected to teams-minutes-db.
+WARNING: Ran Database Query: 'SELECT rolname, rolcanlogin FROM pg_roles;'
+WARNING: Retrieving first 30 rows of query output, if applicable.
+WARNING: Closed the connection to teams-minutes-db
+[
+  {
+    "name": "PORT",
+    "value": "8080"
+  },
+  {
+    "name": "NODE_ENV",
+    "value": "production"
+  },
+  {
+    "name": "DATABASE_URL",
+    "value": "postgresql://adminuser:TeamsMinutes2025!Secure@teams-minutes-db.postgres.database.azure.com:5432/teams_minutes_db?sslmode=require"
+  },
+  {
+    "name": "USE_MOCK_SERVICES",
+    "value": "true"
+  },
+  {
+    "name": "MICROSOFT_APP_ID",
+    "secretRef": "microsoft-app-id"
+  },
+  {
+    "name": "MICROSOFT_APP_PASSWORD",
+    "secretRef": "microsoft-app-password"
+  },
+  {
+    "name": "GRAPH_CLIENT_ID_PROD",
+    "secretRef": "graph-client-id"
+  },
+  {
+    "name": "GRAPH_CLIENT_SECRET_PROD",
+    "secretRef": "graph-client-secret"
+  },
+  {
+    "name": "GRAPH_TENANT_ID_PROD",
+    "secretRef": "graph-tenant-id"
+  },
+  {
+    "name": "SESSION_SECRET",
+    "value": "1sstD4c205Mt82dhg+RuEnnWka67WP++6TFb/nEJvjE="
+  }
+]
+[
+  {
+    "rolcanlogin": true,
+    "rolname": "azuresu"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_database_owner"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_read_all_data"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_write_all_data"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_monitor"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_read_all_settings"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_read_all_stats"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_stat_scan_tables"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_read_server_files"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_write_server_files"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_execute_server_program"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_signal_backend"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_checkpoint"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_use_reserved_connections"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_create_subscription"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "pg_signal_autovacuum_worker"
+  },
+  {
+    "rolcanlogin": false,
+    "rolname": "azure_pg_admin"
+  },
+  {
+    "rolcanlogin": true,
+    "rolname": "replication"
+  },
+  {
+    "rolcanlogin": true,
+    "rolname": "adminuser"
+  }
+]
+christopher [ ~ ]$ 

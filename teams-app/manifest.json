@@ -15,7 +15,7 @@
   },
   "description": {
     "short": "Automatically generate AI-powered meeting minutes from Teams meetings",
-    "full": "Automatically capture Teams meetings, generate AI-powered meeting minutes using Azure OpenAI, manage approval workflow, and archive approved minutes to SharePoint. Designed for 20-user demo pilots with Commercial and NAVY ERP environments."
+    "full": "Automatically capture Teams meetings, generate AI-powered meeting minutes using Azure OpenAI, manage approval workflow, and archive approved minutes to SharePoint. Designed for enterprise demo pilots and production deployments."
   },
   "icons": {
     "outline": "outline.png",

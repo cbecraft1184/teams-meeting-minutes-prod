@@ -36,6 +36,16 @@ export function registerRoutes(app: Express): Server {
   // Security: clientState validation (shared secret)
   registerWebhookRoutes(app);
 
+  // API health check endpoint (PUBLIC - no authentication required)
+  // Used by Azure Container Apps health probes and Teams app connectivity checks
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      version: "1.0.0"
+    });
+  });
+
   // ========== AUTHENTICATED ENDPOINTS (REQUIRE USER AUTH) ==========
   
   // Apply authentication middleware to ALL /api/* routes EXCEPT bot endpoint

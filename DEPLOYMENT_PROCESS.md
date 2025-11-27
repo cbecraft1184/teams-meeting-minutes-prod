@@ -6,32 +6,56 @@
 
 ### Prerequisites
 - Azure credentials configured as Replit secrets: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID`
+- GitHub PAT configured as secret: `GITHUB_PERSONAL_ACCESS_TOKEN`
 - GitHub repository: `https://github.com/cbecraft1184/teams-meeting-minutes-prod.git`
 
-### Deployment Steps
+### Step 1: Push Code to GitHub (via API - bypasses Replit git restrictions)
 
 ```bash
-# 1. Login to Azure
+# Push a single file to GitHub
+FILE_PATH="server/routes.ts"
+CONTENT=$(base64 -w 0 $FILE_PATH)
+CURRENT_SHA=$(curl -s -H "Authorization: token $GITHUB_PERSONAL_ACCESS_TOKEN" \
+  "https://api.github.com/repos/cbecraft1184/teams-meeting-minutes-prod/contents/$FILE_PATH" | \
+  grep '"sha"' | head -1 | cut -d'"' -f4)
+
+curl -X PUT -H "Authorization: token $GITHUB_PERSONAL_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  "https://api.github.com/repos/cbecraft1184/teams-meeting-minutes-prod/contents/$FILE_PATH" \
+  -d "{\"message\":\"Deploy fix\",\"content\":\"$CONTENT\",\"sha\":\"$CURRENT_SHA\",\"branch\":\"main\"}"
+```
+
+### Step 2: Build and Deploy
+
+```bash
+# Login to Azure
 az login --service-principal \
   -u "$AZURE_CLIENT_ID" \
   -p "$AZURE_CLIENT_SECRET" \
   --tenant "$AZURE_TENANT_ID"
 
-# 2. Build Docker image from GitHub (bypasses Replit git restrictions)
+# Build Docker image from GitHub
 az acr build \
   --registry teamminutesacr \
-  --image teams-minutes:$(date +%Y%m%d%H%M) \
   --image teams-minutes:latest \
   --file Dockerfile \
   https://github.com/cbecraft1184/teams-meeting-minutes-prod.git#main
 
-# 3. Deploy to Container App
+# Deploy to Container App
 az containerapp update \
   --name teams-minutes-app \
   --resource-group rg-teams-minutes-demo \
   --image teamminutesacr.azurecr.io/teams-minutes:latest
 
-# 4. Verify deployment
+# IMPORTANT: Force minimum replica to prevent ScaledToZero issues
+az containerapp update \
+  --name teams-minutes-app \
+  --resource-group rg-teams-minutes-demo \
+  --min-replicas 1 \
+  --max-replicas 1
+
+# Verify deployment (wait 15 seconds for container to start)
+sleep 15
 curl https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/api/health
 ```
 

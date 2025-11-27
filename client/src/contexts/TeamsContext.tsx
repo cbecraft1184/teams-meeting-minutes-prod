@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { app, authentication } from '@microsoft/teams-js';
 import { setAuthToken, clearAuthToken } from '@/lib/authToken';
 
+const APP_ID_URI = 'api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c';
+
 export interface TeamsContextValue {
   isInitialized: boolean;
   context: app.Context | null;
@@ -41,9 +43,9 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         console.log('[Teams SDK] Initialized successfully', ctx);
         
         try {
-          const token = await authentication.getAuthToken();
+          const token = await authentication.getAuthToken({ resources: [APP_ID_URI] });
           setAuthToken(token);
-          console.log('[Teams SSO] Token acquired successfully');
+          console.log('[Teams SSO] Token acquired successfully for resource:', APP_ID_URI);
         } catch (tokenErr: any) {
           console.error('[Teams SSO] Failed to get initial auth token:', tokenErr);
           setError('SSO authentication failed');
@@ -63,7 +65,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   const getAuthToken = async (): Promise<string> => {
     try {
-      const token = await authentication.getAuthToken();
+      const token = await authentication.getAuthToken({ resources: [APP_ID_URI] });
       setAuthToken(token);
       return token;
     } catch (err: any) {

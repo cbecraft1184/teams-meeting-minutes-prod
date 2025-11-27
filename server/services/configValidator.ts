@@ -151,11 +151,14 @@ export function validateConfiguration(): ValidationResult {
   const missingOptional: SecretCheck[] = [];
   const configured: SecretCheck[] = [];
 
-  // Define fallback mappings for GRAPH_*_DEV to AZURE_*
+  // Define fallback mappings for *_DEV to AZURE_*
   const fallbackMappings: Record<string, string> = {
     'GRAPH_TENANT_ID_DEV': 'AZURE_TENANT_ID',
     'GRAPH_CLIENT_ID_DEV': 'AZURE_CLIENT_ID',
     'GRAPH_CLIENT_SECRET_DEV': 'AZURE_CLIENT_SECRET',
+    'AZURE_OPENAI_ENDPOINT_DEV': 'AZURE_OPENAI_ENDPOINT',
+    'AZURE_OPENAI_API_KEY_DEV': 'AZURE_OPENAI_API_KEY',
+    'AZURE_OPENAI_DEPLOYMENT_DEV': 'AZURE_OPENAI_DEPLOYMENT',
   };
 
   for (const secret of REQUIRED_SECRETS) {
@@ -299,12 +302,12 @@ export function getConfig() {
       appSecret: process.env[`GRAPH_APP_SECRET${envSuffix}`] || '',
     },
 
-    // Azure OpenAI
+    // Azure OpenAI - Check both suffixed and non-suffixed credentials
     azureOpenAI: {
-      endpoint: process.env[`AZURE_OPENAI_ENDPOINT${envSuffix}`] || '',
-      apiKey: process.env[`AZURE_OPENAI_API_KEY${envSuffix}`] || '',
-      deployment: process.env[`AZURE_OPENAI_DEPLOYMENT${envSuffix}`] || 'gpt-4',
-      apiVersion: process.env[`AZURE_OPENAI_API_VERSION${envSuffix}`] || '2024-02-15-preview',
+      endpoint: process.env[`AZURE_OPENAI_ENDPOINT${envSuffix}`] || process.env.AZURE_OPENAI_ENDPOINT || '',
+      apiKey: process.env[`AZURE_OPENAI_API_KEY${envSuffix}`] || process.env.AZURE_OPENAI_API_KEY || '',
+      deployment: process.env[`AZURE_OPENAI_DEPLOYMENT${envSuffix}`] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4',
+      apiVersion: process.env[`AZURE_OPENAI_API_VERSION${envSuffix}`] || process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview',
     },
 
     // SharePoint

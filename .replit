@@ -71,6 +71,10 @@ externalPort = 6800
 localPort = 45207
 externalPort = 8080
 
+[[ports]]
+localPort = 45757
+externalPort = 9000
+
 [env]
 PORT = "5000"
 
@@ -101,4 +105,6 @@ integrations = ["sharepoint:1.0.0", "javascript_openai_ai_integrations:1.0.0", "
 [userenv]
 
 [userenv.development]
-USE_MOCK_SERVICES = "true"
+
+[userenv.shared]
+USE_MOCK_SERVICES = "false"

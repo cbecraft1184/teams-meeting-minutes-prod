@@ -91,12 +91,21 @@ export const jobStatusEnum = pgEnum("job_status", [
   "dead_letter"
 ]);
 
+// Source type for meeting origin tracking
+export const meetingSourceEnum = pgEnum("meeting_source", [
+  "graph_calendar", // Synced from Microsoft Graph Calendar
+  "graph_webhook",  // Created via Graph webhook notification
+  "manual",         // Manually created in app
+  "bot"             // Created via Teams bot
+]);
+
 // Meeting schema
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   description: text("description"),
   scheduledAt: timestamp("scheduled_at").notNull(),
+  endTime: timestamp("end_time"), // End time from Graph calendar event
   duration: text("duration").notNull(), // e.g., "1h 30m"
   attendees: jsonb("attendees").notNull().$type<string[]>(),
   status: meetingStatusEnum("status").notNull().default("scheduled"),
@@ -104,7 +113,19 @@ export const meetings = pgTable("meetings", {
   recordingUrl: text("recording_url"),
   transcriptUrl: text("transcript_url"),
   
-  // Microsoft Graph Integration
+  // Microsoft Graph Calendar Integration
+  graphEventId: text("graph_event_id").unique(), // Graph calendar event ID (for idempotent upserts)
+  iCalUid: text("ical_uid").unique(), // iCalendar UID for cross-calendar tracking
+  location: text("location"), // Meeting location from Graph event
+  isOnlineMeeting: boolean("is_online_meeting").default(false), // Whether it's a Teams meeting
+  organizerEmail: text("organizer_email"), // Organizer email from Graph event
+  startTimeZone: text("start_time_zone"), // Original timezone from Graph
+  endTimeZone: text("end_time_zone"), // End timezone from Graph
+  sourceType: meetingSourceEnum("source_type").default("manual"), // Where meeting came from
+  lastGraphSync: timestamp("last_graph_sync"), // When last synced from Graph
+  graphChangeKey: text("graph_change_key"), // ETag/changeKey for incremental sync
+  
+  // Microsoft Graph Online Meeting Integration
   onlineMeetingId: text("online_meeting_id").unique(), // Teams online meeting ID from Graph API
   organizerAadId: text("organizer_aad_id"), // Azure AD object ID of meeting organizer
   teamsJoinLink: text("teams_join_link"), // Teams meeting join URL
@@ -118,7 +139,11 @@ export const meetings = pgTable("meetings", {
   callRecordRetryAt: timestamp("call_record_retry_at"), // When to retry enrichment (exponential backoff)
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  graphEventIdx: index("meeting_graph_event_idx").on(table.graphEventId),
+  iCalUidIdx: index("meeting_ical_uid_idx").on(table.iCalUid),
+  organizerIdx: index("meeting_organizer_idx").on(table.organizerEmail),
+}));
 
 // Meeting Minutes schema
 export const meetingMinutes = pgTable("meeting_minutes", {

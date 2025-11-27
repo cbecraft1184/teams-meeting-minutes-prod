@@ -14,6 +14,7 @@ import { registerWebhookRoutes, registerAdminWebhookRoutes } from "./routes/webh
 import { uploadToSharePoint } from "./services/sharepointClient";
 import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
 import { teamsBotAdapter } from "./services/teamsBot";
+import { graphCalendarSync } from "./services/graphCalendarSync";
 import { ZodError } from "zod";
 
 export function registerRoutes(app: Express): Server {
@@ -1027,6 +1028,72 @@ export function registerRoutes(app: Express): Server {
       }
       console.error("Error updating settings:", error);
       res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
+
+  // ========== CALENDAR SYNC API ==========
+
+  // Trigger calendar sync from Microsoft Graph (pulls Teams meetings from user's calendar)
+  app.post("/api/calendar/sync", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      console.log(`[CalendarSync] Manual sync requested by ${req.user.email}`);
+
+      // Get user's Azure AD ID for Graph API call
+      const userId = req.user.azureAdId || req.user.id;
+      const userEmail = req.user.email;
+
+      const result = await graphCalendarSync.syncUserCalendar(userEmail, userId);
+
+      res.json({
+        success: true,
+        message: `Synced ${result.synced} meetings (${result.created} new, ${result.updated} updated)`,
+        details: result,
+      });
+    } catch (error: any) {
+      console.error("[CalendarSync] Sync failed:", error);
+      res.status(500).json({ 
+        error: "Calendar sync failed",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get calendar sync status
+  app.get("/api/calendar/sync/status", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const status = await graphCalendarSync.getSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("[CalendarSync] Status check failed:", error);
+      res.status(500).json({ error: "Failed to get sync status" });
+    }
+  });
+
+  // Admin: Sync all users' calendars
+  app.post("/api/admin/calendar/sync-all", requireRole("admin"), async (req, res) => {
+    try {
+      console.log(`[CalendarSync] Admin sync-all requested by ${req.user?.email}`);
+      
+      const result = await graphCalendarSync.syncAllUsersCalendars();
+      
+      res.json({
+        success: true,
+        message: `Synced ${result.totalSynced} meetings across all users`,
+        totalSynced: result.totalSynced,
+        totalErrors: result.totalErrors,
+        userResults: result.userResults,
+      });
+    } catch (error: any) {
+      console.error("[CalendarSync] Sync-all failed:", error);
+      res.status(500).json({ error: "Calendar sync failed" });
     }
   });
 

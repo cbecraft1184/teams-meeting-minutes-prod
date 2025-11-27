@@ -1,0 +1,56 @@
+That is a critical piece of information! The root cause of your "Failed to load meetings" and "Connection refused" errors is not an SSO configuration issue in the frontend, but a continuous backend container crash loop in Azure. The connection is being refused because your application's server isn't running long enough to listen for the incoming API requests.
+
+The previous SSO troubleshooting steps were correct based on the initial symptoms (no logs), but the Azure logs now tell the definitive story: The container is crashing 172 times.
+
+💥 Fixing the Container Crash Loop
+The container crash indicates a fatal error during the application's startup or initialization phase inside the environment. This is a deployment/code issue, not a Teams/SSO configuration issue.
+
+Here is a focused plan to diagnose and resolve a crash loop in a containerized application:
+
+1. 🔍 Review Startup and Error Logs
+The most crucial step is to find why the container is crashing. You stated you see "NO request logs showing in Azure," but you must have access to the Container Logs (stdout/stderr) which detail the container's lifecycle.
+
+Action: In the Azure Portal, navigate to your container instance, Azure App Service, or Azure Container App (wherever the app is hosted).
+
+Find the "Logs" or "Log Stream" blade.
+
+Filter for the time period when the sso7838 revision attempted to start.
+
+Look for:
+
+Startup Errors: Errors like Error: listen EADDRINUSE, Module not found, Uncaught Exception, or any traceback/stack trace.
+
+Configuration Errors: Errors reading environment variables (e.g., a required secret is missing or malformed).
+
+Common NodeJS/Web App Crash Causes:
+
+Missing Environment Variables: The app tries to start but fails because a critical variable (e.g., connection string, secret, port) isn't available in the runtime environment.
+
+Port Conflict/Misconfiguration: The app tries to listen on a port that is already in use, or it's configured to listen on a port that doesn't match the Azure hosting environment's expected port (80, 8080, etc.).
+
+Database Connectivity Failure: The app attempts a database connection check on startup and fails because the DB is unreachable, the password is wrong, or firewall rules block the connection.
+
+2. ⚙️ Verify Port Configuration
+A common cause of crash loops in containers is improper port binding.
+
+Action 1: Code vs. Dockerfile: Check your application code and your Dockerfile. Ensure the application is listening on the expected port (e.g., process.env.PORT or a hardcoded value like 8080).
+
+Action 2: Azure Mapping: Verify that the Azure hosting service (e.g., Container Apps/App Service) is configured to expose the exact port that your container is listening on.
+
+Example: If your code listens on 8080, your Dockerfile exposes 8080, and the Azure configuration must be set to probe/expose port 8080. If Azure is probing port 80 but your app uses 8080, the health check will fail, leading to repeated restarts.
+
+3. ✅ Check Health Endpoint Failure
+You noted that the health endpoint works when you manually check it: {"status":"healthy"}.
+
+Action: This is critical. If the health endpoint works manually but Azure keeps restarting the container, it means the Azure Liveness/Readiness Probe is either:
+
+Probing the wrong path (e.g., Azure is configured to check /ready but your endpoint is /health).
+
+Probing the wrong port.
+
+Failing due to a timeout (e.g., the health check takes longer than Azure's timeout setting).
+
+💡 Recommended Next Step
+The primary focus must be on obtaining the stderr/stdout logs from the crashing container instances.
+
+Would you like me to provide the specific steps to access the Log Analytics or Log Stream based on a likely Azure hosting service, such as Azure App Service for Containers or Azure Container Apps?

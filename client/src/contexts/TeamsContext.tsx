@@ -45,8 +45,10 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         await app.initialize();
         logAuth('TEAMS_SDK_INITIALIZED');
         
-        app.notifySuccess();
-        logAuth('TEAMS_NOTIFY_SUCCESS');
+        // CRITICAL: Tell Teams the app has loaded (prevents timeout)
+        // This must be called before notifySuccess() per Microsoft docs
+        app.notifyAppLoaded();
+        logAuth('TEAMS_NOTIFY_APP_LOADED');
         
         // CRITICAL: Get context first to verify Teams SDK is working
         const ctx = await app.getContext();
@@ -171,6 +173,10 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             setError(`SSO authentication failed: ${tokenErr?.message || 'Unknown error'}`);
           }
         }
+        
+        // Tell Teams initialization is complete (must be after all setup)
+        app.notifySuccess();
+        logAuth('TEAMS_NOTIFY_SUCCESS');
         
         setIsInitialized(true);
         logAuth('INIT_COMPLETE_IN_TEAMS');

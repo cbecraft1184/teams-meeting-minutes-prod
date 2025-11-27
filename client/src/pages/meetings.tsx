@@ -148,12 +148,14 @@ export default function Meetings() {
     syncCalendar();
   }, [queryClient]);
 
+  // Meetings are already filtered by the API - users only see meetings they created or were invited to
   const filteredMeetings = (meetings || []).filter((meeting) => {
     const matchesSearch = meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          meeting.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || meeting.status === statusFilter;
     const matchesClassification = classificationFilter === "all" || 
                                   meeting.classificationLevel === classificationFilter;
+    
     return matchesSearch && matchesStatus && matchesClassification;
   });
 
@@ -161,11 +163,11 @@ export default function Meetings() {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.headerContent}>
-          <h1 className={styles.title} data-testid="heading-all-meetings">
-            All Meetings
+          <h1 className={styles.title} data-testid="heading-my-meetings">
+            My Meetings
           </h1>
           <p className={styles.subtitle}>
-            {isSyncing ? "Syncing with Teams calendar..." : "Meetings synced from your Teams calendar"}
+            {isSyncing ? "Syncing with Teams calendar..." : "Meetings you've organized or been invited to"}
           </p>
         </div>
         {isSyncing && <Spinner size="small" label="Syncing..." />}
@@ -178,7 +180,7 @@ export default function Meetings() {
           value={searchQuery}
           onChange={(e, data) => setSearchQuery(data.value)}
           contentBefore={<Search20Regular />}
-          data-testid="input-search-all-meetings"
+          data-testid="input-search-meetings"
         />
 
         <Dropdown

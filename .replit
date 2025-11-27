@@ -101,4 +101,4 @@ integrations = ["sharepoint:1.0.0", "javascript_openai_ai_integrations:1.0.0", "
 [userenv]
 
 [userenv.development]
-USE_MOCK_SERVICES = "false"
+USE_MOCK_SERVICES = "true"

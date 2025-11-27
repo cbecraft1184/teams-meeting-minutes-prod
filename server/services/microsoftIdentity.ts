@@ -379,17 +379,30 @@ export async function validateAccessToken(
   }
 
   try {
+    // Build list of valid audiences (client ID and Application ID URI for Teams SSO)
+    // Teams SSO tokens have audience = api://<domain>/<client-id>
+    const validAudiences: [string, ...string[]] = [
+      config.graph.clientId!,
+      `api://${config.graph.clientId}`,
+      `api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/${config.graph.clientId}`,
+    ];
+    
+    // Add custom domain Application ID URI if configured
+    if (process.env.APP_DOMAIN) {
+      validAudiences.push(`api://${process.env.APP_DOMAIN}/${config.graph.clientId}`);
+    }
+    
     // Verify token signature and decode payload
     const decoded = await new Promise((resolve, reject) => {
       jwt.verify(
         token,
         getSigningKey,
         {
-          audience: options?.audience || config.graph.clientId,
+          audience: options?.audience || validAudiences,
           issuer: options?.issuer || `https://login.microsoftonline.com/${config.graph.tenantId}/v2.0`,
           algorithms: ['RS256'],
         },
-        (err, decoded) => {
+        (err: Error | null, decoded: unknown) => {
           if (err) {
             reject(err);
           } else {

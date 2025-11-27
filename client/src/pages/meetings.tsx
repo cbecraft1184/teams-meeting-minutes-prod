@@ -1,21 +1,21 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
 import { 
   Input, 
   Dropdown, 
   Option, 
+  Spinner,
   makeStyles, 
   tokens, 
   shorthands 
 } from "@fluentui/react-components";
 import { 
-  Search20Regular, 
-  Filter20Regular, 
-  Options20Regular 
+  Search20Regular
 } from "@fluentui/react-icons";
 import { Calendar, AlertCircle } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import type { MeetingWithMinutes } from "@shared/schema";
 
 const useStyles = makeStyles({
@@ -120,14 +120,33 @@ const useStyles = makeStyles({
 
 export default function Meetings() {
   const styles = useStyles();
+  const queryClient = useQueryClient();
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classificationFilter, setClassificationFilter] = useState<string>("all");
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { data: meetings, isLoading, isError } = useQuery<MeetingWithMinutes[]>({
     queryKey: ["/api/meetings"],
   });
+
+  useEffect(() => {
+    const syncCalendar = async () => {
+      try {
+        setIsSyncing(true);
+        await apiRequest("POST", "/api/calendar/sync");
+        queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      } catch (error) {
+        console.log("[CalendarSync] Auto-sync completed or skipped");
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+
+    syncCalendar();
+  }, [queryClient]);
 
   const filteredMeetings = (meetings || []).filter((meeting) => {
     const matchesSearch = meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -146,9 +165,10 @@ export default function Meetings() {
             All Meetings
           </h1>
           <p className={styles.subtitle}>
-            Browse and manage all meeting records
+            {isSyncing ? "Syncing with Teams calendar..." : "Meetings synced from your Teams calendar"}
           </p>
         </div>
+        {isSyncing && <Spinner size="small" label="Syncing..." />}
       </div>
 
       <div className={styles.filterRow}>

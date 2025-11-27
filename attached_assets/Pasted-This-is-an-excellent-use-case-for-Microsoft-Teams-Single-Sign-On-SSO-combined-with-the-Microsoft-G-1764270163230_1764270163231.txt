@@ -1,0 +1,71 @@
+This is an excellent use case for Microsoft Teams Single Sign-On (SSO) combined with the Microsoft Graph API. The proper configuration involves three core components to grant your application the necessary permissions to read the user's calendar data.
+
+The user's Teams calendar is part of their Microsoft 365 data, and accessing it requires specific Microsoft Graph permissions.
+
+1. 🔑 Required Microsoft Graph Permission
+To pull scheduled meetings, your application must use the Microsoft Graph endpoint for calendar events: GET /me/events or GET /users/{id}/events. This requires a delegated permission.
+
+Permission Name: Calendars.Read
+
+Purpose: Allows the app to read events in the user's calendar.
+
+2. ⚙️ Azure AD App Registration Configuration
+You must add the required Graph permission to your Azure AD App registration.
+
+Step-by-Step Configuration
+Navigate to API Permissions: In the Azure Portal, open your App Registration → "API permissions".
+
+Add Permission: Click "+ Add a permission".
+
+Select Microsoft Graph: Choose "Microsoft Graph" → "Delegated permissions".
+
+Add Calendars.Read: Search for and select Calendars.Read.
+
+Grant Admin Consent: After adding the permission, click "Grant admin consent for [Your Organization]". This allows the user's token (exchanged via SSO) to include the necessary scope without requiring an explicit user consent pop-up for every user (assuming your organization supports it).
+
+3. 🖥️ Teams Manifest and Frontend Code Configuration
+You must request the Graph permission in both your Teams manifest and your frontend code.
+
+A. Teams Manifest (manifest.json)
+You need to declare the Graph permission in the webApplicationInfo block of your Teams manifest so that Teams knows what permissions the user is consenting to during installation.
+
+JSON
+
+"webApplicationInfo": {
+  "id": "{YOUR_AAD_CLIENT_ID}",
+  "resource": "api://your-domain.com/{YOUR_AAD_CLIENT_ID}", 
+  "delegatedPermissions": [
+      "User.Read",        // Standard for SSO identity
+      "access_as_user",   // Your custom scope for your backend API
+      "Calendars.Read"  // <-- REQUIRED FOR GRAPH CALENDAR ACCESS
+  ],
+  // ... other properties
+},
+B. Frontend SSO Token Acquisition Flow
+The standard Teams SSO flow involves a two-step process to access Microsoft Graph:
+
+Get Token for Your API: The frontend calls getAuthToken() to get a token (token A) scoped for your custom backend API (api://...).
+
+JavaScript
+
+microsoftTeams.authentication.getAuthToken({ resources: [APP_ID_URI] })
+.then((tokenA) => {
+    // Send token A to your backend server
+});
+Exchange Token for Graph Access (On-Behalf-Of Flow): Your backend server receives token A, validates it, and then exchanges it with the Microsoft identity platform for a new token (token B) that is scoped for the Microsoft Graph API. This exchange is the On-Behalf-Of (OBO) flow.
+
+
+Backend Request: Your server sends a request to the AAD token endpoint, using token A and requesting the following scope for the new token:
+
+scope: "https://graph.microsoft.com/Calendars.Read" 
+Result: AAD returns token B, which your backend uses to make the call to the Graph API.
+
+C. The API Call
+Your backend uses token B to query the user's calendar events:
+
+// Example Microsoft Graph Call from your backend server
+GET https://graph.microsoft.com/v1.0/me/events?$select=subject,organizer,start,end
+Authorization: Bearer <token B> 
+The proper Teams SSO configuration to support syncing meetings is to implement the On-Behalf-Of (OBO) flow on your backend, requesting the https://graph.microsoft.com/Calendars.Read scope during the token exchange.
+
+Would you like me to focus on the necessary backend steps for implementing the On-Behalf-Of flow to successfully exchange the Teams SSO token for a Graph token?

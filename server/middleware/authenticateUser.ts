@@ -243,24 +243,46 @@ async function authenticateWithMicrosoft(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  const requestId = Math.random().toString(36).substring(7);
+  const logAuth = (stage: string, data?: any) => {
+    console.log(`[AUTH-BE ${requestId}] ${stage}`, data ? JSON.stringify(data) : '');
+  };
+  
+  logAuth('REQUEST_RECEIVED', { 
+    method: req.method, 
+    url: req.url,
+    hasAuthHeader: !!req.headers.authorization,
+    authHeaderPreview: req.headers.authorization ? `${req.headers.authorization.substring(0, 20)}...` : 'none'
+  });
+  
   try {
     // Extract access token from Authorization header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      logAuth('NO_BEARER_TOKEN', { authHeader: authHeader || 'missing' });
+      
       // Check session for stored token
       const session = req.session as any;
       if (session && session.accessToken) {
-        await validateAndLoadUser(session.accessToken, req, res, next);
+        logAuth('USING_SESSION_TOKEN', { tokenLength: session.accessToken.length });
+        await validateAndLoadUser(session.accessToken, req, res, next, logAuth);
         return;
       }
 
+      logAuth('AUTH_FAILED', { reason: 'No token in header or session' });
       res.status(401).json({ message: 'Authentication required' });
       return;
     }
 
     const accessToken = authHeader.substring(7); // Remove 'Bearer ' prefix
-    await validateAndLoadUser(accessToken, req, res, next);
+    logAuth('TOKEN_EXTRACTED', { 
+      tokenLength: accessToken.length,
+      tokenPreview: `${accessToken.substring(0, 20)}...${accessToken.substring(accessToken.length - 10)}`
+    });
+    
+    await validateAndLoadUser(accessToken, req, res, next, logAuth);
   } catch (error) {
+    logAuth('AUTH_ERROR', { error: error instanceof Error ? error.message : String(error) });
     console.error('Error in Microsoft authentication:', error);
     res.status(401).json({ message: 'Invalid authentication token' });
   }
@@ -273,14 +295,28 @@ async function validateAndLoadUser(
   accessToken: string,
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
+  logAuth?: (stage: string, data?: any) => void
 ): Promise<void> {
+  const log = logAuth || ((stage: string, data?: any) => console.log(`[AUTH-BE] ${stage}`, data || ''));
+  
+  log('VALIDATING_TOKEN', { tokenLength: accessToken.length });
+  
   // Validate token with signature verification
   const tokenInfo = await getUserInfoFromToken(accessToken);
+  
   if (!tokenInfo || !tokenInfo.objectId) {
+    log('TOKEN_INVALID', { tokenInfo: tokenInfo ? 'missing objectId' : 'null' });
     res.status(401).json({ message: 'Invalid token' });
     return;
   }
+  
+  log('TOKEN_VALID', { 
+    email: tokenInfo.email,
+    objectId: tokenInfo.objectId?.substring(0, 8) + '...',
+    tenantId: tokenInfo.tenantId?.substring(0, 8) + '...',
+    tokenType: tokenInfo.tokenType
+  });
 
   // Check if token is expired (redundant check - validateAccessToken already checks expiry)
   const decoded = decodeToken(accessToken);

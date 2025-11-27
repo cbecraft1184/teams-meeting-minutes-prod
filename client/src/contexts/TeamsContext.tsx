@@ -48,16 +48,44 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         app.notifySuccess();
         logAuth('TEAMS_NOTIFY_SUCCESS');
         
+        // CRITICAL: Get context first to verify Teams SDK is working
         const ctx = await app.getContext();
+        
+        // Store detailed context info for debugging display
+        const contextInfo = {
+          userPrincipalName: ctx.user?.userPrincipalName || 'NOT SET',
+          tenantId: ctx.user?.tenant?.id || 'NOT SET',
+          loginHint: ctx.user?.loginHint || 'NOT SET',
+          theme: ctx.app.theme || 'NOT SET',
+          hostName: ctx.app.host?.name || 'NOT SET',
+          sessionId: ctx.app.sessionId || 'NOT SET',
+          appId: ctx.app.appId || 'NOT SET'
+        };
+        
+        logAuth('TEAMS_CONTEXT_RECEIVED', contextInfo);
+        
+        // CRITICAL CHECK: Verify UPN and TID are populated (per troubleshooting doc step 2)
+        if (!ctx.user?.userPrincipalName || !ctx.user?.tenant?.id) {
+          const missingInfo = {
+            upnMissing: !ctx.user?.userPrincipalName,
+            tidMissing: !ctx.user?.tenant?.id
+          };
+          logAuth('TEAMS_CONTEXT_INCOMPLETE', missingInfo);
+          setSsoError({
+            message: 'Teams context is incomplete - user identity not available',
+            details: missingInfo,
+            contextInfo
+          });
+          setError('Teams context incomplete: User identity not available. This may indicate a configuration issue.');
+          setIsInitialized(true);
+          return;
+        }
+        
         setContext(ctx);
         setIsInTeams(true);
-        logAuth('TEAMS_CONTEXT_RECEIVED', { 
+        logAuth('TEAMS_CONTEXT_VALID', { 
           userPrincipalName: ctx.user?.userPrincipalName,
-          tenantId: ctx.user?.tenant?.id,
-          loginHint: ctx.user?.loginHint,
-          theme: ctx.app.theme,
-          hostName: ctx.app.host?.name,
-          sessionId: ctx.app.sessionId
+          tenantId: ctx.user?.tenant?.id
         });
         
         const teamsTheme = ctx.app.theme;

@@ -362,6 +362,26 @@ export async function validateAccessToken(
   }
 ): Promise<any> {
   const config = getConfig();
+  
+  // Decode token without verification first to get claims for logging
+  const tokenParts = token.split('.');
+  let tokenClaims: any = {};
+  try {
+    tokenClaims = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString('utf-8'));
+  } catch (e) {
+    console.log('[JWT-DEBUG] Failed to decode token claims for logging');
+  }
+  
+  console.log('[JWT-DEBUG] Token validation starting', {
+    tokenAud: tokenClaims.aud,
+    tokenIss: tokenClaims.iss,
+    tokenExp: tokenClaims.exp,
+    tokenNbf: tokenClaims.nbf,
+    currentTime: Math.floor(Date.now() / 1000),
+    configTenantId: config.graph.tenantId,
+    configClientId: config.graph.clientId,
+    useMockServices: config.useMockServices
+  });
 
   // SECURITY: Fail-closed design - only allow unsafe decode in explicit mock mode
   const client = getJwksClient();
@@ -392,6 +412,17 @@ export async function validateAccessToken(
       validAudiences.push(`api://${process.env.APP_DOMAIN}/${config.graph.clientId}`);
     }
     
+    const expectedIssuer = options?.issuer || `https://login.microsoftonline.com/${config.graph.tenantId}/v2.0`;
+    
+    console.log('[JWT-DEBUG] Validation parameters', {
+      validAudiences,
+      expectedIssuer,
+      tokenAudience: tokenClaims.aud,
+      tokenIssuer: tokenClaims.iss,
+      audienceMatch: validAudiences.includes(tokenClaims.aud),
+      issuerMatch: tokenClaims.iss === expectedIssuer
+    });
+    
     // Verify token signature and decode payload
     const decoded = await new Promise((resolve, reject) => {
       jwt.verify(
@@ -399,13 +430,18 @@ export async function validateAccessToken(
         getSigningKey,
         {
           audience: options?.audience || validAudiences,
-          issuer: options?.issuer || `https://login.microsoftonline.com/${config.graph.tenantId}/v2.0`,
+          issuer: expectedIssuer,
           algorithms: ['RS256'],
         },
         (err: Error | null, decoded: unknown) => {
           if (err) {
+            console.error('[JWT-DEBUG] Verification error:', {
+              name: err.name,
+              message: err.message
+            });
             reject(err);
           } else {
+            console.log('[JWT-DEBUG] Token verified successfully');
             resolve(decoded);
           }
         }
@@ -414,7 +450,10 @@ export async function validateAccessToken(
 
     return decoded;
   } catch (error) {
-    console.error('JWT validation failed:', error instanceof Error ? error.message : error);
+    console.error('[JWT-DEBUG] JWT validation failed:', {
+      error: error instanceof Error ? error.message : error,
+      name: error instanceof Error ? error.name : 'unknown'
+    });
     return null;
   }
 }

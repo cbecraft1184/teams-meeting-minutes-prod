@@ -1045,8 +1045,11 @@ export function registerRoutes(app: Express): Server {
       // Get user's Azure AD ID for Graph API call
       const userId = req.user.azureAdId || req.user.id;
       const userEmail = req.user.email;
+      
+      // Pass SSO token for On-Behalf-Of flow (delegated permissions)
+      const ssoToken = req.ssoToken;
 
-      const result = await graphCalendarSync.syncUserCalendar(userEmail, userId);
+      const result = await graphCalendarSync.syncUserCalendar(userEmail, userId, ssoToken);
 
       res.json({
         success: true,

@@ -39,6 +39,7 @@ declare global {
         } | null; // Azure AD group membership with TTL (Task 4.3)
       };
       session: any; // Session from express-session
+      ssoToken?: string; // Raw SSO token for On-Behalf-Of (OBO) flow with Graph API
     }
   }
 }
@@ -477,6 +478,9 @@ async function validateAndLoadUser(
     azureAdId: user.azureAdId,
     azureAdGroups: azureAdGroups,
   };
+  
+  // Store SSO token for On-Behalf-Of flow (Graph API calls with delegated permissions)
+  req.ssoToken = accessToken;
 
   // Store in session
   const session = req.session as any;

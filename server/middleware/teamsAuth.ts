@@ -18,23 +18,8 @@ import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-// Extend Express Request to include authenticated user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        id: string;
-        email: string;
-        displayName: string;
-        clearanceLevel: string;
-        role: string;
-        department: string | null;
-        organizationalUnit: string | null;
-        azureAdId: string | null;
-      };
-    }
-  }
-}
+// Note: Express Request type extension is defined in authenticateUser.ts
+// This file extends: user, session, and ssoToken properties
 
 /**
  * Validate Microsoft Teams SSO token (production implementation)
@@ -181,6 +166,9 @@ export async function teamsAuthMiddleware(
     
     // Attach user to request
     req.user = user;
+    
+    // Store raw SSO token for On-Behalf-Of flow (Graph API calls with delegated permissions)
+    req.ssoToken = token;
 
     console.log(`[AUTH] User authenticated: ${user.email} (clearance: ${user.clearanceLevel})`);
     next();

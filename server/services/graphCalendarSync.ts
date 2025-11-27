@@ -8,7 +8,7 @@
 import { db } from '../db';
 import { meetings, users } from '@shared/schema';
 import { eq, and, or, isNotNull, sql } from 'drizzle-orm';
-import { acquireTokenByClientCredentials, getGraphClient } from './microsoftIdentity';
+import { acquireTokenByClientCredentials, acquireTokenOnBehalfOf, getGraphClient } from './microsoftIdentity';
 import { getConfig } from './configValidator';
 
 interface GraphCalendarEvent {
@@ -89,11 +89,12 @@ export class GraphCalendarSyncService {
   }
 
   /**
-   * Sync calendar events for a specific user
+   * Sync calendar events for a specific user using On-Behalf-Of (OBO) flow
    * @param userEmail - User's email address
    * @param userId - User's Azure AD object ID
+   * @param userSsoToken - User's SSO token from Teams (optional, uses client credentials if not provided)
    */
-  async syncUserCalendar(userEmail: string, userId: string): Promise<SyncResult> {
+  async syncUserCalendar(userEmail: string, userId: string, userSsoToken?: string): Promise<SyncResult> {
     const result: SyncResult = {
       synced: 0,
       created: 0,
@@ -109,12 +110,40 @@ export class GraphCalendarSyncService {
     }
 
     try {
-      const accessToken = await acquireTokenByClientCredentials([
-        'https://graph.microsoft.com/.default'
-      ]);
+      let accessToken: string | null = null;
+      let usedOboFlow = false;  // Track if OBO succeeded to choose correct endpoint
+      
+      // Use OBO flow if user's SSO token is provided (preferred for delegated permissions)
+      if (userSsoToken) {
+        console.log(`[CalendarSync] Attempting OBO flow for ${userEmail}`);
+        try {
+          accessToken = await acquireTokenOnBehalfOf(userSsoToken, [
+            'https://graph.microsoft.com/Calendars.Read',
+            'https://graph.microsoft.com/User.Read'
+          ]);
+          
+          if (accessToken) {
+            usedOboFlow = true;
+            console.log(`[CalendarSync] OBO flow succeeded for ${userEmail}`);
+          } else {
+            console.warn(`[CalendarSync] OBO flow returned null for ${userEmail}, falling back to client credentials`);
+          }
+        } catch (oboError) {
+          console.warn(`[CalendarSync] OBO flow failed for ${userEmail}:`, oboError instanceof Error ? oboError.message : 'Unknown error');
+        }
+      }
+      
+      // Fallback to client credentials if OBO fails or no SSO token provided
+      if (!accessToken) {
+        console.log(`[CalendarSync] Using client credentials for ${userEmail}`);
+        accessToken = await acquireTokenByClientCredentials([
+          'https://graph.microsoft.com/.default'
+        ]);
+        usedOboFlow = false;  // Ensure we use application endpoint
+      }
 
       if (!accessToken) {
-        result.errors.push('Failed to acquire access token');
+        result.errors.push('Failed to acquire access token via both OBO and client credentials');
         return result;
       }
 
@@ -133,11 +162,15 @@ export class GraphCalendarSyncService {
       const filterStart = startDate.toISOString();
       const filterEnd = endDate.toISOString();
 
-      console.log(`[CalendarSync] Fetching events for ${userEmail} from ${filterStart} to ${filterEnd}`);
+      console.log(`[CalendarSync] Fetching events for ${userEmail} (usedOboFlow: ${usedOboFlow}) from ${filterStart} to ${filterEnd}`);
 
-      const eventsResponse = await graphClient.get(
-        `/users/${userId}/calendarView?startDateTime=${filterStart}&endDateTime=${filterEnd}&$select=id,subject,bodyPreview,body,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting,onlineMeetingUrl,iCalUId,changeKey,lastModifiedDateTime&$orderby=start/dateTime&$top=100`
-      );
+      // Use /me/calendarView ONLY when OBO succeeded (delegated token)
+      // Use /users/{userId}/calendarView when using client credentials (application token)
+      const endpoint = usedOboFlow
+        ? `/me/calendarView?startDateTime=${filterStart}&endDateTime=${filterEnd}&$select=id,subject,bodyPreview,body,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting,onlineMeetingUrl,iCalUId,changeKey,lastModifiedDateTime&$orderby=start/dateTime&$top=100`
+        : `/users/${userId}/calendarView?startDateTime=${filterStart}&endDateTime=${filterEnd}&$select=id,subject,bodyPreview,body,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting,onlineMeetingUrl,iCalUId,changeKey,lastModifiedDateTime&$orderby=start/dateTime&$top=100`;
+
+      const eventsResponse = await graphClient.get(endpoint);
 
       const events: GraphCalendarEvent[] = eventsResponse.value || [];
       

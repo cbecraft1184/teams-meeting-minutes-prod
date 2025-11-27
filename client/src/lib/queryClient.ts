@@ -1,9 +1,16 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { getAuthToken } from "./authToken";
 
+// Debug logging helper
+function logApi(stage: string, data?: any) {
+  const timestamp = new Date().toISOString();
+  console.log(`[API ${timestamp}] ${stage}`, data || '');
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    logApi('RESPONSE_ERROR', { status: res.status, url: res.url, text });
     throw new Error(`${res.status}: ${text}`);
   }
 }
@@ -14,6 +21,9 @@ function getAuthHeaders(): HeadersInit {
   
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
+    logApi('AUTH_HEADER_SET', { tokenLength: token.length, tokenPreview: `${token.substring(0, 15)}...` });
+  } else {
+    logApi('AUTH_HEADER_MISSING', { message: 'No token available' });
   }
   
   return headers;
@@ -46,12 +56,18 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const url = queryKey.join("/") as string;
+    logApi('FETCH_START', { url });
+    
+    const res = await fetch(url, {
       headers: getAuthHeaders(),
       credentials: "include",
     });
+    
+    logApi('FETCH_RESPONSE', { url, status: res.status, ok: res.ok });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      logApi('FETCH_401_HANDLED', { url, behavior: 'returnNull' });
       return null;
     }
 

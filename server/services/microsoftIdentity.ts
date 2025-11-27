@@ -55,27 +55,31 @@ function getJwksClient(): jwksClient.JwksClient | null {
   return jwksClientInstance;
 }
 
-// Get signing key for JWT verification
-function getSigningKey(header: jwt.JwtHeader): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const client = getJwksClient();
-    if (!client) {
-      reject(new Error('JWKS client not configured'));
+// Get signing key for JWT verification (callback style for jwt.verify)
+function getSigningKey(header: jwt.JwtHeader, callback: (err: Error | null, key?: string) => void): void {
+  console.log('[JWKS] Fetching signing key for kid:', header.kid);
+  
+  const client = getJwksClient();
+  if (!client) {
+    console.error('[JWKS] Client not configured');
+    callback(new Error('JWKS client not configured'));
+    return;
+  }
+
+  client.getSigningKey(header.kid, (err, key) => {
+    if (err) {
+      console.error('[JWKS] Error fetching key:', err.message);
+      callback(err);
       return;
     }
-
-    client.getSigningKey(header.kid, (err, key) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-      const signingKey = key?.getPublicKey();
-      if (!signingKey) {
-        reject(new Error('No signing key found'));
-        return;
-      }
-      resolve(signingKey);
-    });
+    const signingKey = key?.getPublicKey();
+    if (!signingKey) {
+      console.error('[JWKS] No signing key found');
+      callback(new Error('No signing key found'));
+      return;
+    }
+    console.log('[JWKS] Signing key retrieved successfully');
+    callback(null, signingKey);
   });
 }
 

@@ -1,11 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { app, authentication } from '@microsoft/teams-js';
+import { setAuthToken, clearAuthToken } from '@/lib/authToken';
 
 export interface TeamsContextValue {
   isInitialized: boolean;
   context: app.Context | null;
   theme: 'default' | 'dark' | 'contrast';
   getAuthToken: () => Promise<string>;
+  isInTeams: boolean;
   error: string | null;
 }
 
@@ -16,6 +18,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState<app.Context | null>(null);
   const [theme, setTheme] = useState<'default' | 'dark' | 'contrast'>('default');
   const [error, setError] = useState<string | null>(null);
+  const [isInTeams, setIsInTeams] = useState(false);
 
   useEffect(() => {
     async function initializeTeams() {
@@ -26,6 +29,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         
         const ctx = await app.getContext();
         setContext(ctx);
+        setIsInTeams(true);
         
         const teamsTheme = ctx.app.theme;
         setTheme(teamsTheme === 'dark' ? 'dark' : teamsTheme === 'contrast' ? 'contrast' : 'default');
@@ -34,10 +38,22 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           setTheme(newTheme === 'dark' ? 'dark' : newTheme === 'contrast' ? 'contrast' : 'default');
         });
         
-        setIsInitialized(true);
         console.log('[Teams SDK] Initialized successfully', ctx);
+        
+        try {
+          const token = await authentication.getAuthToken();
+          setAuthToken(token);
+          console.log('[Teams SSO] Token acquired successfully');
+        } catch (tokenErr: any) {
+          console.error('[Teams SSO] Failed to get initial auth token:', tokenErr);
+          setError('SSO authentication failed');
+        }
+        
+        setIsInitialized(true);
       } catch (err: any) {
         console.warn('[Teams SDK] Not running in Teams, using standalone mode', err);
+        setIsInTeams(false);
+        clearAuthToken();
         setIsInitialized(true);
       }
     }
@@ -48,6 +64,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const getAuthToken = async (): Promise<string> => {
     try {
       const token = await authentication.getAuthToken();
+      setAuthToken(token);
       return token;
     } catch (err: any) {
       console.error('[Teams SSO] Failed to get auth token:', err);
@@ -62,6 +79,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         context,
         theme,
         getAuthToken,
+        isInTeams,
         error,
       }}
     >

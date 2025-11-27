@@ -103,6 +103,14 @@ export class GraphCalendarSyncService {
     };
 
     const config = getConfig();
+    
+    // DIAGNOSTIC LOGGING - Start
+    console.log(`[CalendarSync] ========== SYNC START ==========`);
+    console.log(`[CalendarSync] User: ${userEmail}`);
+    console.log(`[CalendarSync] UserId: ${userId}`);
+    console.log(`[CalendarSync] SSO Token Provided: ${!!userSsoToken}`);
+    console.log(`[CalendarSync] SSO Token Length: ${userSsoToken ? userSsoToken.length : 0}`);
+    console.log(`[CalendarSync] Mock Services: ${config.useMockServices}`);
 
     if (config.useMockServices) {
       console.log(`[CalendarSync] Mock mode - generating sample events for ${userEmail}`);
@@ -116,6 +124,7 @@ export class GraphCalendarSyncService {
       // Use OBO flow if user's SSO token is provided (preferred for delegated permissions)
       if (userSsoToken) {
         console.log(`[CalendarSync] Attempting OBO flow for ${userEmail}`);
+        console.log(`[CalendarSync] OBO Scopes: Calendars.Read, User.Read`);
         try {
           accessToken = await acquireTokenOnBehalfOf(userSsoToken, [
             'https://graph.microsoft.com/Calendars.Read',
@@ -124,13 +133,16 @@ export class GraphCalendarSyncService {
           
           if (accessToken) {
             usedOboFlow = true;
-            console.log(`[CalendarSync] OBO flow succeeded for ${userEmail}`);
+            console.log(`[CalendarSync] OBO SUCCESS - Token acquired (length: ${accessToken.length})`);
           } else {
-            console.warn(`[CalendarSync] OBO flow returned null for ${userEmail}, falling back to client credentials`);
+            console.warn(`[CalendarSync] OBO FAILED - Returned null, falling back to client credentials`);
           }
         } catch (oboError) {
-          console.warn(`[CalendarSync] OBO flow failed for ${userEmail}:`, oboError instanceof Error ? oboError.message : 'Unknown error');
+          console.error(`[CalendarSync] OBO EXCEPTION:`, oboError instanceof Error ? oboError.message : 'Unknown error');
+          console.error(`[CalendarSync] OBO Full Error:`, JSON.stringify(oboError, null, 2));
         }
+      } else {
+        console.log(`[CalendarSync] NO SSO TOKEN - Skipping OBO, using client credentials`);
       }
       
       // Fallback to client credentials if OBO fails or no SSO token provided
@@ -140,16 +152,21 @@ export class GraphCalendarSyncService {
           'https://graph.microsoft.com/.default'
         ]);
         usedOboFlow = false;  // Ensure we use application endpoint
+        console.log(`[CalendarSync] Client credentials result: ${accessToken ? 'SUCCESS' : 'FAILED'}`);
       }
 
       if (!accessToken) {
-        result.errors.push('Failed to acquire access token via both OBO and client credentials');
+        const error = 'Failed to acquire access token via both OBO and client credentials';
+        console.error(`[CalendarSync] FATAL: ${error}`);
+        result.errors.push(error);
         return result;
       }
 
       const graphClient = await getGraphClient(accessToken);
       if (!graphClient) {
-        result.errors.push('Failed to create Graph client');
+        const error = 'Failed to create Graph client';
+        console.error(`[CalendarSync] FATAL: ${error}`);
+        result.errors.push(error);
         return result;
       }
 
@@ -162,22 +179,47 @@ export class GraphCalendarSyncService {
       const filterStart = startDate.toISOString();
       const filterEnd = endDate.toISOString();
 
-      console.log(`[CalendarSync] Fetching events for ${userEmail} (usedOboFlow: ${usedOboFlow}) from ${filterStart} to ${filterEnd}`);
-
       // Use /me/calendarView ONLY when OBO succeeded (delegated token)
       // Use /users/{userId}/calendarView when using client credentials (application token)
       const endpoint = usedOboFlow
         ? `/me/calendarView?startDateTime=${filterStart}&endDateTime=${filterEnd}&$select=id,subject,bodyPreview,body,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting,onlineMeetingUrl,iCalUId,changeKey,lastModifiedDateTime&$orderby=start/dateTime&$top=100`
         : `/users/${userId}/calendarView?startDateTime=${filterStart}&endDateTime=${filterEnd}&$select=id,subject,bodyPreview,body,start,end,location,attendees,organizer,isOnlineMeeting,onlineMeeting,onlineMeetingUrl,iCalUId,changeKey,lastModifiedDateTime&$orderby=start/dateTime&$top=100`;
 
-      const eventsResponse = await graphClient.get(endpoint);
+      console.log(`[CalendarSync] ========== GRAPH API CALL ==========`);
+      console.log(`[CalendarSync] Used OBO Flow: ${usedOboFlow}`);
+      console.log(`[CalendarSync] Endpoint: ${usedOboFlow ? '/me/calendarView' : `/users/${userId}/calendarView`}`);
+      console.log(`[CalendarSync] Date Range: ${filterStart} to ${filterEnd}`);
+
+      let eventsResponse;
+      try {
+        eventsResponse = await graphClient.get(endpoint);
+        console.log(`[CalendarSync] Graph API Response Status: SUCCESS`);
+        console.log(`[CalendarSync] Response has 'value': ${!!eventsResponse?.value}`);
+      } catch (graphError: any) {
+        console.error(`[CalendarSync] GRAPH API ERROR:`, graphError?.message || 'Unknown');
+        console.error(`[CalendarSync] Graph Error Status:`, graphError?.statusCode || 'N/A');
+        console.error(`[CalendarSync] Graph Error Body:`, JSON.stringify(graphError?.body || graphError, null, 2));
+        throw graphError;
+      }
 
       const events: GraphCalendarEvent[] = eventsResponse.value || [];
       
-      console.log(`[CalendarSync] Found ${events.length} calendar events for ${userEmail}`);
+      console.log(`[CalendarSync] ========== EVENTS RECEIVED ==========`);
+      console.log(`[CalendarSync] Total Events Found: ${events.length}`);
+      
+      // Log each event for debugging
+      let onlineMeetingCount = 0;
+      events.forEach((event, idx) => {
+        const isOnline = event.isOnlineMeeting || !!event.onlineMeetingUrl;
+        if (isOnline) onlineMeetingCount++;
+        console.log(`[CalendarSync] Event ${idx + 1}: "${event.subject}" | Online: ${isOnline} | Start: ${event.start?.dateTime}`);
+      });
+
+      console.log(`[CalendarSync] Online meetings to process: ${onlineMeetingCount} of ${events.length}`);
 
       for (const event of events) {
         if (!event.isOnlineMeeting && !event.onlineMeetingUrl) {
+          console.log(`[CalendarSync] SKIPPING non-online event: "${event.subject}"`);
           continue;
         }
 
@@ -186,8 +228,12 @@ export class GraphCalendarSyncService {
           result.synced++;
           if (syncResult === 'created') {
             result.created++;
+            console.log(`[CalendarSync] CREATED: "${event.subject}"`);
           } else if (syncResult === 'updated') {
             result.updated++;
+            console.log(`[CalendarSync] UPDATED: "${event.subject}"`);
+          } else {
+            console.log(`[CalendarSync] UNCHANGED: "${event.subject}"`);
           }
         } catch (error) {
           const errorMsg = `Failed to sync event ${event.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -196,7 +242,15 @@ export class GraphCalendarSyncService {
         }
       }
 
-      console.log(`[CalendarSync] Sync complete for ${userEmail}: ${result.created} created, ${result.updated} updated, ${result.errors.length} errors`);
+      console.log(`[CalendarSync] ========== SYNC COMPLETE ==========`);
+      console.log(`[CalendarSync] User: ${userEmail}`);
+      console.log(`[CalendarSync] Created: ${result.created}`);
+      console.log(`[CalendarSync] Updated: ${result.updated}`);
+      console.log(`[CalendarSync] Synced: ${result.synced}`);
+      console.log(`[CalendarSync] Errors: ${result.errors.length}`);
+      if (result.errors.length > 0) {
+        console.log(`[CalendarSync] Error details:`, result.errors);
+      }
 
       return result;
     } catch (error) {

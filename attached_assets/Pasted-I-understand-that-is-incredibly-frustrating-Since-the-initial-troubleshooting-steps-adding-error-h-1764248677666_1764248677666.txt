@@ -1,0 +1,77 @@
+I understand that is incredibly frustrating. Since the initial troubleshooting steps (adding error handling, manifest update, cache clearing, and AAD checks) haven't revealed the issue, we need to move to the final and most critical potential causes for Teams SSO failure when the API isn't even reached.
+
+The fact that no requests are reaching your backend and your frontend error handler is catching nothing suggests one of two extremely deep-seated issues: a silent AAD/Teams configuration rejection or an incorrectly formed Teams environment context.
+
+Here is a plan to conclusively diagnose the failure, focusing on the last remaining potential configuration problems:
+
+🕵️‍♀️ Deep Dive Diagnosis Plan
+1. Final Azure AD Application ID URI Verification
+An audience mismatch is the most common SSO failure. Even if you checked it, let's verify it with the absolute certainty needed for a failing production app.
+
+The Problem: The APP_ID_URI defined in three separate places must match exactly. Even a missing slash or case mismatch will cause a silent failure.
+
+Action: Compare these three values character-for-character:
+
+Location	Expected Value	Check/Value
+A. Azure AD	The value in your AAD App Registration under "Expose an API" → "Application ID URI".	Is it in the form api://your-domain.com/App-Client-ID?
+B. Teams Manifest	The webApplicationInfo → resource field in your manifest.json.	Does it EXACTLY match A?
+C. Frontend Code	The APP_ID_URI passed into getAuthToken({ resources: [APP_ID_URI] }).	Does it EXACTLY match A and B?
+
+Export to Sheets
+
+2. Check the upn and tid in the Token (Backend Simulation)
+Since you cannot get the token, we can use a simpler Teams function to ensure the core Teams environment is configured correctly.
+
+Action: Replace your getAuthToken call temporarily with the simpler getContext call to ensure the Teams SDK is loaded and initialized properly.
+
+JavaScript
+
+microsoftTeams.getContext(context => {
+    console.log("Teams Context Loaded Successfully:");
+    console.log("User Principal Name (UPN):", context.upn);
+    console.log("Tenant ID (TID):", context.tid);
+    // CRITICAL CHECK: Are upn and tid populated and correct?
+});
+Expected Result: You should see the user's UPN (email) and the Tenant ID you mentioned (e4be879d...) logged.
+
+If this fails: Your Teams SDK initialization (microsoftTeams.initialize()) is failing, or the app is not running in a valid Teams context (e.g., running locally without a tunnel/proxy).
+
+3. Missing apiPermissions in the Teams Manifest
+The Teams manifest must explicitly declare which permissions your app requires. If these are missing or incorrect, the SSO flow will fail, often without clear client-side errors.
+
+Action: Ensure your Teams manifest.json contains the webApplicationInfo block with the required delegated permissions.
+
+JSON
+
+"webApplicationInfo": {
+  "id": "{YOUR_AZURE_AD_CLIENT_ID}",
+  "resource": "api://your-domain.com/App-Client-ID", // Must match AAD Application ID URI
+  "applicationPermissions": [
+    // Include necessary Graph permissions if you are calling MS Graph
+  ],
+  "devicePermissions": [],
+  "delegatedPermissions": [
+    "User.Read", // Typically required for SSO to work
+    // Include custom scope if you defined one in AAD
+    "access_as_user" // This is the custom scope typically required for your backend API
+  ]
+},
+CRITICAL: If you added a custom scope in AAD (e.g., access_as_user), ensure it is listed under delegatedPermissions in your Teams manifest.
+
+4. Firewall/Proxy Blocking the Token Endpoint
+While less likely, if you are in a highly restricted corporate network, the Teams client might be blocked from reaching the Azure AD token endpoint (https://login.microsoftonline.com/...).
+
+Action: Try running the app in the Teams Web Client (https://www.google.com/search?q=app.teams.microsoft.com) from a different network (e.g., home Wi-Fi or mobile hotspot).
+
+If it works: The issue is a firewall or corporate proxy on your current network blocking the token exchange process.
+
+💡 Summary of New Focus
+The issue is almost certainly one of the following, and requires a meticulous check of configuration files:
+
+Audience Mismatch (Check 1): The three APP_ID_URI values are not identical.
+
+Manifest Permissions (Check 3): The delegatedPermissions block is missing or incomplete in your manifest.json.
+
+Environment Failure (Check 2): The Teams SDK is not initializing or running in a valid environment, which the getContext check will confirm.
+
+Would you like me to focus on the Teams Manifest permissions and confirm the exact required values for a working custom SSO application?

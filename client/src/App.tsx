@@ -118,8 +118,7 @@ const useStyles = makeStyles({
 });
 
 function AppContent() {
-  const { context, isInitialized } = useTeams();
-  const isInTeams = !!context;
+  const { context, isInitialized, error, ssoError, isInTeams } = useTeams();
   const styles = useStyles();
   const [navOpen, setNavOpen] = useState(true);
 
@@ -131,7 +130,82 @@ function AppContent() {
     );
   }
 
-  if (isInTeams) {
+  // Display SSO errors visibly for debugging (since DevTools is not available)
+  if (error || ssoError) {
+    return (
+      <div style={{ 
+        padding: '40px', 
+        maxWidth: '800px', 
+        margin: '0 auto',
+        fontFamily: 'Segoe UI, sans-serif'
+      }}>
+        <h1 style={{ color: '#d13438', marginBottom: '20px' }}>
+          Authentication Error
+        </h1>
+        <div style={{ 
+          backgroundColor: '#fdf3f4', 
+          border: '1px solid #d13438',
+          borderRadius: '8px',
+          padding: '20px',
+          marginBottom: '20px'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0' }}>Error Message:</h3>
+          <pre style={{ 
+            backgroundColor: '#fff', 
+            padding: '15px', 
+            borderRadius: '4px',
+            overflow: 'auto',
+            fontSize: '13px'
+          }}>
+            {error || 'Unknown error'}
+          </pre>
+        </div>
+        
+        {ssoError && (
+          <div style={{ 
+            backgroundColor: '#f5f5f5', 
+            border: '1px solid #ccc',
+            borderRadius: '8px',
+            padding: '20px',
+            marginBottom: '20px'
+          }}>
+            <h3 style={{ margin: '0 0 10px 0' }}>SSO Error Details:</h3>
+            <pre style={{ 
+              backgroundColor: '#fff', 
+              padding: '15px', 
+              borderRadius: '4px',
+              overflow: 'auto',
+              fontSize: '12px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word'
+            }}>
+              {JSON.stringify(ssoError, null, 2)}
+            </pre>
+          </div>
+        )}
+        
+        <div style={{ 
+          backgroundColor: '#f0f6ff', 
+          border: '1px solid #0078d4',
+          borderRadius: '8px',
+          padding: '20px'
+        }}>
+          <h3 style={{ margin: '0 0 10px 0', color: '#0078d4' }}>Debug Info:</h3>
+          <ul style={{ margin: 0, paddingLeft: '20px', lineHeight: '1.8' }}>
+            <li><strong>Running in Teams:</strong> {isInTeams ? 'Yes' : 'No'}</li>
+            <li><strong>Context available:</strong> {context ? 'Yes' : 'No'}</li>
+            <li><strong>App ID URI:</strong> api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c</li>
+          </ul>
+        </div>
+        
+        <p style={{ marginTop: '20px', color: '#666' }}>
+          Please share a screenshot of this error with your developer.
+        </p>
+      </div>
+    );
+  }
+
+  if (context) {
     return (
       <div className={styles.appContainerColumn}>
         <header className={styles.header}>

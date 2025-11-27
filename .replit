@@ -97,3 +97,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["sharepoint:1.0.0", "javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_database:1.0.0"]
+
+[userenv]
+
+[userenv.development]
+USE_MOCK_SERVICES = "false"

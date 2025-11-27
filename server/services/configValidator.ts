@@ -280,11 +280,11 @@ export function getConfig() {
     isProduction,
     useMockServices,
 
-    // Microsoft Graph
+    // Microsoft Graph - Check both GRAPH_* and AZURE_* credentials
     graph: {
-      tenantId: process.env[`GRAPH_TENANT_ID${envSuffix}`] || '',
-      clientId: process.env[`GRAPH_CLIENT_ID${envSuffix}`] || '',
-      clientSecret: process.env[`GRAPH_CLIENT_SECRET${envSuffix}`] || '',
+      tenantId: process.env[`GRAPH_TENANT_ID${envSuffix}`] || process.env.AZURE_TENANT_ID || '',
+      clientId: process.env[`GRAPH_CLIENT_ID${envSuffix}`] || process.env.AZURE_CLIENT_ID || '',
+      clientSecret: process.env[`GRAPH_CLIENT_SECRET${envSuffix}`] || process.env.AZURE_CLIENT_SECRET || '',
       appSecret: process.env[`GRAPH_APP_SECRET${envSuffix}`] || '',
     },
 

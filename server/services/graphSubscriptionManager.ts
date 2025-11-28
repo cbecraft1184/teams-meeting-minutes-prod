@@ -12,13 +12,26 @@ import { acquireTokenByClientCredentials, getGraphClient } from './microsoftIden
 import { getConfig } from './configValidator';
 import crypto from 'crypto';
 
-// Subscription configuration
-const SUBSCRIPTION_CONFIG = {
-  resource: '/communications/onlineMeetings', // Resource to monitor
-  changeTypes: ['created', 'updated', 'deleted'], // Event types to monitor
-  expirationHours: 48, // Max 72 hours for onlineMeetings, using 48 for safety
-  renewalBufferHours: 12, // Renew 12 hours before expiry
+// Subscription configurations for different resources
+const SUBSCRIPTION_CONFIGS = {
+  // Call Records - notifies when a call/meeting ENDS (triggers transcript fetch)
+  callRecords: {
+    resource: '/communications/callRecords',
+    changeTypes: ['created'],
+    expirationHours: 48, // Max 4230 minutes (~70 hours) for callRecords
+    renewalBufferHours: 12,
+  },
+  // Online Meetings - notifies when meetings are scheduled/updated
+  onlineMeetings: {
+    resource: '/communications/onlineMeetings',
+    changeTypes: ['created', 'updated', 'deleted'],
+    expirationHours: 48,
+    renewalBufferHours: 12,
+  },
 };
+
+// Default to callRecords for meeting completion detection
+const SUBSCRIPTION_CONFIG = SUBSCRIPTION_CONFIGS.callRecords;
 
 export class GraphSubscriptionManager {
   /**
@@ -141,7 +154,7 @@ export class GraphSubscriptionManager {
           lastRenewedAt: new Date(),
           status: 'active',
           lastFailureReason: null,
-          failureCount: '0',
+          failureCount: 0,
           updatedAt: new Date(),
         })
         .where(eq(graphWebhookSubscriptions.subscriptionId, subscriptionId));
@@ -155,14 +168,14 @@ export class GraphSubscriptionManager {
       
       // Update failure count in database
       const currentSubscription = await this.getSubscription(subscriptionId);
-      const currentCount = parseInt(currentSubscription?.failureCount || '0');
+      const currentCount = currentSubscription?.failureCount || 0;
       
       await db
         .update(graphWebhookSubscriptions)
         .set({
           status: 'failed',
           lastFailureReason: error instanceof Error ? error.message : 'Unknown error',
-          failureCount: String(currentCount + 1),
+          failureCount: currentCount + 1,
           updatedAt: new Date(),
         })
         .where(eq(graphWebhookSubscriptions.subscriptionId, subscriptionId));
@@ -267,7 +280,7 @@ export class GraphSubscriptionManager {
       const success = await this.renewSubscription(subscription.subscriptionId);
       
       // If renewal fails after 3 attempts, try to recreate
-      if (!success && parseInt(subscription.failureCount || '0') >= 3) {
+      if (!success && (subscription.failureCount || 0) >= 3) {
         console.warn(`⚠️  Subscription ${subscription.subscriptionId} failed 3 times, attempting recreate...`);
         await this.deleteSubscription(subscription.subscriptionId);
         await this.createSubscription(subscription.notificationUrl);
@@ -336,6 +349,42 @@ export class GraphSubscriptionManager {
 
     console.log(`✅ Renewed MOCK subscription: ${subscriptionId} (dev mode)`);
     return true;
+  }
+
+  /**
+   * Initialize webhook subscription on app startup
+   * Creates a new subscription if none exists
+   */
+  async initializeSubscription(baseUrl: string): Promise<void> {
+    console.log('🔔 [Webhook] Checking for existing subscriptions...');
+    
+    // Check if we already have an active subscription
+    const existingSubscriptions = await db
+      .select()
+      .from(graphWebhookSubscriptions)
+      .where(eq(graphWebhookSubscriptions.status, 'active'));
+    
+    if (existingSubscriptions.length > 0) {
+      console.log(`✅ [Webhook] Found ${existingSubscriptions.length} active subscription(s)`);
+      
+      // Check for expiring subscriptions and renew
+      await this.renewAllExpiringSubscriptions();
+      return;
+    }
+    
+    // No active subscriptions, create one
+    console.log('🔔 [Webhook] No active subscriptions found, creating new one...');
+    
+    const notificationUrl = `${baseUrl}/webhooks/graph/callRecords`;
+    console.log(`🔔 [Webhook] Notification URL: ${notificationUrl}`);
+    
+    const subscriptionId = await this.createSubscription(notificationUrl);
+    
+    if (subscriptionId) {
+      console.log(`✅ [Webhook] Subscription created successfully: ${subscriptionId}`);
+    } else {
+      console.error('❌ [Webhook] Failed to create subscription');
+    }
   }
 }
 

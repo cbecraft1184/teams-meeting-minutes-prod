@@ -35,6 +35,12 @@ let isProcessing = false;
 export function registerWebhookRoutes(router: Router): void {
   // PUBLIC endpoints - NO authentication required (Microsoft Graph callbacks)
   // Using /webhooks/* instead of /api/webhooks/* to avoid auth middleware
+  
+  // Call Records webhook - triggers when meetings END (for transcript/recording fetch)
+  router.post('/webhooks/graph/callRecords', handleCallRecordWebhook);
+  router.get('/webhooks/graph/callRecords', handleValidationChallenge);
+  
+  // Online Meetings webhook - triggers for meeting schedule changes
   router.post('/webhooks/graph/teams/meetings', handleTeamsMeetingWebhook);
   router.get('/webhooks/graph/teams/meetings', handleValidationChallenge);
 }
@@ -69,6 +75,105 @@ async function handleValidationChallenge(req: Request, res: Response): Promise<v
   
   // Echo back the validation token as plain text
   res.type('text/plain').send(validationToken);
+}
+
+/**
+ * Handle POST request with call record webhook notifications from Microsoft Graph
+ * This is triggered when a Teams meeting ENDS and a call record is created
+ */
+async function handleCallRecordWebhook(req: Request, res: Response): Promise<void> {
+  try {
+    const { value: notifications } = req.body;
+
+    if (!notifications || !Array.isArray(notifications)) {
+      res.status(400).json({ error: 'Invalid notification payload' });
+      return;
+    }
+
+    console.log(`📞 [CallRecords] Received ${notifications.length} call record notification(s)`);
+
+    // Respond immediately with 202 Accepted (Microsoft requires fast response)
+    res.status(202).send();
+
+    // Process each notification asynchronously
+    for (const notification of notifications) {
+      try {
+        await processCallRecordNotification(notification);
+      } catch (error) {
+        console.error('❌ [CallRecords] Error processing notification:', error);
+      }
+    }
+  } catch (error) {
+    console.error('❌ [CallRecords] Error handling webhook:', error);
+    res.status(202).send(); // Still respond 202 to avoid retry storms
+  }
+}
+
+/**
+ * Process a single call record notification
+ * Extracts meeting ID and triggers enrichment (transcript/recording fetch)
+ */
+async function processCallRecordNotification(notification: any): Promise<void> {
+  const { subscriptionId, clientState, resource, resourceData } = notification;
+
+  console.log(`📞 [CallRecords] Processing notification for resource: ${resource}`);
+
+  // Validate client state
+  const isValid = await validateNotification(notification);
+  if (!isValid) {
+    console.warn('⚠️ [CallRecords] Invalid notification, skipping');
+    return;
+  }
+
+  // Extract call record ID from resource
+  // Resource format: "/communications/callRecords/{callRecordId}"
+  const callRecordId = resource?.split('/').pop();
+  
+  if (!callRecordId) {
+    console.error('❌ [CallRecords] Could not extract callRecordId from resource:', resource);
+    return;
+  }
+
+  console.log(`📞 [CallRecords] Call record ID: ${callRecordId}`);
+
+  // Find meeting by matching join URL or organizer
+  // Call records contain participants and join info we can use to match
+  const joinWebUrl = resourceData?.joinWebUrl;
+  const organizer = resourceData?.organizer?.user?.id;
+
+  if (joinWebUrl) {
+    // Try to find meeting by Teams join link
+    const [meeting] = await db
+      .select()
+      .from(meetings)
+      .where(eq(meetings.teamsJoinLink, joinWebUrl))
+      .limit(1);
+
+    if (meeting) {
+      console.log(`✅ [CallRecords] Found meeting by join URL: ${meeting.id} (${meeting.title})`);
+      
+      // Update call record ID
+      await db.update(meetings)
+        .set({ 
+          callRecordId,
+          status: 'completed',
+          graphSyncStatus: 'synced'
+        })
+        .where(eq(meetings.id, meeting.id));
+
+      // Trigger enrichment
+      if (meeting.onlineMeetingId) {
+        console.log(`🎬 [CallRecords] Triggering enrichment for meeting: ${meeting.id}`);
+        await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, meeting.onlineMeetingId);
+      }
+      return;
+    }
+  }
+
+  // If no match found by join URL, try to match by time window and organizer
+  console.log(`⚠️ [CallRecords] Could not match call record to a meeting. CallRecordId: ${callRecordId}`);
+  console.log(`   Join URL: ${joinWebUrl || 'N/A'}`);
+  console.log(`   Organizer: ${organizer || 'N/A'}`);
 }
 
 /**

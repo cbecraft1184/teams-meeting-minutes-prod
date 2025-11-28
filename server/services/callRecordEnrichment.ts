@@ -219,7 +219,19 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
   
   // Real mode: Fetch from Microsoft Graph API
   try {
-    const graphClient = await getGraphClient();
+    // Import token acquisition for Graph API access
+    const { acquireTokenByClientCredentials } = await import('./microsoftIdentity');
+    
+    // Get access token for Graph API
+    const accessToken = await acquireTokenByClientCredentials([
+      'https://graph.microsoft.com/.default'
+    ]);
+    
+    if (!accessToken) {
+      throw new Error('Failed to acquire Graph API access token');
+    }
+    
+    const graphClient = await getGraphClient(accessToken);
     
     if (!graphClient) {
       throw new Error('Failed to get Graph API client');
@@ -247,6 +259,21 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       new Date(b.createdDateTime).getTime() - new Date(a.createdDateTime).getTime()
     )[0];
     
+    // Download transcript content if available
+    let transcriptContent: string | null = null;
+    if (latestTranscript?.transcriptContentUrl) {
+      try {
+        console.log(`📥 [Enrichment] Downloading transcript content...`);
+        const transcriptResponse = await graphClient.get(
+          `/communications/onlineMeetings/${onlineMeetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`
+        );
+        transcriptContent = transcriptResponse;
+        console.log(`✅ [Enrichment] Transcript content downloaded (${transcriptContent?.length || 0} chars)`);
+      } catch (transcriptError) {
+        console.warn(`⚠️ [Enrichment] Could not download transcript content:`, transcriptError);
+      }
+    }
+    
     // Update meeting record (clear retry timestamp on success)
     await db.update(meetings)
       .set({
@@ -263,6 +290,20 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     console.log(`✅ [Enrichment] Successfully enriched meeting ${meetingId}`);
     console.log(`   📹 Recording: ${latestRecording ? 'Found' : 'Not available'}`);
     console.log(`   📝 Transcript: ${latestTranscript ? 'Found' : 'Not available'}`);
+    
+    // Auto-generate minutes if we have transcript content
+    if (transcriptContent) {
+      try {
+        console.log(`🤖 [Enrichment] Triggering AI minutes generation...`);
+        await minutesGeneratorService.autoGenerateMinutes(meetingId);
+        console.log(`✅ [Enrichment] Minutes generation triggered for meeting ${meetingId}`);
+      } catch (minutesError) {
+        console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, minutesError);
+        // Don't fail enrichment if minutes generation fails
+      }
+    } else {
+      console.log(`⚠️ [Enrichment] No transcript available, skipping minutes generation`);
+    }
     
   } catch (error: any) {
     // Handle Graph API errors

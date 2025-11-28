@@ -1,10 +1,11 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./static";
-import { validateAndLogConfig } from "./services/configValidator";
+import { validateAndLogConfig, getConfig } from "./services/configValidator";
 import { startJobWorker, stopJobWorker } from "./services/jobWorker";
 import { initializeKeyVaultClient } from "./services/azureKeyVault";
 import { initializeCleanupScheduler, stopCleanupScheduler } from "./services/databaseCleanup";
+import { graphSubscriptionManager } from "./services/graphSubscriptionManager";
 
 const app = express();
 
@@ -97,7 +98,7 @@ app.use((req, res, next) => {
     port,
     host: "0.0.0.0",
     reusePort: true,
-  }, () => {
+  }, async () => {
     log(`serving on port ${port}`);
     
     // Start durable job worker after server is running (disabled until Redis/durable queue is provisioned)
@@ -112,6 +113,18 @@ app.use((req, res, next) => {
       initializeCleanupScheduler();
     } else {
       log("Database cleanup scheduler disabled (set ENABLE_CLEANUP_SCHEDULER=true to enable)");
+    }
+    
+    // Initialize Microsoft Graph webhook subscriptions for call record detection
+    const config = getConfig();
+    if (!config.useMockServices && process.env.ENABLE_WEBHOOKS !== "false") {
+      const baseUrl = process.env.APP_URL || `https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io`;
+      log(`Initializing Graph webhooks (baseUrl: ${baseUrl})...`);
+      graphSubscriptionManager.initializeSubscription(baseUrl).catch(err => {
+        console.error('Failed to initialize Graph webhooks:', err);
+      });
+    } else {
+      log("Graph webhooks disabled (mock mode or ENABLE_WEBHOOKS=false)");
     }
   });
 

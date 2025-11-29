@@ -73,13 +73,28 @@ export class GraphSubscriptionManager {
         return null;
       }
       
-      const subscription = await graphClient.post('/subscriptions', {
+      // Build subscription payload
+      // Note: For callRecords, we use basic notifications (no encrypted resource data)
+      // This avoids the need for encryption certificates while still getting call completion events
+      const subscriptionPayload = {
         changeType: SUBSCRIPTION_CONFIG.changeTypes.join(','),
         notificationUrl,
         resource: SUBSCRIPTION_CONFIG.resource,
         expirationDateTime: expirationDateTime.toISOString(),
         clientState,
-      });
+      };
+      
+      console.log('🔔 [Webhook] Creating subscription with payload:', JSON.stringify(subscriptionPayload, null, 2));
+      
+      let subscription;
+      try {
+        subscription = await graphClient.post('/subscriptions', subscriptionPayload);
+      } catch (postError: any) {
+        // Extract detailed error from Graph API
+        const errorBody = postError?.body || postError?.message || postError;
+        console.error('🔔 [Webhook] Graph API error details:', JSON.stringify(errorBody, null, 2));
+        throw postError;
+      }
 
       // Store subscription in database
       const [dbSubscription] = await db

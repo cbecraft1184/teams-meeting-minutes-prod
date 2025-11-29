@@ -11,7 +11,15 @@ import {
   Text,
   makeStyles, 
   tokens, 
-  shorthands 
+  shorthands,
+  Spinner,
+  Dialog,
+  DialogTrigger,
+  DialogSurface,
+  DialogTitle,
+  DialogBody,
+  DialogActions,
+  DialogContent
 } from "@fluentui/react-components";
 import { 
   Settings20Regular, 
@@ -24,7 +32,14 @@ import {
   PlugConnected20Regular, 
   CheckmarkCircle20Regular, 
   DismissCircle20Regular, 
-  PaintBrush20Regular 
+  PaintBrush20Regular,
+  DocumentText20Regular,
+  Star20Regular,
+  Star20Filled,
+  Add20Regular,
+  Copy20Regular,
+  Delete20Regular,
+  Edit20Regular
 } from "@fluentui/react-icons";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/use-theme";
@@ -65,6 +80,27 @@ interface AppSettings {
   enableTeamsCardNotifications: boolean;
   updatedAt: string;
   updatedBy: string | null;
+}
+
+interface DocumentTemplateConfig {
+  sections: Array<{ id: string; name: string; enabled: boolean; order: number }>;
+  branding: { organizationName: string; logoEnabled: boolean; primaryColor: string; secondaryColor: string };
+  styling: { fontFamily: string; titleSize: number; headingSize: number; bodySize: number; lineSpacing: number };
+  headerText: string;
+  footerText: string;
+  showPageNumbers: boolean;
+  showGeneratedDate: boolean;
+}
+
+interface DocumentTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  isDefault: boolean;
+  isSystem: boolean;
+  config: DocumentTemplateConfig;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const useStyles = makeStyles({
@@ -335,6 +371,63 @@ const useStyles = makeStyles({
     color: tokens.colorPaletteYellowForeground2,
     fontSize: tokens.fontSizeBase100,
   },
+  templateList: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalS),
+  },
+  templateItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorNeutralStroke1),
+    ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
+    backgroundColor: tokens.colorNeutralBackground1,
+    transition: "background-color 0.1s",
+    ":hover": {
+      backgroundColor: tokens.colorNeutralBackground2,
+    },
+  },
+  templateItemDefault: {
+    ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorBrandStroke1),
+    backgroundColor: tokens.colorBrandBackground2,
+  },
+  templateInfo: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap(tokens.spacingVerticalXXS),
+    flex: 1,
+  },
+  templateName: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+  },
+  templateDesc: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground2,
+  },
+  templateActions: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalXS),
+  },
+  defaultStar: {
+    color: tokens.colorBrandForeground1,
+  },
+  sectionsList: {
+    display: "flex",
+    flexWrap: "wrap",
+    ...shorthands.gap(tokens.spacingHorizontalXS),
+    marginTop: tokens.spacingVerticalXS,
+  },
+  sectionBadge: {
+    fontSize: tokens.fontSizeBase100,
+  },
 });
 
 export default function Settings() {
@@ -358,6 +451,41 @@ export default function Settings() {
   const { data: appSettings, isLoading: isLoadingSettings } = useQuery<AppSettings>({
     queryKey: ["/api/settings"],
     enabled: userInfo?.user.role === "admin", // Only fetch if admin
+  });
+
+  // Fetch document templates
+  const { data: documentTemplates, isLoading: isLoadingTemplates } = useQuery<DocumentTemplate[]>({
+    queryKey: ["/api/document-templates"],
+  });
+
+  // Mutation for setting default template
+  const setDefaultTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const response = await fetch(`/api/document-templates/${templateId}/set-default`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to set default template");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      dispatchToast(
+        <div>
+          <strong>Default template updated</strong>
+          <div>The selected template is now the default for document exports</div>
+        </div>,
+        { intent: "success" }
+      );
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <div>
+          <strong>Update failed</strong>
+          <div>{error.message || "Failed to set default template"}</div>
+        </div>,
+        { intent: "error" }
+      );
+    },
   });
 
   // Mutation for updating settings
@@ -815,6 +943,96 @@ export default function Settings() {
             </div>
           </Card>
         )}
+
+        <Card>
+          <div className={styles.cardHeader}>
+            <div className={styles.iconContainer}>
+              <DocumentText20Regular className={styles.iconContainerIcon} />
+            </div>
+            <div className={styles.headerText}>
+              <Text className={styles.cardTitle}>Document Templates</Text>
+              <Text className={styles.cardDescription}>Customize how meeting minutes are formatted in DOCX and PDF exports</Text>
+            </div>
+          </div>
+          <div className={styles.cardContent}>
+            {isLoadingTemplates ? (
+              <div style={{ display: "flex", alignItems: "center", gap: tokens.spacingHorizontalS }}>
+                <Spinner size="tiny" />
+                <Text className={styles.fieldDescription}>Loading templates...</Text>
+              </div>
+            ) : documentTemplates && documentTemplates.length > 0 ? (
+              <>
+                <div className={styles.templateList}>
+                  {documentTemplates.map((template) => (
+                    <div
+                      key={template.id}
+                      className={`${styles.templateItem} ${template.isDefault ? styles.templateItemDefault : ""}`}
+                      data-testid={`template-item-${template.id}`}
+                    >
+                      <div className={styles.templateInfo}>
+                        <div className={styles.templateName}>
+                          {template.isDefault && (
+                            <Star20Filled className={styles.defaultStar} />
+                          )}
+                          <span>{template.name}</span>
+                          {template.isSystem && (
+                            <Badge appearance="outline" size="small">System</Badge>
+                          )}
+                        </div>
+                        {template.description && (
+                          <Text className={styles.templateDesc}>{template.description}</Text>
+                        )}
+                        <div className={styles.sectionsList}>
+                          {template.config.sections
+                            .filter(s => s.enabled)
+                            .sort((a, b) => a.order - b.order)
+                            .map(section => (
+                              <Badge
+                                key={section.id}
+                                appearance="outline"
+                                size="small"
+                                className={styles.sectionBadge}
+                              >
+                                {section.name}
+                              </Badge>
+                            ))}
+                        </div>
+                      </div>
+                      <div className={styles.templateActions}>
+                        {!template.isDefault && (
+                          <Button
+                            size="small"
+                            appearance="subtle"
+                            icon={<Star20Regular />}
+                            onClick={() => setDefaultTemplateMutation.mutate(template.id)}
+                            disabled={setDefaultTemplateMutation.isPending}
+                            data-testid={`button-set-default-${template.id}`}
+                            title="Set as default"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className={styles.infoBox}>
+                  <div className={styles.infoBoxContent}>
+                    <Info20Regular className={styles.infoBoxIcon} />
+                    <div className={styles.infoBoxText}>
+                      <Text className={styles.infoBoxTitle}>How templates work</Text>
+                      <Text className={styles.infoBoxDescription}>
+                        The default template (marked with a star) is used when exporting meeting minutes to DOCX or PDF. 
+                        Templates control which sections are included, their order, fonts, and branding.
+                      </Text>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <Text className={styles.fieldDescription}>No document templates found</Text>
+            )}
+          </div>
+        </Card>
 
         <Card>
           <div className={styles.cardHeader}>

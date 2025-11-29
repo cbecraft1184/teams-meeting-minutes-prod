@@ -367,16 +367,13 @@ export class GraphSubscriptionManager {
   }
 
   /**
-   * Initialize webhook subscription on app startup
-   * Creates a new subscription if none exists
+   * Initialize webhook subscriptions on app startup
+   * Creates subscriptions for both call records (meeting end) and online meetings (meeting scheduled)
    * 
    * IMPORTANT: Delays initialization to ensure app is fully warmed up
    * Graph API validation requests can fail if app isn't ready to respond
    */
   async initializeSubscription(baseUrl: string): Promise<void> {
-    // Delay subscription creation to ensure app is fully warmed
-    // Graph API validates by calling our webhook endpoint immediately
-    // If the endpoint isn't ready, validation fails
     const WARMUP_DELAY_MS = 30000; // 30 seconds
     const MAX_RETRIES = 3;
     const RETRY_DELAY_MS = 15000; // 15 seconds between retries
@@ -386,44 +383,188 @@ export class GraphSubscriptionManager {
     
     console.log('🔔 [Webhook] Checking for existing subscriptions...');
     
-    // Check if we already have an active subscription
+    // Check existing subscriptions by resource type
     const existingSubscriptions = await db
       .select()
       .from(graphWebhookSubscriptions)
       .where(eq(graphWebhookSubscriptions.status, 'active'));
     
+    const hasCallRecords = existingSubscriptions.some(s => s.resource === '/communications/callRecords');
+    const hasOnlineMeetings = existingSubscriptions.some(s => s.resource === '/communications/onlineMeetings');
+    
+    console.log(`🔔 [Webhook] Existing subscriptions - callRecords: ${hasCallRecords}, onlineMeetings: ${hasOnlineMeetings}`);
+    
+    // Renew any expiring subscriptions
     if (existingSubscriptions.length > 0) {
-      console.log(`✅ [Webhook] Found ${existingSubscriptions.length} active subscription(s)`);
-      
-      // Check for expiring subscriptions and renew
       await this.renewAllExpiringSubscriptions();
-      return;
     }
     
-    // No active subscriptions, create one with retry logic
-    console.log('🔔 [Webhook] No active subscriptions found, creating new one...');
+    // Create call records subscription if missing (meeting end detection)
+    if (!hasCallRecords) {
+      console.log('🔔 [Webhook] Creating callRecords subscription (meeting end detection)...');
+      await this.createSubscriptionWithRetry(
+        `${baseUrl}/webhooks/graph/callRecords`,
+        SUBSCRIPTION_CONFIGS.callRecords,
+        MAX_RETRIES,
+        RETRY_DELAY_MS
+      );
+    }
     
-    const notificationUrl = `${baseUrl}/webhooks/graph/callRecords`;
+    // Create online meetings subscription if missing (meeting scheduled detection)
+    if (!hasOnlineMeetings) {
+      console.log('🔔 [Webhook] Creating onlineMeetings subscription (meeting scheduled detection)...');
+      await this.createSubscriptionWithRetry(
+        `${baseUrl}/webhooks/graph/teams/meetings`,
+        SUBSCRIPTION_CONFIGS.onlineMeetings,
+        MAX_RETRIES,
+        RETRY_DELAY_MS
+      );
+    }
+    
+    console.log('📊 [Webhook] Subscription initialization complete');
+  }
+
+  /**
+   * Create a subscription with retry logic for a specific resource type
+   */
+  private async createSubscriptionWithRetry(
+    notificationUrl: string,
+    subscriptionConfig: typeof SUBSCRIPTION_CONFIGS.callRecords,
+    maxRetries: number,
+    retryDelayMs: number
+  ): Promise<string | null> {
     console.log(`🔔 [Webhook] Notification URL: ${notificationUrl}`);
+    console.log(`🔔 [Webhook] Resource: ${subscriptionConfig.resource}`);
     
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      console.log(`🔔 [Webhook] Subscription creation attempt ${attempt}/${MAX_RETRIES}...`);
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      console.log(`🔔 [Webhook] Subscription creation attempt ${attempt}/${maxRetries}...`);
       
-      const subscriptionId = await this.createSubscription(notificationUrl);
+      const subscriptionId = await this.createSubscriptionForResource(notificationUrl, subscriptionConfig);
       
       if (subscriptionId) {
         console.log(`✅ [Webhook] Subscription created successfully: ${subscriptionId}`);
-        return;
+        return subscriptionId;
       }
       
-      if (attempt < MAX_RETRIES) {
-        console.log(`⚠️ [Webhook] Attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS/1000}s...`);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      if (attempt < maxRetries) {
+        console.log(`⚠️ [Webhook] Attempt ${attempt} failed, retrying in ${retryDelayMs/1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
       }
     }
     
-    console.error('❌ [Webhook] Failed to create subscription after all retries');
-    console.log('📊 [Webhook] Note: Polling-based enrichment is still active as fallback');
+    console.error(`❌ [Webhook] Failed to create ${subscriptionConfig.resource} subscription after all retries`);
+    return null;
+  }
+
+  /**
+   * Create a subscription for a specific resource type
+   */
+  async createSubscriptionForResource(
+    notificationUrl: string,
+    subscriptionConfig: typeof SUBSCRIPTION_CONFIGS.callRecords
+  ): Promise<string | null> {
+    const config = getConfig();
+    
+    if (config.useMockServices || !config.graph.clientId) {
+      console.warn('Graph API not configured - subscription creation skipped (mock mode)');
+      return this.createMockSubscriptionForResource(notificationUrl, subscriptionConfig);
+    }
+
+    try {
+      const accessToken = await acquireTokenByClientCredentials([
+        'https://graph.microsoft.com/.default'
+      ]);
+
+      if (!accessToken) {
+        console.error('Failed to acquire access token for subscription creation');
+        return null;
+      }
+
+      const clientState = this.generateClientState();
+      
+      const expirationDateTime = new Date();
+      expirationDateTime.setHours(expirationDateTime.getHours() + subscriptionConfig.expirationHours);
+
+      const graphClient = await getGraphClient(accessToken);
+      if (!graphClient) {
+        console.error('Failed to create Graph client');
+        return null;
+      }
+      
+      const subscriptionPayload = {
+        changeType: subscriptionConfig.changeTypes.join(','),
+        notificationUrl,
+        resource: subscriptionConfig.resource,
+        expirationDateTime: expirationDateTime.toISOString(),
+        clientState,
+      };
+      
+      console.log('🔔 [Webhook] Creating subscription with payload:', JSON.stringify(subscriptionPayload, null, 2));
+      
+      let subscription;
+      try {
+        subscription = await graphClient.post('/subscriptions', subscriptionPayload);
+      } catch (postError: any) {
+        const errorBody = postError?.body || postError?.message || postError;
+        console.error('🔔 [Webhook] Graph API error details:', JSON.stringify(errorBody, null, 2));
+        throw postError;
+      }
+
+      const [dbSubscription] = await db
+        .insert(graphWebhookSubscriptions)
+        .values({
+          subscriptionId: subscription.id,
+          resource: subscriptionConfig.resource,
+          changeType: subscriptionConfig.changeTypes.join(','),
+          notificationUrl,
+          clientState,
+          expirationDateTime,
+          status: 'active',
+          tenantId: config.graph.tenantId,
+        })
+        .returning();
+
+      console.log(`✅ Created Graph subscription: ${subscription.id}`);
+      console.log(`   Resource: ${subscriptionConfig.resource}`);
+      console.log(`   Expires: ${expirationDateTime.toISOString()}`);
+
+      return dbSubscription.subscriptionId;
+    } catch (error) {
+      console.error('Error creating Graph subscription:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create mock subscription for a specific resource type (development)
+   */
+  private async createMockSubscriptionForResource(
+    notificationUrl: string,
+    subscriptionConfig: typeof SUBSCRIPTION_CONFIGS.callRecords
+  ): Promise<string> {
+    const config = getConfig();
+    const mockId = `mock-${subscriptionConfig.resource.replace(/\//g, '-')}-${Date.now()}`;
+    const clientState = this.generateClientState();
+    
+    const expirationDateTime = new Date();
+    expirationDateTime.setHours(expirationDateTime.getHours() + subscriptionConfig.expirationHours);
+
+    const [subscription] = await db
+      .insert(graphWebhookSubscriptions)
+      .values({
+        subscriptionId: mockId,
+        resource: subscriptionConfig.resource,
+        changeType: subscriptionConfig.changeTypes.join(','),
+        notificationUrl,
+        clientState,
+        expirationDateTime,
+        status: 'active',
+        tenantId: config.graph.tenantId || 'mock-tenant',
+      })
+      .returning();
+
+    console.log(`✅ Created MOCK subscription for ${subscriptionConfig.resource}: ${mockId}`);
+    return subscription.subscriptionId;
   }
 }
 

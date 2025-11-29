@@ -195,18 +195,33 @@ async function processCallRecordNotification(notification: any): Promise<void> {
 }
 
 /**
- * Handle POST request with webhook notifications from Microsoft Graph
+ * Handle POST request with webhook notifications from Microsoft Graph for Online Meetings
+ * This is triggered when a Teams meeting is SCHEDULED, UPDATED, or DELETED
+ * 
+ * IMPORTANT: Microsoft Graph also sends validation requests as POST with validationToken
+ * in query params. We must check for this FIRST before processing as notification.
  */
 async function handleTeamsMeetingWebhook(req: Request, res: Response): Promise<void> {
   try {
-    const { value: notifications } = req.body;
-
-    if (!notifications || !Array.isArray(notifications)) {
-      res.status(400).json({ error: 'Invalid notification payload' });
+    // CRITICAL: Check for validation token FIRST (Microsoft sends validation as POST!)
+    const validationToken = req.query.validationToken as string;
+    if (validationToken) {
+      console.log('✅ [OnlineMeetings] Webhook validation challenge received (via POST)');
+      console.log(`   Token: ${validationToken.substring(0, 50)}...`);
+      res.type('text/plain').status(200).send(validationToken);
       return;
     }
 
-    console.log(`📬 Received ${notifications.length} webhook notification(s)`);
+    const { value: notifications } = req.body;
+
+    if (!notifications || !Array.isArray(notifications)) {
+      console.log('⚠️ [OnlineMeetings] POST request without notifications or validationToken');
+      console.log(`   Body: ${JSON.stringify(req.body).substring(0, 200)}`);
+      res.status(202).send(); // Return 202 to avoid retries
+      return;
+    }
+
+    console.log(`📅 [OnlineMeetings] Received ${notifications.length} meeting notification(s)`);
 
     // Validate and queue each notification
     for (const notification of notifications) {

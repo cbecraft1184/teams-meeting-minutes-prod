@@ -311,9 +311,9 @@ async function scanForEndedMeetings(): Promise<number> {
           idempotencyKey: `enrich-poll-${meeting.id}-${Date.now()}`,
         });
         
-        // Update meeting to mark enrichment as scheduled (using raw SQL for enum)
+        // Update meeting to mark enrichment as in progress (using raw SQL for enum)
         await db.execute(
-          sql`UPDATE meetings SET enrichment_status = 'scheduled', last_enrichment_at = ${now} WHERE id = ${meeting.id}`
+          sql`UPDATE meetings SET enrichment_status = 'enriching', last_enrichment_at = ${now} WHERE id = ${meeting.id}`
         );
         
         console.log(`  ✅ Enqueued enrichment for: ${meeting.title}`);

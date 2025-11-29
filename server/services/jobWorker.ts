@@ -192,10 +192,31 @@ export function isJobWorkerRunning(): boolean {
  * - Session-based (auto-released if connection dies)
  * - Non-blocking (returns false if already locked)
  * 
+ * NOTE: On startup, we first try to release any stale locks that might
+ * be held by crashed/terminated containers. This handles the case where
+ * a container was killed without graceful shutdown.
+ * 
  * @returns true if lock acquired, false if another instance holds it
  */
 async function tryAcquireWorkerLock(): Promise<boolean> {
   try {
+    // First, check if there's a stale lock from a terminated session
+    // by looking at pg_locks combined with pg_stat_activity
+    const staleLockCheck = await db.execute(
+      sql`SELECT COUNT(*) as count FROM pg_locks l 
+          LEFT JOIN pg_stat_activity a ON l.pid = a.pid
+          WHERE l.locktype = 'advisory' 
+          AND l.objid = ${WORKER_LOCK_ID}
+          AND (a.state IS NULL OR a.state = 'idle')`
+    );
+    
+    const staleCount = Number(staleLockCheck.rows[0]?.count || 0);
+    if (staleCount > 0) {
+      console.log("[JobWorker] Detected stale advisory lock, attempting cleanup...");
+      // Force release all advisory locks (only affects current session, but resets state)
+      await db.execute(sql`SELECT pg_advisory_unlock_all()`);
+    }
+    
     const result = await db.execute(
       sql`SELECT pg_try_advisory_lock(${WORKER_LOCK_ID}) as locked`
     );

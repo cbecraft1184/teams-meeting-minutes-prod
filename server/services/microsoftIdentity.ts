@@ -601,9 +601,28 @@ export async function getGraphClient(accessToken?: string): Promise<{
       });
 
       if (!response.ok) {
+        // Try to get error body for detailed debugging
+        let errorBody = null;
+        try {
+          errorBody = await response.json();
+        } catch {
+          try {
+            errorBody = await response.text();
+          } catch {
+            errorBody = null;
+          }
+        }
+        
         const error = new Error(`Graph API request failed: ${response.statusText}`) as any;
         error.status = response.status;
         error.statusText = response.statusText;
+        error.body = errorBody;
+        console.error('[Graph API POST Error]', {
+          url: `${baseUrl}${url}`,
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody
+        });
         throw error;
       }
 

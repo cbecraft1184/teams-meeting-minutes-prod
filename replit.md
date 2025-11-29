@@ -71,3 +71,36 @@ The system is built as a full-stack application with a React-based frontend, a N
 - **Backend**: Express, Drizzle ORM, MSAL, Microsoft Graph Client.
 - **AI**: OpenAI SDK.
 - **Documents**: `docx`, `pdf-lib`.
+
+## Recent Changes
+
+### November 29, 2025 - Microsoft Graph Webhook Subscription Fixed (COMPLETED ✓)
+
+**Problem:** Webhook subscription creation was failing with "Subscription validation request failed. Notification endpoint must respond with 200 OK."
+
+**Root Causes Identified:**
+1. **Traffic Routing Bug**: Azure Container Apps was directing traffic to old revision instead of latest
+2. **POST Validation**: Microsoft Graph sends webhook validation as POST (not GET!) with `validationToken` in query params
+
+**Solutions Applied:**
+- Added POST validation handling in `handleCallRecordWebhook` - checks for validationToken before processing as notification
+- Added 30-second warmup delay before subscription creation to ensure app is fully ready
+- Added retry logic (3 attempts with 15s backoff) for subscription creation
+- Fixed traffic routing with `az containerapp ingress traffic set --revision-weight latest=100`
+
+**Key Files Modified:**
+- `server/routes/webhooks.ts` - Added POST validation token handling
+- `server/services/graphSubscriptionManager.ts` - Added warmup delay and retry logic
+
+**Current Status:**
+- **Version**: v1.0.18 deployed to Azure Container Apps
+- **Subscription ID**: `3bd46b18-07d8-499a-a91a-d2a9535d5016`
+- **Resource**: `/communications/callRecords`
+- **Expires**: December 1, 2025 (auto-renews every 48 hours)
+- **Webhook Endpoint**: `https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/webhooks/graph/callRecords`
+
+**How It Works:**
+1. When a Teams meeting ends, Microsoft Graph creates a call record
+2. Graph sends a POST notification to our webhook endpoint
+3. Our handler extracts the call record ID and triggers meeting enrichment
+4. The enrichment job fetches transcript/recording and generates AI minutes

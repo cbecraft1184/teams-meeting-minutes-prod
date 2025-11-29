@@ -27,7 +27,7 @@ let workerLockHeld = false;
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Cleanup every hour
 const MEETING_SCAN_INTERVAL_MS = 60 * 1000; // Scan for ended meetings every minute
-const WORKER_LOCK_ID = 1234567890; // Unique ID for job worker advisory lock
+const WORKER_LOCK_ID = 1234567891; // Unique ID for job worker advisory lock (bumped to bypass stale lock)
 const MEETING_END_BUFFER_MINUTES = 5; // Wait 5 minutes after meeting ends before enrichment
 
 let lastMeetingScan = 0; // Track last meeting scan time

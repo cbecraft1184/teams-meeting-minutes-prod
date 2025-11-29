@@ -29,13 +29,14 @@ export function serveStatic(app: Express) {
   // Catch-all for client-side routing
   // IMPORTANT: Exclude /webhooks/* and /api/* paths - those are handled by API routes
   app.use("*", (req, res, next) => {
-    const path = req.originalUrl || req.path;
+    const reqPath = req.originalUrl || req.path;
     
     // Don't serve SPA for API or webhook routes - let them 404 properly if not found
-    if (path.startsWith('/webhooks/') || path.startsWith('/api/')) {
+    if (reqPath.startsWith('/webhooks/') || reqPath.startsWith('/api/') || reqPath.startsWith('/health')) {
+      console.log(`[Static] Skipping catch-all for: ${reqPath}`);
       return next();
     }
     
-    res.sendFile(require('path').resolve(distPath, "index.html"));
+    res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

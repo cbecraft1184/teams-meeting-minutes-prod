@@ -116,15 +116,18 @@ app.use((req, res, next) => {
     }
     
     // Initialize Microsoft Graph webhook subscriptions for call record detection
+    // NOTE: Requires CallRecords.Read.All permission with admin consent
+    // Until then, use polling-based enrichment in jobWorker (default behavior)
     const config = getConfig();
-    if (!config.useMockServices && process.env.ENABLE_WEBHOOKS !== "false") {
+    if (!config.useMockServices && process.env.ENABLE_GRAPH_WEBHOOKS === "true") {
       const baseUrl = process.env.APP_URL || `https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io`;
       log(`Initializing Graph webhooks (baseUrl: ${baseUrl})...`);
       graphSubscriptionManager.initializeSubscription(baseUrl).catch(err => {
         console.error('Failed to initialize Graph webhooks:', err);
       });
     } else {
-      log("Graph webhooks disabled (mock mode or ENABLE_WEBHOOKS=false)");
+      log("Graph webhooks disabled - using polling-based enrichment instead");
+      log("  (Set ENABLE_GRAPH_WEBHOOKS=true after granting CallRecords.Read.All permission)");
     }
   });
 

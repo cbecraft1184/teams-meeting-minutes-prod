@@ -1,9 +1,10 @@
-import { dequeueJob, recoverStuckJobs, getJobStats, cleanupOldJobs } from "./durableQueue";
+import { dequeueJob, recoverStuckJobs, getJobStats, cleanupOldJobs, enqueueJob } from "./durableQueue";
 import { processJob } from "./meetingOrchestrator";
 import { processOutboxMessages, recoverOutboxMessages } from "./outboxProcessor";
 import type { JobType } from "./durableQueue";
 import { db } from "../db";
-import { sql } from "drizzle-orm";
+import { sql, and, lt, eq, or, isNull } from "drizzle-orm";
+import { meetings } from "@shared/schema";
 
 /**
  * Job Worker with PostgreSQL Advisory Locking
@@ -25,7 +26,11 @@ let workerLockHeld = false;
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // Cleanup every hour
+const MEETING_SCAN_INTERVAL_MS = 60 * 1000; // Scan for ended meetings every minute
 const WORKER_LOCK_ID = 1234567890; // Unique ID for job worker advisory lock
+const MEETING_END_BUFFER_MINUTES = 5; // Wait 5 minutes after meeting ends before enrichment
+
+let lastMeetingScan = 0; // Track last meeting scan time
 
 /**
  * Start the job worker with distributed locking
@@ -107,6 +112,16 @@ export async function startJobWorker(): Promise<void> {
     // Main processing loop
     while (!shouldStop) {
       try {
+        // Scan for ended meetings periodically (polling-based enrichment)
+        const now = Date.now();
+        if (now - lastMeetingScan > MEETING_SCAN_INTERVAL_MS) {
+          lastMeetingScan = now;
+          const scanned = await scanForEndedMeetings();
+          if (scanned > 0) {
+            console.log(`[JobWorker] Scanned and enqueued ${scanned} meetings for enrichment`);
+          }
+        }
+
         // Process outbox messages first (high priority - user-facing notifications)
         const outboxProcessed = await processOutboxMessages(10);
 
@@ -223,4 +238,73 @@ export function hasWorkerLock(): boolean {
  */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Scan for meetings that have ended and need enrichment
+ * 
+ * This is a POLLING-BASED alternative to Graph webhooks for callRecords.
+ * The webhook approach requires CallRecords.Read.All permission which needs
+ * tenant admin consent. Until that's granted, we poll for ended meetings.
+ * 
+ * Criteria for enrichment:
+ * - endTime is in the past (with buffer for Graph API eventual consistency)
+ * - enrichmentStatus is 'pending' or 'scheduled' (not already processed)
+ * - isOnlineMeeting is true (only Teams meetings have transcripts)
+ * - No retry scheduled or retry time has passed
+ */
+async function scanForEndedMeetings(): Promise<number> {
+  try {
+    const now = new Date();
+    const bufferTime = new Date(now.getTime() - MEETING_END_BUFFER_MINUTES * 60 * 1000);
+    
+    // Find meetings that have ended and need enrichment
+    // Use raw SQL for enum comparison to avoid TypeScript type issues
+    const endedMeetings = await db.execute(
+      sql`SELECT id, title, end_time, enrichment_status, enrichment_attempts, call_record_retry_at
+          FROM meetings
+          WHERE end_time < ${bufferTime}
+            AND is_online_meeting = true
+            AND (enrichment_status = 'pending' OR enrichment_status IS NULL)
+            AND (call_record_retry_at IS NULL OR call_record_retry_at < ${now})
+          LIMIT 10`
+    ) as { rows: Array<{ id: string; title: string; end_time: Date | null; enrichment_status: string | null }> };
+    
+    if (endedMeetings.rows.length === 0) {
+      return 0;
+    }
+    
+    console.log(`📋 [MeetingScanner] Found ${endedMeetings.rows.length} ended meetings needing enrichment`);
+    
+    let enqueued = 0;
+    for (const meeting of endedMeetings.rows) {
+      try {
+        // Enqueue enrichment job
+        await enqueueJob({
+          jobType: 'enrich_meeting',
+          payload: {
+            meetingId: meeting.id,
+            title: meeting.title,
+            source: 'polling_scanner',
+          },
+          idempotencyKey: `enrich-poll-${meeting.id}-${Date.now()}`,
+        });
+        
+        // Update meeting to mark enrichment as scheduled (using raw SQL for enum)
+        await db.execute(
+          sql`UPDATE meetings SET enrichment_status = 'scheduled', last_enrichment_at = ${now} WHERE id = ${meeting.id}`
+        );
+        
+        console.log(`  ✅ Enqueued enrichment for: ${meeting.title}`);
+        enqueued++;
+      } catch (err) {
+        console.error(`  ❌ Failed to enqueue ${meeting.id}:`, err);
+      }
+    }
+    
+    return enqueued;
+  } catch (error) {
+    console.error('[MeetingScanner] Error scanning for ended meetings:', error);
+    return 0;
+  }
 }

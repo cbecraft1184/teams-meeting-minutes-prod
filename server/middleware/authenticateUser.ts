@@ -408,7 +408,7 @@ async function validateAndLoadUser(
         } else {
           // Cache miss/expired - fetch fresh using access token
           console.log(`📡 [Auth] Fetching fresh Azure AD groups for ${user.email}`);
-          const freshGroups = await graphGroupSyncService.fetchUserGroups(user.azureAdId, accessToken);
+          const freshGroups = await graphGroupSyncService.fetchUserGroups(user.azureAdId, accessToken, user.email);
           
           if (freshGroups) {
             azureAdGroups = {

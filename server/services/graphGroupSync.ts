@@ -66,23 +66,65 @@ const RETRY_DELAYS = [1000, 2000, 5000]; // Exponential backoff for 429
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes cache TTL (Task 4.3)
 
 /**
+ * Get designated admin emails from environment variable
+ * Format: DESIGNATED_ADMINS=email1@domain.com,email2@domain.com
+ * These users get admin role and TOP_SECRET clearance regardless of group membership
+ */
+function getDesignatedAdmins(): string[] {
+  const admins = process.env.DESIGNATED_ADMINS || '';
+  return admins.split(',').map(e => e.trim().toLowerCase()).filter(e => e.length > 0);
+}
+
+/**
  * Azure AD Group Synchronization Service
  */
 export class GraphGroupSyncService {
+  
+  /**
+   * Check if email is a designated admin (bypasses Azure AD group requirements)
+   * Uses DESIGNATED_ADMINS environment variable
+   */
+  isDesignatedAdmin(email: string): boolean {
+    const designatedAdmins = getDesignatedAdmins();
+    const isAdmin = designatedAdmins.includes(email.toLowerCase());
+    if (isAdmin) {
+      console.log(`👑 [GraphGroupSync] ${email} is a DESIGNATED ADMIN`);
+    }
+    return isAdmin;
+  }
+  
+  /**
+   * Get admin groups for designated admin users
+   */
+  getDesignatedAdminGroups(): UserGroups {
+    return {
+      clearanceLevel: 'TOP_SECRET',
+      role: 'admin',
+      groupNames: ['DESIGNATED-ADMIN'],
+      source: 'mock'
+    };
+  }
   
   /**
    * Fetch user's Azure AD groups and normalize to clearance + role
    * 
    * @param azureAdId - User's Azure AD object ID
    * @param accessToken - Optional access token (for non-authenticated contexts)
+   * @param userEmail - Optional email to check for designated admin override
    * @returns Normalized user groups
    * 
    * Note: forceRefresh option removed until Task 4.3 implements caching
    */
   async fetchUserGroups(
     azureAdId: string,
-    accessToken?: string
+    accessToken?: string,
+    userEmail?: string
   ): Promise<UserGroups> {
+    // Check if user is a designated admin (bypasses all Azure AD requirements)
+    if (userEmail && this.isDesignatedAdmin(userEmail)) {
+      return this.getDesignatedAdminGroups();
+    }
+    
     // Match configValidator logic: default to mock mode in dev (when undefined)
     const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
                             process.env.USE_MOCK_SERVICES === undefined;

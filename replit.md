@@ -74,33 +74,32 @@ The system is built as a full-stack application with a React-based frontend, a N
 
 ## Recent Changes
 
-### November 29, 2025 - Microsoft Graph Webhook Subscription Fixed (COMPLETED ✓)
+### November 29, 2025 - Full Meeting Lifecycle Tracking (COMPLETED ✓)
 
-**Problem:** Webhook subscription creation was failing with "Subscription validation request failed. Notification endpoint must respond with 200 OK."
+**Enhancement:** Dual webhook subscriptions now track meetings from scheduling through archival.
 
-**Root Causes Identified:**
-1. **Traffic Routing Bug**: Azure Container Apps was directing traffic to old revision instead of latest
-2. **POST Validation**: Microsoft Graph sends webhook validation as POST (not GET!) with `validationToken` in query params
+**Features Added:**
+1. **Dual Webhook Subscriptions**: System creates two Graph API subscriptions:
+   - `/communications/callRecords` - Detects when meetings END (triggers transcript fetch)
+   - `/communications/onlineMeetings` - Detects when meetings are SCHEDULED (early tracking)
+2. **Calendar Sync Service**: `calendarSyncService.ts` syncs existing scheduled meetings on startup
+3. **Exponential Backoff**: Transcript fetch retries at 5, 15, 45 minute intervals (Graph API eventual consistency)
+4. **POST Validation Handling**: Both webhook handlers support validation token in POST requests
 
-**Solutions Applied:**
-- Added POST validation handling in `handleCallRecordWebhook` - checks for validationToken before processing as notification
-- Added 30-second warmup delay before subscription creation to ensure app is fully ready
-- Added retry logic (3 attempts with 15s backoff) for subscription creation
-- Fixed traffic routing with `az containerapp ingress traffic set --revision-weight latest=100`
+**Key Files:**
+- `server/services/graphSubscriptionManager.ts` - Dual subscription creation with retry logic
+- `server/routes/webhooks.ts` - Handlers for both callRecords and onlineMeetings
+- `server/services/calendarSyncService.ts` - Manual calendar sync capability
+- `server/services/callRecordEnrichment.ts` - Exponential backoff for transcript fetching
+- `docs/END_TO_END_TEST_PLAN.md` - Comprehensive test documentation
 
-**Key Files Modified:**
-- `server/routes/webhooks.ts` - Added POST validation token handling
-- `server/services/graphSubscriptionManager.ts` - Added warmup delay and retry logic
+**Webhook Endpoints:**
+- Call Records: `/webhooks/graph/callRecords` (meeting completion)
+- Online Meetings: `/webhooks/graph/teams/meetings` (meeting scheduling)
 
-**Current Status:**
-- **Version**: v1.0.18 deployed to Azure Container Apps
-- **Subscription ID**: `3bd46b18-07d8-499a-a91a-d2a9535d5016`
-- **Resource**: `/communications/callRecords`
-- **Expires**: December 1, 2025 (auto-renews every 48 hours)
-- **Webhook Endpoint**: `https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/webhooks/graph/callRecords`
-
-**How It Works:**
-1. When a Teams meeting ends, Microsoft Graph creates a call record
-2. Graph sends a POST notification to our webhook endpoint
-3. Our handler extracts the call record ID and triggers meeting enrichment
-4. The enrichment job fetches transcript/recording and generates AI minutes
+**Meeting Lifecycle Flow:**
+1. User schedules Teams meeting → onlineMeetings webhook → Meeting created in DB (status: scheduled)
+2. Meeting occurs with transcription enabled
+3. Meeting ends → callRecords webhook → Enrichment job queued
+4. Transcript fetched (with retry backoff) → AI minutes generated
+5. Approval workflow → Email distribution → SharePoint archival

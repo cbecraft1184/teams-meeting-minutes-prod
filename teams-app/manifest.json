@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.20/MicrosoftTeams.schema.json",
   "manifestVersion": "1.20",
-  "version": "1.0.6",
+  "version": "1.0.19",
   "id": "6d94baf3-1ed6-4d34-8401-71c724305571",
   "developer": {
     "name": "Christopher Becraft",
@@ -26,22 +26,22 @@
     {
       "entityId": "dashboard",
       "name": "Dashboard",
-      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251127b",
-      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251127b",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251129",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251129",
       "scopes": ["personal"]
     },
     {
       "entityId": "meetings",
       "name": "Meetings",
-      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251127b",
-      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251127b",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251129",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251129",
       "scopes": ["personal"]
     },
     {
       "entityId": "search",
       "name": "Archive",
-      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251127b",
-      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251127b",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251129",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251129",
       "scopes": ["personal"]
     }
   ],

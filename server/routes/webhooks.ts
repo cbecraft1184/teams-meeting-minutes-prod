@@ -33,12 +33,16 @@ let isProcessing = false;
  * Security is provided by clientState validation (shared secret with Microsoft)
  */
 export function registerWebhookRoutes(router: Router): void {
+  console.log('🔔 [Webhook Routes] Registering webhook routes...');
+  
   // PUBLIC endpoints - NO authentication required (Microsoft Graph callbacks)
   // Using /webhooks/* instead of /api/webhooks/* to avoid auth middleware
   
   // Call Records webhook - triggers when meetings END (for transcript/recording fetch)
   router.post('/webhooks/graph/callRecords', handleCallRecordWebhook);
   router.get('/webhooks/graph/callRecords', handleValidationChallenge);
+  
+  console.log('🔔 [Webhook Routes] Registered: GET/POST /webhooks/graph/callRecords');
   
   // Online Meetings webhook - triggers for meeting schedule changes
   router.post('/webhooks/graph/teams/meetings', handleTeamsMeetingWebhook);

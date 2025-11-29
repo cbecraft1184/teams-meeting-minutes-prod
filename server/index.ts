@@ -1,6 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { serveStatic, log } from "./static";
+import { log } from "./static";
 import { validateAndLogConfig, getConfig } from "./services/configValidator";
 import { startJobWorker, stopJobWorker } from "./services/jobWorker";
 import { initializeKeyVaultClient } from "./services/azureKeyVault";
@@ -85,9 +85,9 @@ app.use((req, res, next) => {
     // Dynamic import to avoid bundling vite in production
     const { setupVite } = await import("./vite");
     await setupVite(app, server);
-  } else {
-    serveStatic(app);
   }
+  // NOTE: In production, static serving is now handled inside registerRoutes
+  // to ensure webhook routes are registered BEFORE the catch-all middleware
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.

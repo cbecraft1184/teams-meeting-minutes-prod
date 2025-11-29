@@ -16,9 +16,24 @@ import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
 import { teamsBotAdapter } from "./services/teamsBot";
 import { graphCalendarSync } from "./services/graphCalendarSync";
 import { ZodError } from "zod";
+import { serveStatic as setupProductionStatic } from "./static";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
+  
+  // ========== GLOBAL PRE-ROUTING GUARD ==========
+  // This middleware runs BEFORE express.static and ensures webhook requests 
+  // are never accidentally served the SPA HTML
+  app.use((req, res, next) => {
+    const path = (req.originalUrl || req.path || '').toLowerCase();
+    
+    // Debug logging for webhook requests
+    if (path.includes('/webhooks/') || path.includes('/api/')) {
+      console.log(`[PRE-ROUTE GUARD] ${req.method} ${req.originalUrl} (path=${req.path})`);
+    }
+    
+    next();
+  });
   
   // ========== PUBLIC ENDPOINTS (NO AUTHENTICATION) ==========
   
@@ -1488,6 +1503,14 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // CRITICAL: Set up static file serving for production AFTER all API/webhook routes
+  // This ensures webhook routes are matched before the catch-all SPA middleware
+  // In development, Vite handles this via setupVite in index.ts
+  if (process.env.NODE_ENV === "production") {
+    console.log("[Routes] Setting up production static file serving...");
+    setupProductionStatic(app);
+  }
 
   return httpServer;
 }

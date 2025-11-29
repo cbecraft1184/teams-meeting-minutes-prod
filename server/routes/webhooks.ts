@@ -33,12 +33,16 @@ let isProcessing = false;
  * Security is provided by clientState validation (shared secret with Microsoft)
  */
 export function registerWebhookRoutes(router: Router): void {
+  console.log('🔔 [Webhook Routes] Registering webhook routes...');
+  
   // PUBLIC endpoints - NO authentication required (Microsoft Graph callbacks)
   // Using /webhooks/* instead of /api/webhooks/* to avoid auth middleware
   
   // Call Records webhook - triggers when meetings END (for transcript/recording fetch)
   router.post('/webhooks/graph/callRecords', handleCallRecordWebhook);
   router.get('/webhooks/graph/callRecords', handleValidationChallenge);
+  
+  console.log('🔔 [Webhook Routes] Registered: GET/POST /webhooks/graph/callRecords');
   
   // Online Meetings webhook - triggers for meeting schedule changes
   router.post('/webhooks/graph/teams/meetings', handleTeamsMeetingWebhook);
@@ -80,13 +84,27 @@ async function handleValidationChallenge(req: Request, res: Response): Promise<v
 /**
  * Handle POST request with call record webhook notifications from Microsoft Graph
  * This is triggered when a Teams meeting ENDS and a call record is created
+ * 
+ * IMPORTANT: Microsoft Graph also sends validation requests as POST with validationToken
+ * in query params. We must check for this FIRST before processing as notification.
  */
 async function handleCallRecordWebhook(req: Request, res: Response): Promise<void> {
   try {
+    // CRITICAL: Check for validation token FIRST (Microsoft sends validation as POST!)
+    const validationToken = req.query.validationToken as string;
+    if (validationToken) {
+      console.log('✅ Webhook validation challenge received (via POST)');
+      console.log(`   Token: ${validationToken.substring(0, 50)}...`);
+      res.type('text/plain').status(200).send(validationToken);
+      return;
+    }
+    
     const { value: notifications } = req.body;
 
     if (!notifications || !Array.isArray(notifications)) {
-      res.status(400).json({ error: 'Invalid notification payload' });
+      console.log('⚠️ [CallRecords] POST request without notifications or validationToken');
+      console.log(`   Body: ${JSON.stringify(req.body).substring(0, 200)}`);
+      res.status(202).send(); // Return 202 to avoid retries
       return;
     }
 

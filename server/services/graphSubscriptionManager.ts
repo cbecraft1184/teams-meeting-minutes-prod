@@ -369,8 +369,21 @@ export class GraphSubscriptionManager {
   /**
    * Initialize webhook subscription on app startup
    * Creates a new subscription if none exists
+   * 
+   * IMPORTANT: Delays initialization to ensure app is fully warmed up
+   * Graph API validation requests can fail if app isn't ready to respond
    */
   async initializeSubscription(baseUrl: string): Promise<void> {
+    // Delay subscription creation to ensure app is fully warmed
+    // Graph API validates by calling our webhook endpoint immediately
+    // If the endpoint isn't ready, validation fails
+    const WARMUP_DELAY_MS = 30000; // 30 seconds
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 15000; // 15 seconds between retries
+    
+    console.log(`🔔 [Webhook] Waiting ${WARMUP_DELAY_MS/1000}s for app warmup before subscription creation...`);
+    await new Promise(resolve => setTimeout(resolve, WARMUP_DELAY_MS));
+    
     console.log('🔔 [Webhook] Checking for existing subscriptions...');
     
     // Check if we already have an active subscription
@@ -387,19 +400,30 @@ export class GraphSubscriptionManager {
       return;
     }
     
-    // No active subscriptions, create one
+    // No active subscriptions, create one with retry logic
     console.log('🔔 [Webhook] No active subscriptions found, creating new one...');
     
     const notificationUrl = `${baseUrl}/webhooks/graph/callRecords`;
     console.log(`🔔 [Webhook] Notification URL: ${notificationUrl}`);
     
-    const subscriptionId = await this.createSubscription(notificationUrl);
-    
-    if (subscriptionId) {
-      console.log(`✅ [Webhook] Subscription created successfully: ${subscriptionId}`);
-    } else {
-      console.error('❌ [Webhook] Failed to create subscription');
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      console.log(`🔔 [Webhook] Subscription creation attempt ${attempt}/${MAX_RETRIES}...`);
+      
+      const subscriptionId = await this.createSubscription(notificationUrl);
+      
+      if (subscriptionId) {
+        console.log(`✅ [Webhook] Subscription created successfully: ${subscriptionId}`);
+        return;
+      }
+      
+      if (attempt < MAX_RETRIES) {
+        console.log(`⚠️ [Webhook] Attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS/1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      }
     }
+    
+    console.error('❌ [Webhook] Failed to create subscription after all retries');
+    console.log('📊 [Webhook] Note: Polling-based enrichment is still active as fallback');
   }
 }
 

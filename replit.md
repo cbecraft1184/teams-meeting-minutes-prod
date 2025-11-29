@@ -2,15 +2,17 @@
 
 ## Overview
 
-AI-powered Microsoft Teams meeting minutes management system deployed on Azure Commercial with full Microsoft 365 integration.
+This project delivers an AI-powered Microsoft Teams meeting minutes management system designed for deployment on Azure Commercial with full Microsoft 365 integration. Its primary purpose is to automate and streamline the process of capturing, generating, reviewing, and distributing meeting minutes.
 
-**Key Capabilities:**
-- Automatic Teams meeting capture via Microsoft Graph webhooks
-- AI-powered minutes generation (Azure OpenAI GPT-4o + Whisper)
-- Review and approval workflow with configurable settings
-- Document export (DOCX/PDF)
-- Email distribution and SharePoint archival
-- Durable job queue for reliable background processing
+Key capabilities include:
+- Automatic meeting capture using Microsoft Graph webhooks.
+- AI-driven minutes generation leveraging Azure OpenAI's GPT-4o and Whisper.
+- A configurable review and approval workflow.
+- Document export in DOCX and PDF formats.
+- Automated email distribution and SharePoint archival.
+- A durable job queue ensures reliable background processing.
+
+The system aims to enhance productivity within Microsoft 365 environments by providing an efficient, integrated solution for meeting management.
 
 ## User Preferences
 
@@ -21,192 +23,51 @@ AI-powered Microsoft Teams meeting minutes management system deployed on Azure C
 
 ## System Architecture
 
+The system is built as a full-stack application with a React-based frontend, a Node.js Express backend, and PostgreSQL for data persistence.
+
 ### Frontend
-- **Framework**: React + TypeScript, Vite
-- **UI Components**: Fluent UI React Components (native Teams design system)
-- **Styling**: Fluent UI makeStyles with design tokens (supporting light/dark/high contrast themes)
-- **State Management**: TanStack Query for server state
-- **Routing**: Wouter (lightweight client-side routing)
-- **Key Pages**: Dashboard, Meetings list, Archive search
-- **Design Decision**: Fluent UI provides a native Teams look and feel with accessibility. TanStack Query ensures real-time updates and efficient data handling.
+- **Framework**: React + TypeScript with Vite.
+- **UI Components**: Fluent UI React Components for native Teams look and feel, supporting light/dark/high contrast themes.
+- **State Management**: TanStack Query for efficient server state handling.
+- **Routing**: Wouter for lightweight client-side navigation.
 
 ### Backend
-- **Runtime**: Node.js + Express (TypeScript, ESM modules)
-- **API Pattern**: RESTful JSON API (`/api/*` prefix)
-- **Authentication**: Azure AD JWT validation via MSAL (production); Mock users (development)
-- **Job Processing**: PostgreSQL-backed durable queue with retry, crash recovery, and idempotency
-- **Middleware**: JSON parsing, logging, authentication, webhook validation
-- **Design Decision**: Express for simplicity and Azure compatibility. A PostgreSQL queue provides transactional guarantees without external message brokers. Dual authentication modes support both production and local development.
+- **Runtime**: Node.js + Express (TypeScript, ESM modules) providing a RESTful JSON API.
+- **Authentication**: Azure AD JWT validation via MSAL for production, with mock users for development.
+- **Job Processing**: A PostgreSQL-backed durable queue handles background jobs with retry, crash recovery, and idempotency.
 
 ### Data Storage
-- **Database**: PostgreSQL (Neon serverless for development)
-- **ORM**: Drizzle ORM with TypeScript schemas
-- **Core Tables**: `meetings`, `meeting_minutes`, `action_items`, `users`, `meeting_templates`, `graph_webhook_subscriptions`, `user_group_cache`, `teams_conversation_references`, `sent_messages`, `message_outbox`, `job_queue`, `app_settings` (12 tables total)
-- **Design Decision**: Drizzle ORM for zero-runtime overhead. A database-backed job queue provides transactional guarantees and idempotency. Strict schema validation is enforced for all database writes.
+- **Database**: PostgreSQL (Neon serverless for development, Azure Database for PostgreSQL for production).
+- **ORM**: Drizzle ORM with TypeScript schemas for robust data management across 12 core tables including `meetings`, `meeting_minutes`, `action_items`, and `job_queue`.
 
 ### Microsoft Graph Integration
-- **API Version**: Microsoft Graph v1.0
-- **Primary Resources**: `/communications/onlineMeetings`, `/communications/callRecords`, `/users/{userId}/memberOf`, `/sites/{siteId}/drive`
-- **Webhooks**: 48-hour subscriptions with 12-hour renewal
-- **Authentication**: Azure AD OAuth with token caching
-- **Design Decision**: Webhook subscriptions enable real-time meeting capture.
+- Utilizes Microsoft Graph v1.0 for real-time meeting capture via 48-hour webhooks (with 12-hour renewal), accessing resources like `/communications/onlineMeetings` and `/sites/{siteId}/drive`. Authentication uses Azure AD OAuth with token caching.
 
 ### AI Integration
-- **Primary**: Azure OpenAI Service (GPT-4o for minutes, Whisper for transcription)
-- **Fallback**: Replit AI (development only)
-- **Processing Pipeline**: Extracts transcript, generates structured minutes (summary, discussions, decisions), extracts action items.
-- **Design Decision**: Azure OpenAI for commercial readiness. Replit AI provides a development fallback.
+- Leverages Azure OpenAI Service (GPT-4o for minutes, Whisper for transcription) as the primary AI provider, with Replit AI as a development fallback. The pipeline extracts transcripts, generates structured minutes, and identifies action items.
 
 ### Background Job System
-- **Queue**: PostgreSQL `job_queue` table
-- **Job Types**: `enrich_meeting`, `generate_minutes`, `send_email`, `upload_sharepoint`
-- **Features**: Idempotency, automatic retry (max 3 attempts), crash recovery, dead-letter queue, transactional outbox pattern for exactly-once delivery.
-- **Design Decision**: PostgreSQL queue for reliability and reduced external dependencies.
+- A PostgreSQL `job_queue` table manages durable background tasks such as `enrich_meeting`, `generate_minutes`, `send_email`, and `upload_sharepoint`, ensuring idempotency, automatic retries, and crash recovery.
 
 ### Document Generation
-- **Formats**: DOCX (editable) and PDF (archival)
-- **Libraries**: `docx` for DOCX, `pdf-lib` for PDF
-- **Content Structure**: Title page, attendee list, agenda/discussion, decisions, action items, timestamp.
-
-## Development Environment
-
-### Local Development
-- Replit with hot-reload (Vite HMR)
-- Mock authentication (no Azure AD required)
-- In-memory or Neon PostgreSQL database
-- Replit AI for minutes generation (no Azure OpenAI needed)
-
-### Demo Deployment
-- Azure Commercial Cloud (East US 2)
-- **Azure Container Apps** (Container-based deployment with auto-scaling)
-- Azure Container Registry (for container images)
-- Azure Database for PostgreSQL Flexible Server (Burstable B2s for demo, General Purpose for production)
-- Azure OpenAI Service (GPT-4o model)
-- Application Insights for monitoring
-
-**Deployment URL:** https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
-
-**Cost**: Estimated $85-95/month (demo with Container Apps), $350-400/month (100 users production)
+- Supports DOCX (editable) using `docx` and PDF (archival) using `pdf-lib`, structuring content with title pages, attendees, agenda, decisions, and action items.
 
 ## External Dependencies
 
 ### Microsoft Services
-- **Microsoft 365**: Teams, SharePoint, Exchange
-- **Azure Active Directory**: Authentication and authorization
-- **Microsoft Graph API**: Teams integration, user data, SharePoint access
+- **Microsoft 365**: Teams, SharePoint, Exchange for core integration.
+- **Azure Active Directory**: For authentication and authorization.
+- **Microsoft Graph API**: Enables deep integration with Teams, user data, and SharePoint.
 
 ### Azure Services
-- **Azure OpenAI**: GPT-4o and Whisper models
-- **Azure Container Apps**: Application hosting
-- **Azure Container Registry**: Container image storage
-- **Azure Database for PostgreSQL**: Data persistence
-- **Application Insights**: Monitoring and logging
+- **Azure OpenAI**: Provides AI capabilities (GPT-4o, Whisper).
+- **Azure Container Apps**: Hosts the application with auto-scaling.
+- **Azure Container Registry**: Stores container images.
+- **Azure Database for PostgreSQL**: Provides managed database services.
+- **Application Insights**: For monitoring and logging.
 
 ### Third-Party Libraries
-- **Frontend**: React, Wouter, Fluent UI React Components, Tailwind CSS, TanStack Query
-- **Backend**: Express, Drizzle ORM, MSAL, Microsoft Graph Client
-- **AI**: OpenAI SDK (Azure + Replit compatible)
-- **Documents**: `docx`, `pdf-lib`
-- **Utilities**: `date-fns`, `zod`, `nanoid`
-
-## Security
-
-- **Authentication**: Azure AD OAuth 2.0
-- **Transport**: HTTPS/TLS 1.2+
-- **Data**: Encryption at rest (Azure default)
-- **Access**: Azure AD group-based permissions
-- **Monitoring**: Application Insights with real-time alerting
-
-## Recent Changes
-
-- **November 2025 (Azure Deployment - Vite Production Bundle Fix)**: Fixed ERR_MODULE_NOT_FOUND for vite in production (IN PROGRESS 🔄)
-  - **Root Cause**: esbuild was bundling `server/vite.ts` into production bundle, causing runtime crash when vite devDependency wasn't available
-  - **Solution**: 
-    - Created `server/static.ts` with production-safe `log()` and `serveStatic()` functions (no vite dependency)
-    - Updated `server/index.ts` to use dynamic import for Vite: `const { setupVite } = await import("./vite")`
-    - Created `scripts/build-server.mjs` with esbuild flags: `--external:./vite --external:./vite.js --external:../vite.config.ts`
-    - Updated Dockerfile to use `node scripts/build-server.mjs` instead of `npm run build`
-  - **Impact**: Production bundle no longer requires vite devDependency, eliminating container startup crash
-  - **Verification**: `grep 'from "vite"' dist/index.js` returns empty after build
-  - **Status**: Code changes complete, awaiting Azure deployment test
-- **November 2025 (Documentation - Credential Recovery & Mock Services)**: Fixed critical deployment documentation gaps (COMPLETED ✓)
-  - **DEPLOYMENT_FIX_GUIDE.md**: New comprehensive credential recovery guide for Portal-based configuration
-  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: 
-    - Added credential capture reminders in Phase 1 & 2 (PostgreSQL password, Bot secret, Graph secret)
-    - Fixed Step 2.3 - Bot registration now creates proper single-tenant app registration first
-    - Added Step 3.4 - Optional SharePoint/email configuration with mock services option
-    - Updated Step 3.5 - Two deployment paths (with/without SharePoint & email)
-    - Added Appendix A - Complete credential recovery procedures for all scenarios
-    - Added Appendix B - Container App environment variable update procedures
-  - **DEPLOYMENT_SUMMARY.md**: Updated to reference new appendices and mock services option
-  - **Root Cause**: Original documentation assumed perfect deployment, didn't cover credential recovery, required SharePoint/email without setup instructions, lacked troubleshooting for common scenarios
-  - **Impact**: Users can now deploy with `USE_MOCK_SERVICES=true` for faster initial deployment, recover lost credentials via Portal, and configure Container Apps that exist without environment variables
-- **November 2025 (GitHub Repository Setup)**: Created GitHub repository setup guide and enhanced .gitignore (COMPLETED ✓)
-  - **GITHUB_SETUP.md**: Complete guide for GitHub repository setup and automated Azure deployments
-    - Part 1: Create GitHub repository (web interface or CLI)
-    - Part 2: Push code to GitHub with authentication instructions
-    - Part 3: Configure GitHub Actions for Azure Container Apps deployment
-    - Part 4: Verify deployment workflow
-    - Part 5: Branch protection recommendations
-    - Part 6: Repository maintenance procedures
-  - **Enhanced .gitignore**: Added environment variables, logs, deployment artifacts, IDE files
-  - **Deployment Workflow**: GitHub Actions workflow for automated container builds and deployments
-  - **Security Best Practices**: Service principal setup, secrets management, branch protection
-- **November 2025 (Documentation - Container Apps)**: Fixed all App Service references in deployment documentation (COMPLETED ✓)
-  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: 
-    - Removed ALL App Service references (App Service Plan, Web App, azurewebsites.net)
-    - Updated to Azure Container Apps throughout (ACR, Container Apps Environment, Container App)
-    - Added managed identity setup for Key Vault access
-    - Updated cost estimates ($85/month demo, $463/month production)
-    - Fixed all CLI commands (`az containerapp` instead of `az webapp`)
-    - Updated rollback procedures for container-based deployments
-    - Fixed quick reference section with Container Apps URLs and commands
-  - **DEPLOYMENT_LOG.md**: Updated Phase 1 summary to reflect Container Apps architecture
-- **November 2025 (Email Distribution Implementation)**: Implemented Microsoft Graph API email distribution (COMPLETED ✓)
-  - **server/services/emailDistribution.ts**: Implemented production sendViaGraphAPI method
-    - Uses app-only authentication via acquireTokenByClientCredentials
-    - Calls Microsoft Graph /users/{senderEmail}/sendMail endpoint
-    - Proper base64 encoding for attachments (DOCX/PDF)
-    - Robust error handling with retry propagation to durable queue
-  - **server/services/configValidator.ts**: Added GRAPH_SENDER_EMAIL configuration
-  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: Added GRAPH_SENDER_EMAIL to Phase 3.2 environment variables
-  - **Required Azure AD Permissions**: Application requires Mail.Send permission with admin consent
-  - **Architecture Review**: PASSED - Production-ready, secure, consistent with SharePoint integration patterns
-- **November 2025 (Documentation Updates)**: Fixed deployment documentation errors and added tenant requirements (COMPLETED ✓)
-  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: 
-    - Fixed environment variables (added _PROD suffix), build process, database table count (12 tables)
-    - Added comprehensive tenant requirements section explaining that demo users must be in the same Office 365 tenant
-    - Added Microsoft 365 Developer Program setup instructions (FREE 25 E5 licenses for 90 days)
-    - Added demo user setup options with cost comparison
-    - Added bulk CSV import instructions for creating demo accounts
-  - **DEPLOYMENT_ARCHITECTURE.md**: Updated database schema to include all 12 tables, added TOP_SECRET classification level
-  - **DEPLOYMENT_SUMMARY.md**: Updated from 9 to 12 tables, removed deprecated adaptive_card_outbox reference
-  - **README.md**: Removed NAVY references, added local development setup, corrected tech stack (Fluent UI)
-  - **replit.md**: Updated core tables list to reflect all 12 tables
-- **November 2025 (Documentation - Commercial Azure)**: Complete deployment documentation for Azure Commercial (COMPLETED ✓)
-  - **COMMERCIAL_DEMO_DEPLOYMENT.md**: Comprehensive step-by-step deployment guide
-    - 5-phase deployment procedure (Azure resources, Azure AD, code deployment, Teams integration, testing)
-    - Cost estimates: $85/month (demo), $463/month (100 users production)
-    - Rollback procedures for application and database
-    - Comprehensive troubleshooting guide
-    - GitHub Actions CI/CD workflow
-  - **DEPLOYMENT_SUMMARY.md**: Documentation package overview
-    - Deployment timeline (4-6 hours active work)
-    - Cost summary and optimization strategies
-    - Quick reference guide
-- **November 2025 (Task 7)**: Configurable approval workflow with admin settings (COMPLETED ✓)
-  - Admin Settings Panel with workflow toggles
-  - Auto-approval logic when approval disabled
-  - Distribution orchestrator respecting all toggle settings
-  - Development user switcher for testing roles
-- **November 2025 (Task 6)**: Complete Fluent UI v9 migration - native Teams design system (COMPLETED ✓)
-  - Full component migration to Fluent UI React Components
-  - 100% Fluent UI makeStyles with design tokens
-  - Complete Shadcn/Radix removal
-- **November 2025 (Task 5)**: Production-grade telemetry for Adaptive Card delivery system (COMPLETED ✓)
-  - Per-recipient error isolation
-  - Error classification system (PERMANENT/TRANSIENT/UNKNOWN)
-  - DOD-compliant telemetry (PII-safe logging)
-- **November 2025 (Task 4)**: Strict schema validation for all database writes (COMPLETED ✓)
-  - All CRUD operations validated before database writes
-  - Schema rules for meetings, minutes, action items
+- **Frontend**: React, Wouter, Fluent UI React Components, TanStack Query.
+- **Backend**: Express, Drizzle ORM, MSAL, Microsoft Graph Client.
+- **AI**: OpenAI SDK.
+- **Documents**: `docx`, `pdf-lib`.

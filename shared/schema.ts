@@ -192,6 +192,51 @@ export const meetingTemplates = pgTable("meeting_templates", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Document Template Configuration Types
+export interface DocumentSection {
+  id: string;
+  name: string;
+  enabled: boolean;
+  order: number;
+}
+
+export interface DocumentBranding {
+  organizationName: string;
+  logoEnabled: boolean;
+  primaryColor: string; // Hex color
+  secondaryColor: string; // Hex color
+}
+
+export interface DocumentStyling {
+  fontFamily: "helvetica" | "times" | "courier";
+  titleSize: number;
+  headingSize: number;
+  bodySize: number;
+  lineSpacing: number;
+}
+
+export interface DocumentTemplateConfig {
+  sections: DocumentSection[];
+  branding: DocumentBranding;
+  styling: DocumentStyling;
+  headerText: string;
+  footerText: string;
+  showPageNumbers: boolean;
+  showGeneratedDate: boolean;
+}
+
+// Document Templates schema - for visual presentation of minutes
+export const documentTemplates = pgTable("document_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  isDefault: boolean("is_default").notNull().default(false),
+  isSystem: boolean("is_system").notNull().default(false),
+  config: jsonb("config").notNull().$type<DocumentTemplateConfig>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Users schema for access control
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -512,6 +557,12 @@ export const insertMeetingTemplateSchema = createInsertSchema(meetingTemplates).
   createdAt: true,
 });
 
+export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -558,6 +609,9 @@ export type InsertActionItem = z.infer<typeof insertActionItemSchema>;
 
 export type MeetingTemplate = typeof meetingTemplates.$inferSelect;
 export type InsertMeetingTemplate = z.infer<typeof insertMeetingTemplateSchema>;
+
+export type DocumentTemplate = typeof documentTemplates.$inferSelect;
+export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

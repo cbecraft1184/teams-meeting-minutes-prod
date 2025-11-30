@@ -367,19 +367,9 @@ async function validateAndLoadUser(
       .where(eq(users.id, user.id));
   }
 
-  // Detect personal Microsoft accounts (consumer accounts)
-  // Personal accounts use tenant ID: 9188040d-6c67-4c5b-b112-36a304b66dad
-  const MICROSOFT_CONSUMER_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad';
-  const isPersonalAccount = tokenInfo.tenantId === MICROSOFT_CONSUMER_TENANT_ID;
-  
-  if (isPersonalAccount) {
-    console.log(`👤 [Auth] Personal Microsoft account detected for ${user.email} - skipping Azure AD groups`);
-  }
-
   // Task 4.5: Fetch Azure AD groups (or use cached)
-  // Skip for personal Microsoft accounts (they don't have Azure AD groups)
   let azureAdGroups = null;
-  if (user.azureAdId && !isPersonalAccount) {
+  if (user.azureAdId) {
     try {
       // Check session cache first (15-min TTL)
       const session = req.session as any;

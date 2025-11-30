@@ -453,10 +453,19 @@ export async function validateAccessToken(
       if (!isMultiTenant && expectedIssuer) {
         return issuer === expectedIssuer;
       }
-      // Multi-tenant: accept any Azure AD v2 issuer
-      const v2Pattern = /^https:\/\/login\.microsoftonline\.com\/[a-f0-9-]+\/v2\.0$/;
-      const v1Pattern = /^https:\/\/sts\.windows\.net\/[a-f0-9-]+\/$/;
-      return v2Pattern.test(issuer) || v1Pattern.test(issuer);
+      // Multi-tenant: accept Azure AD issuers from:
+      // - Organizational tenants (GUID-based tenant IDs)
+      // - Personal Microsoft accounts (consumers endpoint)
+      // - Common/organizations endpoints
+      // v2 patterns: https://login.microsoftonline.com/{tenant}/v2.0
+      const v2GuidPattern = /^https:\/\/login\.microsoftonline\.com\/[a-f0-9-]+\/v2\.0$/;
+      const v2SpecialPattern = /^https:\/\/login\.microsoftonline\.com\/(common|organizations|consumers)\/v2\.0$/;
+      // v1 patterns: https://sts.windows.net/{tenant}/
+      const v1GuidPattern = /^https:\/\/sts\.windows\.net\/[a-f0-9-]+\/$/;
+      const v1SpecialPattern = /^https:\/\/sts\.windows\.net\/(common|organizations|consumers)\/$/;
+      
+      return v2GuidPattern.test(issuer) || v2SpecialPattern.test(issuer) ||
+             v1GuidPattern.test(issuer) || v1SpecialPattern.test(issuer);
     };
     
     // Verify token signature and decode payload

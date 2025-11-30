@@ -40,12 +40,14 @@ function getJwksClient(): jwksClient.JwksClient | null {
   }
 
   const config = getConfig();
-  if (!config.graph.tenantId) {
+  if (!config.graph.clientId) {
     return null;
   }
 
+  // Use "common" endpoint for multi-tenant support
+  // This allows tokens from any Azure AD tenant or personal Microsoft accounts
   jwksClientInstance = jwksClient({
-    jwksUri: `https://login.microsoftonline.com/${config.graph.tenantId}/discovery/v2.0/keys`,
+    jwksUri: `https://login.microsoftonline.com/common/discovery/v2.0/keys`,
     cache: true,
     cacheMaxAge: 24 * 60 * 60 * 1000, // Cache keys for 24 hours
     rateLimit: true,
@@ -94,10 +96,16 @@ function getMsalClient(): ConfidentialClientApplication | null {
     return null;
   }
 
+  // Use "common" authority for multi-tenant support
+  // This allows users from any Azure AD tenant, B2B guests, and personal Microsoft accounts
+  const authority = process.env.MULTI_TENANT === 'true' || process.env.MULTI_TENANT === undefined
+    ? 'https://login.microsoftonline.com/common'
+    : `https://login.microsoftonline.com/${config.graph.tenantId}`;
+
   const msalConfig: Configuration = {
     auth: {
       clientId: config.graph.clientId,
-      authority: `https://login.microsoftonline.com/${config.graph.tenantId}`,
+      authority,
       clientSecret: config.graph.clientSecret,
     },
     system: {
@@ -331,7 +339,11 @@ export function getAuthCodeUrl(
   };
 
   try {
-    const authCodeUrl = `https://login.microsoftonline.com/${config.graph.tenantId}/oauth2/v2.0/authorize?client_id=${config.graph.clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&state=${authCodeUrlParameters.state}`;
+    // Use "common" for multi-tenant to allow any Azure AD account or personal Microsoft account
+    const tenantPath = process.env.MULTI_TENANT === 'true' || process.env.MULTI_TENANT === undefined
+      ? 'common'
+      : config.graph.tenantId;
+    const authCodeUrl = `https://login.microsoftonline.com/${tenantPath}/oauth2/v2.0/authorize?client_id=${config.graph.clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes.join(' '))}&state=${authCodeUrlParameters.state}`;
     return authCodeUrl;
   } catch (error) {
     console.error('[Auth] Failed to generate auth code URL:', error instanceof Error ? error.message : 'Unknown error');
@@ -416,16 +428,36 @@ export async function validateAccessToken(
       validAudiences.push(`api://${process.env.APP_DOMAIN}/${config.graph.clientId}`);
     }
     
-    const expectedIssuer = options?.issuer || `https://login.microsoftonline.com/${config.graph.tenantId}/v2.0`;
+    // Multi-tenant support: accept tokens from any Azure AD tenant
+    // Valid issuers include:
+    // - https://login.microsoftonline.com/{tenant-id}/v2.0 (any Azure AD tenant)
+    // - https://sts.windows.net/{tenant-id}/ (v1 tokens)
+    const isMultiTenant = process.env.MULTI_TENANT === 'true' || process.env.MULTI_TENANT === undefined;
+    
+    // For multi-tenant, validate issuer format instead of specific value
+    // For single-tenant, use the configured tenant ID
+    const expectedIssuer = options?.issuer || 
+      (isMultiTenant ? undefined : `https://login.microsoftonline.com/${config.graph.tenantId}/v2.0`);
     
     console.log('[JWT-DEBUG] Validation parameters', {
       validAudiences,
-      expectedIssuer,
+      expectedIssuer: expectedIssuer || 'multi-tenant (any Azure AD)',
       tokenAudience: tokenClaims.aud,
       tokenIssuer: tokenClaims.iss,
-      audienceMatch: validAudiences.includes(tokenClaims.aud),
-      issuerMatch: tokenClaims.iss === expectedIssuer
+      isMultiTenant,
+      audienceMatch: validAudiences.includes(tokenClaims.aud)
     });
+    
+    // Custom issuer validation for multi-tenant
+    const validateIssuer = (issuer: string): boolean => {
+      if (!isMultiTenant && expectedIssuer) {
+        return issuer === expectedIssuer;
+      }
+      // Multi-tenant: accept any Azure AD v2 issuer
+      const v2Pattern = /^https:\/\/login\.microsoftonline\.com\/[a-f0-9-]+\/v2\.0$/;
+      const v1Pattern = /^https:\/\/sts\.windows\.net\/[a-f0-9-]+\/$/;
+      return v2Pattern.test(issuer) || v1Pattern.test(issuer);
+    };
     
     // Verify token signature and decode payload
     const decoded = await new Promise((resolve, reject) => {
@@ -434,7 +466,8 @@ export async function validateAccessToken(
         getSigningKey,
         {
           audience: options?.audience || validAudiences,
-          issuer: expectedIssuer,
+          // Skip built-in issuer check for multi-tenant (we validate manually)
+          issuer: isMultiTenant ? undefined : expectedIssuer,
           algorithms: ['RS256'],
         },
         (err: Error | null, decoded: unknown) => {
@@ -445,7 +478,17 @@ export async function validateAccessToken(
             });
             reject(err);
           } else {
-            console.log('[JWT-DEBUG] Token verified successfully');
+            // For multi-tenant, manually validate issuer format
+            const payload = decoded as any;
+            if (isMultiTenant && payload?.iss && !validateIssuer(payload.iss)) {
+              console.error('[JWT-DEBUG] Invalid issuer format for multi-tenant:', payload.iss);
+              reject(new Error('Invalid issuer'));
+              return;
+            }
+            console.log('[JWT-DEBUG] Token verified successfully', {
+              issuer: payload?.iss,
+              tenantId: payload?.tid
+            });
             resolve(decoded);
           }
         }

@@ -16,14 +16,14 @@ Without validation checks, the system would:
 The system validates two criteria before triggering AI processing:
 
 ### Minimum Duration Threshold
-- **Threshold**: 5 minutes (300 seconds)
-- **Rationale**: Meetings under 5 minutes are typically accidental opens or test connections
-- **Behavior**: Meetings shorter than 5 minutes are auto-skipped from AI processing
+- **Threshold**: 2 minutes (120 seconds)
+- **Rationale**: Meetings under 2 minutes are typically accidental opens or test connections
+- **Behavior**: Meetings shorter than 2 minutes are auto-skipped from AI processing
 
 ### Minimum Content Threshold
-- **Threshold**: 50 words in transcript
+- **Threshold**: 25 words in transcript
 - **Rationale**: Meetings with minimal spoken content don't produce meaningful minutes
-- **Behavior**: Transcripts with fewer than 50 words are auto-skipped from AI processing
+- **Behavior**: Transcripts with fewer than 25 words are auto-skipped from AI processing
 
 ### Transcript Availability Check
 - **Requirement**: Transcript must be available
@@ -121,12 +121,16 @@ Thresholds are defined in `server/services/processingValidation.ts`:
 
 ```typescript
 export const PROCESSING_THRESHOLDS = {
-  MIN_DURATION_SECONDS: 5 * 60,  // 5 minutes
-  MIN_TRANSCRIPT_WORDS: 50       // 50 words
+  MIN_DURATION_SECONDS: 2 * 60,  // 2 minutes
+  MIN_TRANSCRIPT_WORDS: 25       // 25 words
 };
 ```
 
-To adjust thresholds, modify these values and restart the application.
+Thresholds can also be set via environment variables:
+- `MIN_MEETING_DURATION_SECONDS` (default: 120)
+- `MIN_TRANSCRIPT_WORDS` (default: 25)
+
+To adjust thresholds, modify these values or set environment variables and restart the application.
 
 ## Logging
 

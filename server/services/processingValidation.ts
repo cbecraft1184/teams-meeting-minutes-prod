@@ -5,8 +5,8 @@
  * to prevent wasted resources on accidental or invalid meeting sessions.
  * 
  * Thresholds:
- * - Minimum duration: 5 minutes (300 seconds)
- * - Minimum transcript words: 50 words
+ * - Minimum duration: 2 minutes (120 seconds)
+ * - Minimum transcript words: 25 words
  * 
  * Audit Trail:
  * - Every processing decision is logged with reason
@@ -19,8 +19,8 @@ import { eq } from "drizzle-orm";
 
 // Processing thresholds (configurable via environment variables)
 export const PROCESSING_THRESHOLDS = {
-  MIN_DURATION_SECONDS: parseInt(process.env.MIN_MEETING_DURATION_SECONDS || "300", 10), // 5 minutes
-  MIN_TRANSCRIPT_WORDS: parseInt(process.env.MIN_TRANSCRIPT_WORDS || "50", 10), // 50 words minimum
+  MIN_DURATION_SECONDS: parseInt(process.env.MIN_MEETING_DURATION_SECONDS || "120", 10), // 2 minutes
+  MIN_TRANSCRIPT_WORDS: parseInt(process.env.MIN_TRANSCRIPT_WORDS || "25", 10), // 25 words minimum
 };
 
 /**

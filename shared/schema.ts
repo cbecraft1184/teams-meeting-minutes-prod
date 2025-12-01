@@ -99,6 +99,16 @@ export const meetingSourceEnum = pgEnum("meeting_source", [
   "bot"             // Created via Teams bot
 ]);
 
+// Processing decision for audit logging (DOD/Commercial compliance)
+export const processingDecisionEnum = pgEnum("processing_decision", [
+  "pending",           // Not yet evaluated
+  "processed",         // Met thresholds, AI processing triggered
+  "skipped_duration",  // Duration below minimum threshold
+  "skipped_content",   // Transcript content below minimum threshold
+  "skipped_no_transcript", // No transcript available
+  "manual_override"    // Admin manually triggered processing
+]);
+
 // Meeting schema
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -137,6 +147,13 @@ export const meetings = pgTable("meetings", {
   enrichmentAttempts: integer("enrichment_attempts").default(0), // Number of enrichment attempts
   lastEnrichmentAt: timestamp("last_enrichment_at"), // Last enrichment attempt timestamp
   callRecordRetryAt: timestamp("call_record_retry_at"), // When to retry enrichment (exponential backoff)
+  
+  // Processing validation audit (DOD/Commercial compliance)
+  actualDurationSeconds: integer("actual_duration_seconds"), // Actual meeting duration from call record
+  transcriptWordCount: integer("transcript_word_count"), // Word count from transcript for content validation
+  processingDecision: processingDecisionEnum("processing_decision").default("pending"), // Processing decision for audit
+  processingDecisionReason: text("processing_decision_reason"), // Human-readable explanation for audit trail
+  processingDecisionAt: timestamp("processing_decision_at"), // When processing decision was made
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({

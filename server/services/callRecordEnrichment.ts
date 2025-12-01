@@ -16,6 +16,13 @@ import { meetings } from "@shared/schema";
 import { eq, and, lt, isNull, sql } from "drizzle-orm";
 import { getGraphClient } from "./microsoftIdentity";
 import { minutesGeneratorService } from "./minutesGenerator";
+import { 
+  processingValidationService,
+  countTranscriptWords,
+  calculateActualDuration,
+  validateForProcessing,
+  recordProcessingDecision
+} from "./processingValidation";
 
 /**
  * Enrichment queue item
@@ -190,6 +197,14 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     // Mock mode: Simulate enrichment with fake data
     console.log(`🧪 [Enrichment] Mock mode: Simulating enrichment for meeting ${meetingId}`);
     
+    // Mock: Simulate a 30-minute meeting with 200-word transcript
+    const mockDurationSeconds = 30 * 60; // 30 minutes
+    const mockTranscriptWordCount = 200; // 200 words
+    
+    // Validate processing thresholds (DOD/Commercial compliance)
+    const decision = validateForProcessing(mockDurationSeconds, mockTranscriptWordCount, true);
+    await recordProcessingDecision(meetingId, decision);
+    
     await db.update(meetings)
       .set({
         callRecordId: `mock-callrecord-${onlineMeetingId}`,
@@ -205,13 +220,17 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     
     console.log(`✅ [Enrichment] Mock enrichment complete for meeting ${meetingId}`);
     
-    // Auto-generate minutes after enrichment completes (mock mode)
-    try {
-      console.log(`🤖 [Enrichment] Triggering auto-generation of minutes...`);
-      await minutesGeneratorService.autoGenerateMinutes(meetingId);
-    } catch (error) {
-      console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, error);
-      // Don't fail enrichment if minutes generation fails
+    // Only trigger AI processing if validation passed
+    if (decision.shouldProcess) {
+      try {
+        console.log(`🤖 [Enrichment] Triggering auto-generation of minutes...`);
+        await minutesGeneratorService.autoGenerateMinutes(meetingId);
+      } catch (error) {
+        console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, error);
+        // Don't fail enrichment if minutes generation fails
+      }
+    } else {
+      console.log(`⏭️ [Enrichment] Skipping AI processing: ${decision.reason}`);
     }
     
     return;
@@ -274,6 +293,41 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       }
     }
     
+    // Fetch call record for actual duration (DOD/Commercial compliance)
+    let actualDurationSeconds: number | null = null;
+    try {
+      console.log(`📊 [Enrichment] Fetching call record details for duration...`);
+      // Get the meeting's call record for actual start/end times
+      const [meetingRecord] = await db.select()
+        .from(meetings)
+        .where(eq(meetings.id, meetingId))
+        .limit(1);
+      
+      if (meetingRecord?.callRecordId) {
+        const callRecordResponse = await graphClient.get(
+          `/communications/callRecords/${meetingRecord.callRecordId}`
+        );
+        if (callRecordResponse?.startDateTime && callRecordResponse?.endDateTime) {
+          actualDurationSeconds = calculateActualDuration(
+            callRecordResponse.startDateTime,
+            callRecordResponse.endDateTime
+          );
+          console.log(`   Duration: ${actualDurationSeconds}s (${Math.floor((actualDurationSeconds || 0) / 60)}m)`);
+        }
+      }
+    } catch (durationError) {
+      console.warn(`⚠️ [Enrichment] Could not fetch call record duration:`, durationError);
+    }
+    
+    // Count transcript words for content validation
+    const transcriptWordCount = countTranscriptWords(transcriptContent);
+    console.log(`   Transcript words: ${transcriptWordCount}`);
+    
+    // Validate processing thresholds (DOD/Commercial compliance)
+    const hasTranscript = !!transcriptContent && transcriptContent.length > 0;
+    const decision = validateForProcessing(actualDurationSeconds, transcriptWordCount, hasTranscript);
+    await recordProcessingDecision(meetingId, decision);
+    
     // Update meeting record (clear retry timestamp on success)
     await db.update(meetings)
       .set({
@@ -291,8 +345,8 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     console.log(`   📹 Recording: ${latestRecording ? 'Found' : 'Not available'}`);
     console.log(`   📝 Transcript: ${latestTranscript ? 'Found' : 'Not available'}`);
     
-    // Auto-generate minutes if we have transcript content
-    if (transcriptContent) {
+    // Only trigger AI processing if validation passed
+    if (decision.shouldProcess) {
       try {
         console.log(`🤖 [Enrichment] Triggering AI minutes generation...`);
         await minutesGeneratorService.autoGenerateMinutes(meetingId);
@@ -302,7 +356,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
         // Don't fail enrichment if minutes generation fails
       }
     } else {
-      console.log(`⚠️ [Enrichment] No transcript available, skipping minutes generation`);
+      console.log(`⏭️ [Enrichment] Skipping AI processing: ${decision.reason}`);
     }
     
   } catch (error: any) {
@@ -409,9 +463,61 @@ export function clearAllRetryTimers(): void {
   scheduledRetries.clear();
 }
 
+/**
+ * Force process meeting with admin override
+ * Bypasses duration and content thresholds for manual processing
+ * 
+ * @param meetingId - Meeting ID to process
+ * @param adminUserId - Azure AD ID of admin performing override
+ * @param overrideReason - Reason for manual override (for audit trail)
+ */
+export async function forceProcessMeeting(
+  meetingId: string,
+  adminUserId: string,
+  overrideReason: string
+): Promise<{ success: boolean; message: string }> {
+  const { recordManualOverride } = await import('./processingValidation');
+  
+  const [meeting] = await db.select()
+    .from(meetings)
+    .where(eq(meetings.id, meetingId))
+    .limit(1);
+  
+  if (!meeting) {
+    return { success: false, message: `Meeting ${meetingId} not found` };
+  }
+  
+  // Check if meeting has already been processed
+  if (meeting.processingDecision === "processed" || meeting.processingDecision === "manual_override") {
+    return { success: false, message: `Meeting has already been processed (${meeting.processingDecision})` };
+  }
+  
+  // Record the manual override decision for audit trail
+  await recordManualOverride(meetingId, adminUserId, overrideReason);
+  
+  console.log(`🔧 [Manual Override] Admin ${adminUserId} forcing processing for meeting ${meetingId}`);
+  console.log(`   Reason: ${overrideReason}`);
+  
+  // Trigger AI processing directly
+  try {
+    await minutesGeneratorService.autoGenerateMinutes(meetingId);
+    return { 
+      success: true, 
+      message: `Manual processing triggered successfully. Minutes generation started.` 
+    };
+  } catch (error: any) {
+    console.error(`❌ [Manual Override] Failed to generate minutes:`, error);
+    return { 
+      success: false, 
+      message: `Failed to generate minutes: ${error.message}` 
+    };
+  }
+}
+
 export const callRecordEnrichmentService = {
   enqueueMeetingEnrichment,
   processStuckEnrichments,
   manuallyEnrichMeeting,
+  forceProcessMeeting,
   clearAllRetryTimers
 };

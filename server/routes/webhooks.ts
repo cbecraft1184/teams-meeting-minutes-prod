@@ -61,6 +61,12 @@ export function registerAdminWebhookRoutes(router: Router): void {
   router.post('/api/admin/webhooks/subscriptions', createSubscription);
   router.get('/api/admin/webhooks/subscriptions', listSubscriptions);
   router.delete('/api/admin/webhooks/subscriptions/:id', deleteSubscription);
+  
+  // Manual processing trigger for meetings that were auto-skipped (admin only)
+  router.post('/api/admin/meetings/:id/force-process', forceProcessMeetingEndpoint);
+  
+  // Get processing status for a meeting (admin only)
+  router.get('/api/admin/meetings/:id/processing-status', getProcessingStatusEndpoint);
 }
 
 /**
@@ -593,6 +599,127 @@ async function deleteSubscription(req: Request, res: Response): Promise<void> {
     res.json({ message: 'Subscription deleted successfully' });
   } catch (error) {
     console.error('Error deleting subscription:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Force process a meeting that was auto-skipped due to threshold validation
+ * Requires admin role - records audit trail with override reason
+ */
+async function forceProcessMeetingEndpoint(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // Get authenticated user from request
+    const user = (req as any).user;
+    
+    if (!user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    
+    // Check admin role
+    if (user.role !== 'admin') {
+      res.status(403).json({ error: 'Admin role required for manual processing override' });
+      return;
+    }
+    
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 10) {
+      res.status(400).json({ error: 'Override reason required (minimum 10 characters)' });
+      return;
+    }
+    
+    const adminUserId = user.azureAdId || user.id || user.email;
+    
+    console.log(`🔧 [Admin API] Force process request for meeting ${id} by ${adminUserId}`);
+    
+    const result = await callRecordEnrichmentService.forceProcessMeeting(
+      id,
+      adminUserId,
+      reason.trim()
+    );
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: result.message,
+        meetingId: id,
+        overrideBy: adminUserId,
+        overrideReason: reason.trim()
+      });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        error: result.message 
+      });
+    }
+  } catch (error) {
+    console.error('Error forcing meeting processing:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Get processing status for a meeting (for admin dashboard)
+ * Shows validation decision, thresholds, and audit trail
+ */
+async function getProcessingStatusEndpoint(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    
+    const [meeting] = await db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        status: meetings.status,
+        enrichmentStatus: meetings.enrichmentStatus,
+        actualDurationSeconds: meetings.actualDurationSeconds,
+        transcriptWordCount: meetings.transcriptWordCount,
+        processingDecision: meetings.processingDecision,
+        processingDecisionReason: meetings.processingDecisionReason,
+        processingDecisionAt: meetings.processingDecisionAt,
+      })
+      .from(meetings)
+      .where(eq(meetings.id, id))
+      .limit(1);
+    
+    if (!meeting) {
+      res.status(404).json({ error: 'Meeting not found' });
+      return;
+    }
+    
+    // Import thresholds for reference
+    const { PROCESSING_THRESHOLDS } = await import('../services/processingValidation');
+    
+    res.json({
+      meeting: {
+        id: meeting.id,
+        title: meeting.title,
+        status: meeting.status,
+        enrichmentStatus: meeting.enrichmentStatus,
+      },
+      processingValidation: {
+        decision: meeting.processingDecision,
+        reason: meeting.processingDecisionReason,
+        decisionAt: meeting.processingDecisionAt,
+        actualDurationSeconds: meeting.actualDurationSeconds,
+        actualDurationMinutes: meeting.actualDurationSeconds 
+          ? Math.floor(meeting.actualDurationSeconds / 60) 
+          : null,
+        transcriptWordCount: meeting.transcriptWordCount,
+      },
+      thresholds: {
+        minDurationSeconds: PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS,
+        minDurationMinutes: Math.floor(PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS / 60),
+        minTranscriptWords: PROCESSING_THRESHOLDS.MIN_TRANSCRIPT_WORDS,
+      },
+      canForceProcess: meeting.processingDecision !== 'processed' && 
+                       meeting.processingDecision !== 'manual_override',
+    });
+  } catch (error) {
+    console.error('Error getting processing status:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

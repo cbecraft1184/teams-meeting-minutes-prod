@@ -17,7 +17,6 @@ import { eq, and, lt, isNull, sql } from "drizzle-orm";
 import { getGraphClient } from "./microsoftIdentity";
 import { minutesGeneratorService } from "./minutesGenerator";
 import { 
-  processingValidationService,
   countTranscriptWords,
   calculateActualDuration,
   validateForProcessing,

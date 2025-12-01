@@ -103,3 +103,38 @@ The system is built as a full-stack application with a React-based frontend, a N
 3. Meeting ends → callRecords webhook → Enrichment job queued
 4. Transcript fetched (with retry backoff) → AI minutes generated
 5. Approval workflow → Email distribution → SharePoint archival
+
+### December 1, 2025 - DOD/Commercial Processing Validation (COMPLETED ✓)
+
+**Enhancement:** Processing validation prevents unnecessary AI costs for accidental meeting opens and empty transcripts.
+
+**Features Added:**
+1. **Processing Thresholds** (applies to both DOD and Commercial):
+   - Minimum duration: 5 minutes (filters accidental meeting opens)
+   - Minimum transcript content: 50 words (filters empty/minimal transcripts)
+   - Transcript availability check (requires transcription enabled)
+
+2. **Audit Trail Fields** (in meetings table):
+   - `actualDurationSeconds` - Actual call duration from Graph call record
+   - `transcriptWordCount` - Word count in transcript content
+   - `processingDecision` - Decision type (processed, skipped_duration, skipped_content, etc.)
+   - `processingDecisionReason` - Human-readable explanation
+   - `processingDecisionAt` - Timestamp of decision
+
+3. **Admin Override API** (for manually triggering skipped meetings):
+   - `POST /api/admin/meetings/:id/force-process` - Manual processing with audit trail
+   - `GET /api/admin/meetings/:id/processing-status` - View validation details
+
+**Key Files:**
+- `server/services/processingValidation.ts` - Threshold validation logic
+- `server/services/callRecordEnrichment.ts` - Integrated validation into enrichment
+- `server/routes/webhooks.ts` - Admin override endpoints
+- `docs/DOD_PROCESSING_VALIDATION.md` - Full documentation
+
+**Processing Decision Values:**
+- `pending` - Validation not yet performed
+- `processed` - Met all thresholds, AI processing completed
+- `skipped_duration` - Duration below 5 minutes
+- `skipped_content` - Transcript under 50 words
+- `skipped_no_transcript` - No transcript available
+- `manual_override` - Admin manually triggered despite thresholds

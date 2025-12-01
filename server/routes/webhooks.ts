@@ -10,7 +10,7 @@ import { graphSubscriptionManager } from '../services/graphSubscriptionManager';
 import { callRecordEnrichmentService } from '../services/callRecordEnrichment';
 import { db } from '../db';
 import { graphWebhookSubscriptions, meetings } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // In-memory queue for webhook notifications (will be replaced with Redis/SQS in production)
 interface WebhookNotification {
@@ -62,10 +62,9 @@ export function registerAdminWebhookRoutes(router: Router): void {
   router.get('/api/admin/webhooks/subscriptions', listSubscriptions);
   router.delete('/api/admin/webhooks/subscriptions/:id', deleteSubscription);
   
-  // Manual processing trigger for meetings that were auto-skipped (admin only)
+  // Processing validation management (admin only)
+  router.get('/api/admin/processing/skipped', listSkippedMeetings);
   router.post('/api/admin/meetings/:id/force-process', forceProcessMeetingEndpoint);
-  
-  // Get processing status for a meeting (admin only)
   router.get('/api/admin/meetings/:id/processing-status', getProcessingStatusEndpoint);
 }
 
@@ -657,6 +656,57 @@ async function forceProcessMeetingEndpoint(req: Request, res: Response): Promise
     }
   } catch (error) {
     console.error('Error forcing meeting processing:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * List meetings that were skipped during processing validation
+ * For admin dashboard to review and potentially override
+ */
+async function listSkippedMeetings(req: Request, res: Response): Promise<void> {
+  try {
+    const { PROCESSING_THRESHOLDS } = await import('../services/processingValidation');
+    
+    // Get all meetings with skipped processing decisions
+    const skippedMeetings = await db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        scheduledAt: meetings.scheduledAt,
+        status: meetings.status,
+        enrichmentStatus: meetings.enrichmentStatus,
+        actualDurationSeconds: meetings.actualDurationSeconds,
+        transcriptWordCount: meetings.transcriptWordCount,
+        processingDecision: meetings.processingDecision,
+        processingDecisionReason: meetings.processingDecisionReason,
+        processingDecisionAt: meetings.processingDecisionAt,
+        organizerEmail: meetings.organizerEmail,
+      })
+      .from(meetings)
+      .where(
+        sql`${meetings.processingDecision} IN ('skipped_duration', 'skipped_content', 'skipped_no_transcript')`
+      )
+      .orderBy(sql`${meetings.processingDecisionAt} DESC NULLS LAST`)
+      .limit(50);
+    
+    res.json({
+      meetings: skippedMeetings.map(m => ({
+        ...m,
+        actualDurationMinutes: m.actualDurationSeconds 
+          ? Math.floor(m.actualDurationSeconds / 60) 
+          : null,
+        canForceProcess: true,
+      })),
+      thresholds: {
+        minDurationSeconds: PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS,
+        minDurationMinutes: Math.floor(PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS / 60),
+        minTranscriptWords: PROCESSING_THRESHOLDS.MIN_TRANSCRIPT_WORDS,
+      },
+      count: skippedMeetings.length,
+    });
+  } catch (error) {
+    console.error('Error listing skipped meetings:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

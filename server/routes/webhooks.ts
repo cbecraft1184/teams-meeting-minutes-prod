@@ -246,11 +246,6 @@ async function validateNotification(notification: any): Promise<boolean> {
  */
 async function upsertMeetingFromGraph(onlineMeetingId: string, resourceData: any): Promise<void> {
   try {
-    // In mock mode, use resourceData directly (no Graph API call)
-    // In real mode, would fetch full meeting details from Graph API:
-    // const graphClient = await getGraphClient(accessToken);
-    // const meeting = await graphClient.api(`/communications/onlineMeetings/${onlineMeetingId}`).get();
-    
     const meetingData = {
       title: resourceData?.subject || 'Teams Meeting',
       description: resourceData?.subject || null,
@@ -308,7 +303,7 @@ async function upsertMeetingFromGraph(onlineMeetingId: string, resourceData: any
     }
   } catch (error) {
     console.error(`Error upserting meeting ${onlineMeetingId}:`, error);
-    throw error; // Re-throw for retry logic
+    throw error;
   }
 }
 
@@ -317,8 +312,6 @@ async function upsertMeetingFromGraph(onlineMeetingId: string, resourceData: any
  */
 async function handleMeetingDeletion(onlineMeetingId: string): Promise<void> {
   try {
-    // Don't actually delete from database (preserve historical data)
-    // Instead, mark as archived
     await db
       .update(meetings)
       .set({
@@ -339,7 +332,7 @@ async function handleMeetingDeletion(onlineMeetingId: string): Promise<void> {
  */
 function calculateDuration(startDateTime?: string, endDateTime?: string): string {
   if (!startDateTime || !endDateTime) {
-    return '1h'; // Default
+    return '1h';
   }
 
   const start = new Date(startDateTime);
@@ -367,12 +360,10 @@ function extractAttendees(resourceData: any): string[] {
 
   const attendees: string[] = [];
   
-  // Extract organizer
   if (resourceData.participants.organizer?.emailAddress?.address) {
     attendees.push(resourceData.participants.organizer.emailAddress.address);
   }
 
-  // Extract attendees
   if (Array.isArray(resourceData.participants.attendees)) {
     for (const attendee of resourceData.participants.attendees) {
       if (attendee.emailAddress?.address) {
@@ -381,7 +372,7 @@ function extractAttendees(resourceData: any): string[] {
     }
   }
 
-  return Array.from(new Set(attendees)); // Remove duplicates
+  return Array.from(new Set(attendees));
 }
 
 /**
@@ -470,7 +461,6 @@ async function forceProcessMeetingEndpoint(req: Request, res: Response): Promise
     const { id } = req.params;
     const { reason } = req.body;
     
-    // Get authenticated user from request
     const user = (req as any).user;
     
     if (!user) {
@@ -478,7 +468,6 @@ async function forceProcessMeetingEndpoint(req: Request, res: Response): Promise
       return;
     }
     
-    // Check admin role
     if (user.role !== 'admin') {
       res.status(403).json({ error: 'Admin role required for manual processing override' });
       return;
@@ -521,13 +510,11 @@ async function forceProcessMeetingEndpoint(req: Request, res: Response): Promise
 
 /**
  * List meetings that were skipped during processing validation
- * For admin dashboard to review and potentially override
  */
 async function listSkippedMeetings(req: Request, res: Response): Promise<void> {
   try {
     const { PROCESSING_THRESHOLDS } = await import('../services/processingValidation');
     
-    // Get all meetings with skipped processing decisions
     const skippedMeetings = await db
       .select({
         id: meetings.id,
@@ -571,8 +558,7 @@ async function listSkippedMeetings(req: Request, res: Response): Promise<void> {
 }
 
 /**
- * Get processing status for a meeting (for admin dashboard)
- * Shows validation decision, thresholds, and audit trail
+ * Get processing status for a meeting
  */
 async function getProcessingStatusEndpoint(req: Request, res: Response): Promise<void> {
   try {
@@ -599,7 +585,6 @@ async function getProcessingStatusEndpoint(req: Request, res: Response): Promise
       return;
     }
     
-    // Import thresholds for reference
     const { PROCESSING_THRESHOLDS } = await import('../services/processingValidation');
     
     res.json({

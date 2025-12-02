@@ -58,8 +58,8 @@
     "messageTeamMembers"
   ],
   "webApplicationInfo": {
-    "id": "71383692-c5c6-40cc-94cf-96c97fed146c",
-    "resource": "api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c",
+    "id": "71383692-c5c6-4b2c-964c-9e6579e0ed46",
+    "resource": "api://teams-minutes-app.orangemushroom-b6a537d.eestu2.azurecontainerapps.io/71383692-c5c6-4b2c-964c-9e6579e0ed46",
     "applicationPermissions": [],
     "delegatedPermissions": ["access_as_user"]
   },

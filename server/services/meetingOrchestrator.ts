@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { enqueueJob, completeJob, failJob } from "./durableQueue";
 import type { Job } from "@shared/schema";
 import { teamsProactiveMessaging } from "./teamsProactiveMessaging";
+import { callRecordEnrichmentService } from "./callRecordEnrichment";
 
 /**
  * Meeting Lifecycle Orchestrator
@@ -25,6 +26,9 @@ export async function processJob(job: Job): Promise<void> {
     console.log(`[Orchestrator] Processing job: ${job.jobType} (${job.id})`);
 
     switch (job.jobType) {
+      case "process_call_record":
+        await processCallRecordJob(job);
+        break;
       case "enrich_meeting":
         await processEnrichmentJob(job);
         break;
@@ -51,6 +55,68 @@ export async function processJob(job: Job): Promise<void> {
       maxRetries: job.maxRetries,
     });
   }
+}
+
+/**
+ * Step 0: Process call record webhook notification (durable)
+ * 
+ * This job is enqueued when a callRecords webhook is received.
+ * Matches the call record to a meeting and triggers enrichment.
+ * 
+ * CRASH RECOVERY: If container crashes after receiving webhook but before
+ * processing, this job will be picked up on restart from the durable queue.
+ */
+async function processCallRecordJob(job: Job): Promise<void> {
+  const { resource, resourceData, callRecordId } = job.payload;
+  
+  if (!callRecordId) {
+    throw new Error("callRecordId required in payload");
+  }
+
+  console.log(`📞 [Orchestrator] Processing call record: ${callRecordId}`);
+  console.log(`   Resource: ${resource}`);
+
+  // Extract join URL and organizer from resource data
+  const joinWebUrl = resourceData?.joinWebUrl;
+  const organizer = resourceData?.organizer?.user?.id;
+
+  // Try to find meeting by Teams join link
+  if (joinWebUrl) {
+    const [meeting] = await db
+      .select()
+      .from(meetings)
+      .where(eq(meetings.teamsJoinLink, joinWebUrl))
+      .limit(1);
+
+    if (meeting) {
+      console.log(`✅ [Orchestrator] Found meeting by join URL: ${meeting.id} (${meeting.title})`);
+      
+      // Update call record ID and status
+      await db.update(meetings)
+        .set({ 
+          callRecordId,
+          status: 'completed',
+          graphSyncStatus: 'synced'
+        })
+        .where(eq(meetings.id, meeting.id));
+
+      // Trigger enrichment if we have the online meeting ID
+      if (meeting.onlineMeetingId) {
+        console.log(`🎬 [Orchestrator] Triggering enrichment for meeting: ${meeting.id}`);
+        await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, meeting.onlineMeetingId);
+      }
+      
+      return;
+    }
+  }
+
+  // If no match found by join URL, log for manual review
+  console.log(`⚠️ [Orchestrator] Could not match call record to a meeting. CallRecordId: ${callRecordId}`);
+  console.log(`   Join URL: ${joinWebUrl || 'N/A'}`);
+  console.log(`   Organizer: ${organizer || 'N/A'}`);
+  
+  // Don't throw an error - just log. This is not a failure condition since
+  // not all call records will have matching meetings (e.g., ad-hoc calls)
 }
 
 /**

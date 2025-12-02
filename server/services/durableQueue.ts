@@ -20,6 +20,7 @@ export interface JobPayload {
 }
 
 export type JobType = 
+  | "process_call_record"
   | "enrich_meeting"
   | "generate_minutes"
   | "send_email"

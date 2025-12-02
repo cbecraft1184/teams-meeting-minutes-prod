@@ -3,27 +3,18 @@
  * 
  * Handles webhook callbacks from Microsoft Graph API for Teams meeting notifications
  * Implements Microsoft's webhook validation protocol
+ * 
+ * ARCHITECTURE: Uses PostgreSQL-backed durable queue for crash recovery.
+ * All webhook notifications are immediately persisted to database before responding 202.
  */
 
 import type { Request, Response, Router } from 'express';
 import { graphSubscriptionManager } from '../services/graphSubscriptionManager';
 import { callRecordEnrichmentService } from '../services/callRecordEnrichment';
+import { enqueueJob } from '../services/durableQueue';
 import { db } from '../db';
 import { graphWebhookSubscriptions, meetings } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
-
-// In-memory queue for webhook notifications (will be replaced with Redis/SQS in production)
-interface WebhookNotification {
-  subscriptionId: string;
-  changeType: string;
-  resource: string;
-  resourceData: any;
-  clientState: string;
-  tenantId?: string;
-}
-
-const notificationQueue: WebhookNotification[] = [];
-let isProcessing = false;
 
 /**
  * Register PUBLIC webhook routes
@@ -92,6 +83,10 @@ async function handleValidationChallenge(req: Request, res: Response): Promise<v
  * 
  * IMPORTANT: Microsoft Graph also sends validation requests as POST with validationToken
  * in query params. We must check for this FIRST before processing as notification.
+ * 
+ * ARCHITECTURE: Notifications are immediately persisted to the durable queue (PostgreSQL)
+ * before responding 202. This ensures crash recovery - even if container restarts, the
+ * job worker will process the notification from the database.
  */
 async function handleCallRecordWebhook(req: Request, res: Response): Promise<void> {
   try {
@@ -115,149 +110,87 @@ async function handleCallRecordWebhook(req: Request, res: Response): Promise<voi
 
     console.log(`📞 [CallRecords] Received ${notifications.length} call record notification(s)`);
 
-    // Respond immediately with 202 Accepted (Microsoft requires fast response)
-    res.status(202).send();
-
-    // Process each notification asynchronously
+    // DURABLE QUEUE: Persist notifications to database BEFORE responding
+    // This ensures we don't lose notifications on crash/restart
+    let enqueuedCount = 0;
     for (const notification of notifications) {
       try {
-        await processCallRecordNotification(notification);
+        // Validate notification first
+        const isValid = await validateNotification(notification);
+        if (!isValid) {
+          console.warn('⚠️ [CallRecords] Invalid notification, skipping');
+          continue;
+        }
+
+        // Extract call record ID for idempotency key
+        const callRecordId = notification.resource?.split('/').pop() || `unknown-${Date.now()}`;
+        
+        // Enqueue to durable queue with idempotency
+        const jobId = await enqueueJob({
+          jobType: 'process_call_record',
+          idempotencyKey: `callrecord:${callRecordId}`,
+          payload: {
+            subscriptionId: notification.subscriptionId,
+            changeType: notification.changeType,
+            resource: notification.resource,
+            resourceData: notification.resourceData,
+            clientState: notification.clientState,
+            tenantId: notification.tenantId,
+            callRecordId,
+          },
+          maxRetries: 5, // More retries for webhook notifications
+        });
+
+        if (jobId) {
+          enqueuedCount++;
+          console.log(`✅ [CallRecords] Enqueued to durable queue: ${callRecordId} (job: ${jobId})`);
+        } else {
+          console.log(`ℹ️ [CallRecords] Already enqueued (duplicate): ${callRecordId}`);
+        }
       } catch (error) {
-        console.error('❌ [CallRecords] Error processing notification:', error);
+        console.error('❌ [CallRecords] Error enqueueing notification:', error);
+        // Continue processing other notifications
       }
     }
+
+    console.log(`📞 [CallRecords] Enqueued ${enqueuedCount}/${notifications.length} notifications to durable queue`);
+
+    // Respond 202 after database persistence (ensures durability)
+    res.status(202).send();
   } catch (error) {
     console.error('❌ [CallRecords] Error handling webhook:', error);
     res.status(202).send(); // Still respond 202 to avoid retry storms
   }
 }
 
-/**
- * Process a single call record notification
- * Extracts meeting ID and triggers enrichment (transcript/recording fetch)
- */
-async function processCallRecordNotification(notification: any): Promise<void> {
-  const { subscriptionId, clientState, resource, resourceData } = notification;
-
-  console.log(`📞 [CallRecords] Processing notification for resource: ${resource}`);
-
-  // Validate client state
-  const isValid = await validateNotification(notification);
-  if (!isValid) {
-    console.warn('⚠️ [CallRecords] Invalid notification, skipping');
-    return;
-  }
-
-  // Extract call record ID from resource
-  // Resource format: "/communications/callRecords/{callRecordId}"
-  const callRecordId = resource?.split('/').pop();
-  
-  if (!callRecordId) {
-    console.error('❌ [CallRecords] Could not extract callRecordId from resource:', resource);
-    return;
-  }
-
-  console.log(`📞 [CallRecords] Call record ID: ${callRecordId}`);
-
-  // Find meeting by matching join URL or organizer
-  // Call records contain participants and join info we can use to match
-  const joinWebUrl = resourceData?.joinWebUrl;
-  const organizer = resourceData?.organizer?.user?.id;
-
-  if (joinWebUrl) {
-    // Try to find meeting by Teams join link
-    const [meeting] = await db
-      .select()
-      .from(meetings)
-      .where(eq(meetings.teamsJoinLink, joinWebUrl))
-      .limit(1);
-
-    if (meeting) {
-      console.log(`✅ [CallRecords] Found meeting by join URL: ${meeting.id} (${meeting.title})`);
-      
-      // Update call record ID
-      await db.update(meetings)
-        .set({ 
-          callRecordId,
-          status: 'completed',
-          graphSyncStatus: 'synced'
-        })
-        .where(eq(meetings.id, meeting.id));
-
-      // Trigger enrichment
-      if (meeting.onlineMeetingId) {
-        console.log(`🎬 [CallRecords] Triggering enrichment for meeting: ${meeting.id}`);
-        await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, meeting.onlineMeetingId);
-      }
-      return;
-    }
-  }
-
-  // If no match found by join URL, try to match by time window and organizer
-  console.log(`⚠️ [CallRecords] Could not match call record to a meeting. CallRecordId: ${callRecordId}`);
-  console.log(`   Join URL: ${joinWebUrl || 'N/A'}`);
-  console.log(`   Organizer: ${organizer || 'N/A'}`);
-}
 
 /**
  * Handle POST request with webhook notifications from Microsoft Graph for Online Meetings
- * This is triggered when a Teams meeting is SCHEDULED, UPDATED, or DELETED
  * 
- * IMPORTANT: Microsoft Graph also sends validation requests as POST with validationToken
- * in query params. We must check for this FIRST before processing as notification.
+ * NOTE: This endpoint is kept for compatibility but is NOT actively used.
+ * The architecture uses ONLY /communications/callRecords for meeting detection.
+ * Meeting scheduling is detected via calendar delta sync instead.
  */
 async function handleTeamsMeetingWebhook(req: Request, res: Response): Promise<void> {
   try {
-    // CRITICAL: Check for validation token FIRST (Microsoft sends validation as POST!)
+    // Handle validation challenge
     const validationToken = req.query.validationToken as string;
     if (validationToken) {
       console.log('✅ [OnlineMeetings] Webhook validation challenge received (via POST)');
-      console.log(`   Token: ${validationToken.substring(0, 50)}...`);
       res.type('text/plain').status(200).send(validationToken);
       return;
     }
 
+    // Log but don't process - this endpoint is deprecated
     const { value: notifications } = req.body;
-
-    if (!notifications || !Array.isArray(notifications)) {
-      console.log('⚠️ [OnlineMeetings] POST request without notifications or validationToken');
-      console.log(`   Body: ${JSON.stringify(req.body).substring(0, 200)}`);
-      res.status(202).send(); // Return 202 to avoid retries
-      return;
+    if (notifications?.length) {
+      console.log(`📅 [OnlineMeetings] Received ${notifications.length} notification(s) - IGNORED (deprecated endpoint)`);
     }
 
-    console.log(`📅 [OnlineMeetings] Received ${notifications.length} meeting notification(s)`);
-
-    // Validate and queue each notification
-    for (const notification of notifications) {
-      const isValid = await validateNotification(notification);
-      
-      if (!isValid) {
-        console.warn('⚠️  Invalid notification received:', notification.subscriptionId);
-        continue;
-      }
-
-      // Add to processing queue
-      notificationQueue.push({
-        subscriptionId: notification.subscriptionId,
-        changeType: notification.changeType,
-        resource: notification.resource,
-        resourceData: notification.resourceData,
-        clientState: notification.clientState,
-        tenantId: notification.tenantId,
-      });
-
-      console.log(`✅ Queued notification: ${notification.changeType} for ${notification.resource}`);
-    }
-
-    // Respond immediately with 202 Accepted
+    // Always respond 202 to avoid retries
     res.status(202).send();
-
-    // Start processing queue asynchronously (don't block response)
-    processNotificationQueue();
   } catch (error) {
-    console.error('Error handling webhook notification:', error);
-    // Still respond 202 to avoid retry storms
+    console.error('[OnlineMeetings] Error handling webhook:', error);
     res.status(202).send();
   }
 }
@@ -306,80 +239,6 @@ async function validateNotification(notification: any): Promise<boolean> {
   }
 }
 
-/**
- * Process queued notifications asynchronously
- * Implements retry logic and idempotent meeting upserts
- */
-async function processNotificationQueue(): Promise<void> {
-  // Prevent concurrent processing
-  if (isProcessing) {
-    return;
-  }
-
-  isProcessing = true;
-
-  try {
-    while (notificationQueue.length > 0) {
-      const notification = notificationQueue.shift();
-      
-      if (!notification) {
-        continue;
-      }
-
-      try {
-        await processNotification(notification);
-      } catch (error) {
-        console.error('Error processing notification:', error);
-        
-        // Re-queue failed notifications (max 3 retries)
-        if (!notification.resourceData?._retryCount || notification.resourceData._retryCount < 3) {
-          notification.resourceData = notification.resourceData || {};
-          notification.resourceData._retryCount = (notification.resourceData._retryCount || 0) + 1;
-          notificationQueue.push(notification);
-          console.warn(`⚠️  Re-queued notification (retry ${notification.resourceData._retryCount}/3)`);
-        } else {
-          console.error('❌ Notification failed after 3 retries, dropping:', notification);
-        }
-      }
-    }
-  } finally {
-    isProcessing = false;
-  }
-}
-
-/**
- * Process individual notification
- * Fetches full meeting details from Graph API and upserts to database
- */
-async function processNotification(notification: WebhookNotification): Promise<void> {
-  const { changeType, resource, resourceData } = notification;
-
-  console.log(`🔄 Processing ${changeType} notification for ${resource}`);
-
-  // Extract meeting ID from resource URL
-  // Resource format: "/communications/onlineMeetings/{meetingId}"
-  const meetingId = resource.split('/').pop();
-
-  if (!meetingId) {
-    console.error('Could not extract meeting ID from resource:', resource);
-    return;
-  }
-
-  // Handle different change types
-  switch (changeType) {
-    case 'created':
-    case 'updated':
-      await upsertMeetingFromGraph(meetingId, resourceData);
-      break;
-    
-    case 'deleted':
-      await handleMeetingDeletion(meetingId);
-      break;
-    
-    default:
-      console.warn(`Unknown change type: ${changeType}`);
-  }
-}
 
 /**
  * Fetch meeting details from Graph API and upsert to database

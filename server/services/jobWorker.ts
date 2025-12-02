@@ -311,7 +311,7 @@ async function scanForEndedMeetings(): Promise<number> {
     
     // Find meetings that:
     // 1. Have endTime in the past (meeting ended)
-    // 2. Haven't been enriched yet (transcriptContent is null)
+    // 2. Haven't been enriched yet (transcriptUrl is null)
     // 3. Processing decision is pending or null
     const endedMeetings = await db.select({
       id: meetings.id,
@@ -321,7 +321,7 @@ async function scanForEndedMeetings(): Promise<number> {
     .from(meetings)
     .where(and(
       lt(meetings.endTime, bufferTime),
-      isNull(meetings.transcriptContent),
+      isNull(meetings.transcriptUrl),
       or(
         eq(meetings.processingDecision, 'pending'),
         isNull(meetings.processingDecision)

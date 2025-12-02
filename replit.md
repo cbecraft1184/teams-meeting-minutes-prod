@@ -41,7 +41,7 @@ The system is built as a full-stack application with a React-based frontend, a N
 - **ORM**: Drizzle ORM with TypeScript schemas for robust data management across 12 core tables including `meetings`, `meeting_minutes`, `action_items`, and `job_queue`.
 
 ### Microsoft Graph Integration
-- Utilizes Microsoft Graph v1.0 for real-time meeting capture via 48-hour webhooks (with 12-hour renewal), accessing resources like `/communications/onlineMeetings` and `/sites/{siteId}/drive`. Authentication uses Azure AD OAuth with token caching.
+- Utilizes Microsoft Graph v1.0 for real-time meeting capture via single `/communications/callRecords` webhook (48-hour expiry, 12-hour renewal). Meeting scheduling is detected via calendar delta sync to reduce Graph API load. Authentication uses Azure AD OAuth with token caching.
 
 ### AI Integration
 - Leverages Azure OpenAI Service (GPT-4o for minutes, Whisper for transcription) as the primary AI provider, with Replit AI as a development fallback. The pipeline extracts transcripts, generates structured minutes, and identifies action items.
@@ -74,35 +74,47 @@ The system is built as a full-stack application with a React-based frontend, a N
 
 ## Recent Changes
 
-### November 29, 2025 - Full Meeting Lifecycle Tracking (COMPLETED ✓)
+### December 2, 2025 - Optimized Architecture (COMPLETED ✓)
 
-**Enhancement:** Dual webhook subscriptions now track meetings from scheduling through archival.
+**Enhancement:** Architecture optimized for maximum efficiency without sacrificing features.
 
-**Features Added:**
-1. **Dual Webhook Subscriptions**: System creates two Graph API subscriptions:
-   - `/communications/callRecords` - Detects when meetings END (triggers transcript fetch)
-   - `/communications/onlineMeetings` - Detects when meetings are SCHEDULED (early tracking)
-2. **Calendar Sync Service**: `calendarSyncService.ts` syncs existing scheduled meetings on startup
-3. **Exponential Backoff**: Transcript fetch retries at 5, 15, 45 minute intervals (Graph API eventual consistency)
-4. **POST Validation Handling**: Both webhook handlers support validation token in POST requests
+**Key Changes:**
+1. **Lease-Based Job Worker** (replaces PostgreSQL advisory locks):
+   - Uses `job_worker_leases` table for distributed locking without superuser privileges
+   - Atomic INSERT...ON CONFLICT with confirmatory SELECT for lease acquisition
+   - Automatic lease expiration (15s) with heartbeat every 5s
+   - Works with Azure Container Apps horizontal scaling
+
+2. **Single Webhook Pattern** (callRecords only):
+   - Uses ONLY `/communications/callRecords` for meeting completion detection
+   - Meeting scheduling handled via calendar delta sync (reduces Graph API load)
+   - Eliminated duplicate notifications from dual-subscription pattern
+
+3. **Unified Durable Queue** (all background work):
+   - All enrichment, AI generation, email, SharePoint jobs flow through durableQueue
+   - No in-memory queues - ensures crash recovery
+   - Lease-backed worker governs all background processing
 
 **Key Files:**
-- `server/services/graphSubscriptionManager.ts` - Dual subscription creation with retry logic
-- `server/routes/webhooks.ts` - Handlers for both callRecords and onlineMeetings
-- `server/services/calendarSyncService.ts` - Manual calendar sync capability
-- `server/services/callRecordEnrichment.ts` - Exponential backoff for transcript fetching
-- `docs/END_TO_END_TEST_PLAN.md` - Comprehensive test documentation
+- `server/services/jobWorker.ts` - Lease-based distributed worker
+- `server/services/graphSubscriptionManager.ts` - Single callRecords subscription
+- `server/services/callRecordEnrichment.ts` - Uses durable queue for retries
+- `server/services/durableQueue.ts` - PostgreSQL-backed job queue
+- `shared/schema.ts` - Includes job_worker_leases table
 
-**Webhook Endpoints:**
-- Call Records: `/webhooks/graph/callRecords` (meeting completion)
-- Online Meetings: `/webhooks/graph/teams/meetings` (meeting scheduling)
+**Webhook Endpoint:**
+- Call Records: `/webhooks/graph/callRecords` (meeting completion only)
 
 **Meeting Lifecycle Flow:**
-1. User schedules Teams meeting → onlineMeetings webhook → Meeting created in DB (status: scheduled)
+1. User schedules Teams meeting → Calendar sync detects scheduling
 2. Meeting occurs with transcription enabled
-3. Meeting ends → callRecords webhook → Enrichment job queued
-4. Transcript fetched (with retry backoff) → AI minutes generated
+3. Meeting ends → callRecords webhook → Enrichment job enqueued (durableQueue)
+4. Lease-based worker processes job → Transcript fetched → AI minutes generated
 5. Approval workflow → Email distribution → SharePoint archival
+
+### November 29, 2025 - Full Meeting Lifecycle Tracking (SUPERSEDED)
+
+**Note:** Architecture updated December 2, 2025. See above for current design.
 
 ### December 1, 2025 - DOD/Commercial Processing Validation (COMPLETED ✓)
 

@@ -30,7 +30,7 @@ async function seed() {
           "Mission Planning",
           "Questions and Discussion"
         ],
-        isSystem: "true"
+        isSystem: true
       },
       {
         name: "Status Review Meeting",
@@ -46,7 +46,7 @@ async function seed() {
           "Resource Requirements",
           "Next Steps and Assignments"
         ],
-        isSystem: "true"
+        isSystem: true
       },
       {
         name: "Quarterly Planning Session",
@@ -63,7 +63,7 @@ async function seed() {
           "Risk Mitigation Strategies",
           "Action Item Assignment"
         ],
-        isSystem: "true"
+        isSystem: true
       },
       {
         name: "Emergency Response Coordination",
@@ -79,7 +79,7 @@ async function seed() {
           "Communication Protocols",
           "Immediate Action Items"
         ],
-        isSystem: "true"
+        isSystem: true
       },
       {
         name: "Security Review Board",
@@ -95,7 +95,7 @@ async function seed() {
           "Policy Updates and Changes",
           "Remediation Action Items"
         ],
-        isSystem: "true"
+        isSystem: true
       }
     ]);
     console.log("✓ Created 5 system templates");

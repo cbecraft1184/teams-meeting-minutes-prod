@@ -170,7 +170,9 @@ export async function teamsAuthMiddleware(
     // Store raw SSO token for On-Behalf-Of flow (Graph API calls with delegated permissions)
     req.ssoToken = token;
 
-    console.log(`[AUTH] User authenticated: ${user.email} (clearance: ${user.clearanceLevel})`);
+    if (user) {
+      console.log(`[AUTH] User authenticated: ${user.email} (clearance: ${user.clearanceLevel})`);
+    }
     next();
   } catch (error: any) {
     console.error("[AUTH] Authentication error:", error);

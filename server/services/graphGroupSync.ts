@@ -14,7 +14,7 @@
 
 import { getGraphClient } from "./microsoftIdentity";
 import { db } from '../db';
-import { userGroupCache } from '../../shared/schema';
+import { userGroupCache, classificationLevelEnum, userRoleEnum } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -459,16 +459,17 @@ export class GraphGroupSyncService {
         .values({
           azureAdId,
           groupNames: groups.groupNames,
-          clearanceLevel: groups.clearanceLevel, // Verified non-null above
-          role: groups.role, // Verified non-null above
+          clearanceLevel: groups.clearanceLevel as (typeof classificationLevelEnum.enumValues)[number],
+          role: groups.role as (typeof userRoleEnum.enumValues)[number],
+          fetchedAt: now,
           expiresAt,
         })
         .onConflictDoUpdate({
           target: userGroupCache.azureAdId,
           set: {
             groupNames: groups.groupNames,
-            clearanceLevel: groups.clearanceLevel,
-            role: groups.role,
+            clearanceLevel: groups.clearanceLevel as (typeof classificationLevelEnum.enumValues)[number],
+            role: groups.role as (typeof userRoleEnum.enumValues)[number],
             fetchedAt: now,
             expiresAt,
           },

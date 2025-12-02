@@ -458,6 +458,26 @@ export const jobQueue = pgTable("job_queue", {
 });
 
 // ==================================================
+// Job Worker Leases schema (distributed locking without superuser)
+// ==================================================
+
+export const jobWorkerLeases = pgTable("job_worker_leases", {
+  // Worker name as primary key (e.g., "main_job_worker")
+  workerName: varchar("worker_name", { length: 100 }).primaryKey(),
+  
+  // Instance identity (unique per container/process)
+  instanceId: varchar("instance_id", { length: 100 }).notNull(),
+  
+  // Lease timing
+  acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
+  lastHeartbeat: timestamp("last_heartbeat").defaultNow().notNull(),
+  leaseExpiresAt: timestamp("lease_expires_at").notNull(),
+});
+
+export type JobWorkerLease = typeof jobWorkerLeases.$inferSelect;
+export type InsertJobWorkerLease = typeof jobWorkerLeases.$inferInsert;
+
+// ==================================================
 // Application Settings schema (singleton table)
 // ==================================================
 

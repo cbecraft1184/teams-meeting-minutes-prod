@@ -87,8 +87,9 @@ function getSigningKey(header: jwt.JwtHeader, callback: (err: Error | null, key?
 
 /**
  * Get MSAL Confidential Client Application instance
+ * @param forClientCredentials - If true, uses tenant-specific authority (required for client credentials flow)
  */
-function getMsalClient(): ConfidentialClientApplication | null {
+function getMsalClient(forClientCredentials: boolean = false): ConfidentialClientApplication | null {
   const config = getConfig();
 
   // Return null if not configured (will use mock services)
@@ -96,11 +97,19 @@ function getMsalClient(): ConfidentialClientApplication | null {
     return null;
   }
 
-  // Use "common" authority for multi-tenant support
-  // This allows users from any Azure AD tenant, B2B guests, and personal Microsoft accounts
-  const authority = process.env.MULTI_TENANT === 'true' || process.env.MULTI_TENANT === undefined
-    ? 'https://login.microsoftonline.com/common'
-    : `https://login.microsoftonline.com/${config.graph.tenantId}`;
+  // CRITICAL: Client credentials flow REQUIRES a tenant-specific authority
+  // It CANNOT use "common", "organizations", or "consumers"
+  // For delegated flows (user auth), we can use "common" for multi-tenant support
+  let authority: string;
+  if (forClientCredentials) {
+    // Client credentials MUST use specific tenant
+    authority = `https://login.microsoftonline.com/${config.graph.tenantId}`;
+  } else {
+    // Delegated flows can use common for multi-tenant
+    authority = process.env.MULTI_TENANT === 'true' || process.env.MULTI_TENANT === undefined
+      ? 'https://login.microsoftonline.com/common'
+      : `https://login.microsoftonline.com/${config.graph.tenantId}`;
+  }
 
   const msalConfig: Configuration = {
     auth: {
@@ -175,11 +184,15 @@ export async function acquireTokenByCode(
 /**
  * Acquire token using client credentials flow (for application authentication)
  * This is used for background jobs and service-to-service calls
+ * 
+ * CRITICAL: Client credentials flow REQUIRES tenant-specific authority
+ * Using "common" will result in: missing_tenant_id_error
  */
 export async function acquireTokenByClientCredentials(
   scopes: string[] = ['https://graph.microsoft.com/.default']
 ): Promise<string | null> {
-  const client = getMsalClient();
+  // CRITICAL: Pass true to use tenant-specific authority for client credentials
+  const client = getMsalClient(true);
   if (!client) {
     console.warn('MSAL client not configured - using mock authentication');
     return null;

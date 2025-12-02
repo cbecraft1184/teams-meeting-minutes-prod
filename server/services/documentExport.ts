@@ -136,7 +136,7 @@ export class DocumentExportService {
       }));
     }
 
-    const documentChildren: Paragraph[] | Table[] = [];
+    const documentChildren: (Paragraph | Table)[] = [];
 
     for (const section of enabledSections) {
       switch (section.id) {

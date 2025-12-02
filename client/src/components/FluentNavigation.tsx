@@ -24,7 +24,9 @@ const useStyles = makeStyles({
     width: "260px",
     backgroundColor: tokens.colorNeutralBackground3,
     ...shorthands.borderRight("1px", "solid", tokens.colorNeutralStroke2),
-    ...shorthands.transition("width", "0.3s", "ease", "transform", "0.3s", "ease"),
+    transitionProperty: "width, transform",
+    transitionDuration: "0.3s",
+    transitionTimingFunction: "ease",
     flexShrink: 0,
     "@media (max-width: 768px)": {
       position: "absolute",

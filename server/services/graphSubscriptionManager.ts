@@ -12,26 +12,20 @@ import { acquireTokenByClientCredentials, getGraphClient } from './microsoftIden
 import { getConfig } from './configValidator';
 import crypto from 'crypto';
 
-// Subscription configurations for different resources
-const SUBSCRIPTION_CONFIGS = {
-  // Call Records - notifies when a call/meeting ENDS (triggers transcript fetch)
-  callRecords: {
-    resource: '/communications/callRecords',
-    changeTypes: ['created'],
-    expirationHours: 48, // Max 4230 minutes (~70 hours) for callRecords
-    renewalBufferHours: 12,
-  },
-  // Online Meetings - notifies when meetings are scheduled/updated
-  onlineMeetings: {
-    resource: '/communications/onlineMeetings',
-    changeTypes: ['created', 'updated', 'deleted'],
-    expirationHours: 48,
-    renewalBufferHours: 12,
-  },
+/**
+ * Subscription Configuration
+ * 
+ * ARCHITECTURE (per architect recommendation):
+ * - Use ONLY callRecords webhook for meeting completion detection
+ * - Meeting scheduling is handled via calendar delta sync (graphCalendarSync)
+ * - This reduces Graph API load, avoids quota issues, and eliminates duplicate notifications
+ */
+const SUBSCRIPTION_CONFIG = {
+  resource: '/communications/callRecords',
+  changeTypes: ['created'],
+  expirationHours: 48, // Max 4230 minutes (~70 hours) for callRecords
+  renewalBufferHours: 12,
 };
-
-// Default to callRecords for meeting completion detection
-const SUBSCRIPTION_CONFIG = SUBSCRIPTION_CONFIGS.callRecords;
 
 export class GraphSubscriptionManager {
   /**
@@ -370,6 +364,11 @@ export class GraphSubscriptionManager {
    * Initialize webhook subscriptions on app startup
    * Creates subscriptions for both call records (meeting end) and online meetings (meeting scheduled)
    * 
+   * CRITICAL STARTUP HEALTH CHECK:
+   * 1. Detects EXPIRED subscriptions and recreates them
+   * 2. Renews subscriptions expiring soon
+   * 3. Creates missing subscriptions
+   * 
    * IMPORTANT: Delays initialization to ensure app is fully warmed up
    * Graph API validation requests can fail if app isn't ready to respond
    */
@@ -381,26 +380,43 @@ export class GraphSubscriptionManager {
     console.log(`🔔 [Webhook] Waiting ${WARMUP_DELAY_MS/1000}s for app warmup before subscription creation...`);
     await new Promise(resolve => setTimeout(resolve, WARMUP_DELAY_MS));
     
-    console.log('🔔 [Webhook] Checking for existing subscriptions...');
+    console.log('🔔 [Webhook] STARTUP HEALTH CHECK - Checking subscription status...');
     
-    // Check existing subscriptions by resource type
-    const existingSubscriptions = await db
+    // Get ALL subscriptions (not just active) to detect expired ones
+    const allSubscriptions = await db
       .select()
-      .from(graphWebhookSubscriptions)
-      .where(eq(graphWebhookSubscriptions.status, 'active'));
+      .from(graphWebhookSubscriptions);
     
-    const hasCallRecords = existingSubscriptions.some(s => s.resource === '/communications/callRecords');
-    const hasOnlineMeetings = existingSubscriptions.some(s => s.resource === '/communications/onlineMeetings');
+    const now = new Date();
     
-    console.log(`🔔 [Webhook] Existing subscriptions - callRecords: ${hasCallRecords}, onlineMeetings: ${hasOnlineMeetings}`);
+    // Separate into categories
+    const expiredSubscriptions = allSubscriptions.filter(s => s.expirationDateTime < now);
+    const activeSubscriptions = allSubscriptions.filter(s => s.expirationDateTime >= now && s.status === 'active');
     
-    // Renew any expiring subscriptions
-    if (existingSubscriptions.length > 0) {
+    console.log(`🔔 [Webhook] Found ${expiredSubscriptions.length} EXPIRED, ${activeSubscriptions.length} active subscriptions`);
+    
+    // CRITICAL: Delete expired subscriptions from DB (they're dead in Graph API too)
+    if (expiredSubscriptions.length > 0) {
+      console.log('⚠️ [Webhook] Cleaning up EXPIRED subscriptions...');
+      for (const expired of expiredSubscriptions) {
+        console.log(`   Removing expired ${expired.resource} subscription (expired: ${expired.expirationDateTime})`);
+        await db.delete(graphWebhookSubscriptions).where(eq(graphWebhookSubscriptions.id, expired.id));
+      }
+    }
+    
+    // Check what's still valid
+    const hasValidCallRecords = activeSubscriptions.some(s => s.resource === '/communications/callRecords');
+    const hasValidOnlineMeetings = activeSubscriptions.some(s => s.resource === '/communications/onlineMeetings');
+    
+    console.log(`🔔 [Webhook] Valid subscriptions - callRecords: ${hasValidCallRecords}, onlineMeetings: ${hasValidOnlineMeetings}`);
+    
+    // Renew any subscriptions expiring soon
+    if (activeSubscriptions.length > 0) {
       await this.renewAllExpiringSubscriptions();
     }
     
-    // Create call records subscription if missing (meeting end detection)
-    if (!hasCallRecords) {
+    // Create call records subscription if missing or expired (meeting end detection)
+    if (!hasValidCallRecords) {
       console.log('🔔 [Webhook] Creating callRecords subscription (meeting end detection)...');
       await this.createSubscriptionWithRetry(
         `${baseUrl}/webhooks/graph/callRecords`,
@@ -410,8 +426,8 @@ export class GraphSubscriptionManager {
       );
     }
     
-    // Create online meetings subscription if missing (meeting scheduled detection)
-    if (!hasOnlineMeetings) {
+    // Create online meetings subscription if missing or expired (meeting scheduled detection)
+    if (!hasValidOnlineMeetings) {
       console.log('🔔 [Webhook] Creating onlineMeetings subscription (meeting scheduled detection)...');
       await this.createSubscriptionWithRetry(
         `${baseUrl}/webhooks/graph/teams/meetings`,

@@ -91,12 +91,31 @@ export const jobStatusEnum = pgEnum("job_status", [
   "dead_letter"
 ]);
 
+// Source type for meeting origin tracking
+export const meetingSourceEnum = pgEnum("meeting_source", [
+  "graph_calendar", // Synced from Microsoft Graph Calendar
+  "graph_webhook",  // Created via Graph webhook notification
+  "manual",         // Manually created in app
+  "bot"             // Created via Teams bot
+]);
+
+// Processing decision for audit logging (DOD/Commercial compliance)
+export const processingDecisionEnum = pgEnum("processing_decision", [
+  "pending",           // Not yet evaluated
+  "processed",         // Met thresholds, AI processing triggered
+  "skipped_duration",  // Duration below minimum threshold
+  "skipped_content",   // Transcript content below minimum threshold
+  "skipped_no_transcript", // No transcript available
+  "manual_override"    // Admin manually triggered processing
+]);
+
 // Meeting schema
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
   description: text("description"),
   scheduledAt: timestamp("scheduled_at").notNull(),
+  endTime: timestamp("end_time"), // End time from Graph calendar event
   duration: text("duration").notNull(), // e.g., "1h 30m"
   attendees: jsonb("attendees").notNull().$type<string[]>(),
   status: meetingStatusEnum("status").notNull().default("scheduled"),
@@ -104,7 +123,19 @@ export const meetings = pgTable("meetings", {
   recordingUrl: text("recording_url"),
   transcriptUrl: text("transcript_url"),
   
-  // Microsoft Graph Integration
+  // Microsoft Graph Calendar Integration
+  graphEventId: text("graph_event_id").unique(), // Graph calendar event ID (for idempotent upserts)
+  iCalUid: text("ical_uid").unique(), // iCalendar UID for cross-calendar tracking
+  location: text("location"), // Meeting location from Graph event
+  isOnlineMeeting: boolean("is_online_meeting").default(false), // Whether it's a Teams meeting
+  organizerEmail: text("organizer_email"), // Organizer email from Graph event
+  startTimeZone: text("start_time_zone"), // Original timezone from Graph
+  endTimeZone: text("end_time_zone"), // End timezone from Graph
+  sourceType: meetingSourceEnum("source_type").default("manual"), // Where meeting came from
+  lastGraphSync: timestamp("last_graph_sync"), // When last synced from Graph
+  graphChangeKey: text("graph_change_key"), // ETag/changeKey for incremental sync
+  
+  // Microsoft Graph Online Meeting Integration
   onlineMeetingId: text("online_meeting_id").unique(), // Teams online meeting ID from Graph API
   organizerAadId: text("organizer_aad_id"), // Azure AD object ID of meeting organizer
   teamsJoinLink: text("teams_join_link"), // Teams meeting join URL
@@ -117,8 +148,19 @@ export const meetings = pgTable("meetings", {
   lastEnrichmentAt: timestamp("last_enrichment_at"), // Last enrichment attempt timestamp
   callRecordRetryAt: timestamp("call_record_retry_at"), // When to retry enrichment (exponential backoff)
   
+  // Processing validation audit (DOD/Commercial compliance)
+  actualDurationSeconds: integer("actual_duration_seconds"), // Actual meeting duration from call record
+  transcriptWordCount: integer("transcript_word_count"), // Word count from transcript for content validation
+  processingDecision: processingDecisionEnum("processing_decision").default("pending"), // Processing decision for audit
+  processingDecisionReason: text("processing_decision_reason"), // Human-readable explanation for audit trail
+  processingDecisionAt: timestamp("processing_decision_at"), // When processing decision was made
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  graphEventIdx: index("meeting_graph_event_idx").on(table.graphEventId),
+  iCalUidIdx: index("meeting_ical_uid_idx").on(table.iCalUid),
+  organizerIdx: index("meeting_organizer_idx").on(table.organizerEmail),
+}));
 
 // Meeting Minutes schema
 export const meetingMinutes = pgTable("meeting_minutes", {
@@ -165,6 +207,51 @@ export const meetingTemplates = pgTable("meeting_templates", {
   agendaItems: jsonb("agenda_items").$type<string[]>(),
   isSystem: boolean("is_system").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Document Template Configuration Types
+export interface DocumentSection {
+  id: string;
+  name: string;
+  enabled: boolean;
+  order: number;
+}
+
+export interface DocumentBranding {
+  organizationName: string;
+  logoEnabled: boolean;
+  primaryColor: string; // Hex color
+  secondaryColor: string; // Hex color
+}
+
+export interface DocumentStyling {
+  fontFamily: "helvetica" | "times" | "courier";
+  titleSize: number;
+  headingSize: number;
+  bodySize: number;
+  lineSpacing: number;
+}
+
+export interface DocumentTemplateConfig {
+  sections: DocumentSection[];
+  branding: DocumentBranding;
+  styling: DocumentStyling;
+  headerText: string;
+  footerText: string;
+  showPageNumbers: boolean;
+  showGeneratedDate: boolean;
+}
+
+// Document Templates schema - for visual presentation of minutes
+export const documentTemplates = pgTable("document_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  isDefault: boolean("is_default").notNull().default(false),
+  isSystem: boolean("is_system").notNull().default(false),
+  config: jsonb("config").notNull().$type<DocumentTemplateConfig>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Users schema for access control
@@ -371,6 +458,26 @@ export const jobQueue = pgTable("job_queue", {
 });
 
 // ==================================================
+// Job Worker Leases schema (distributed locking without superuser)
+// ==================================================
+
+export const jobWorkerLeases = pgTable("job_worker_leases", {
+  // Worker name as primary key (e.g., "main_job_worker")
+  workerName: varchar("worker_name", { length: 100 }).primaryKey(),
+  
+  // Instance identity (unique per container/process)
+  instanceId: varchar("instance_id", { length: 100 }).notNull(),
+  
+  // Lease timing
+  acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
+  lastHeartbeat: timestamp("last_heartbeat").defaultNow().notNull(),
+  leaseExpiresAt: timestamp("lease_expires_at").notNull(),
+});
+
+export type JobWorkerLease = typeof jobWorkerLeases.$inferSelect;
+export type InsertJobWorkerLease = typeof jobWorkerLeases.$inferInsert;
+
+// ==================================================
 // Application Settings schema (singleton table)
 // ==================================================
 
@@ -487,6 +594,12 @@ export const insertMeetingTemplateSchema = createInsertSchema(meetingTemplates).
   createdAt: true,
 });
 
+export const insertDocumentTemplateSchema = createInsertSchema(documentTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -533,6 +646,9 @@ export type InsertActionItem = z.infer<typeof insertActionItemSchema>;
 
 export type MeetingTemplate = typeof meetingTemplates.$inferSelect;
 export type InsertMeetingTemplate = z.infer<typeof insertMeetingTemplateSchema>;
+
+export type DocumentTemplate = typeof documentTemplates.$inferSelect;
+export type InsertDocumentTemplate = z.infer<typeof insertDocumentTemplateSchema>;
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

@@ -130,11 +130,11 @@ export default function Dashboard() {
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: meetings, isLoading: meetingsLoading, isError: meetingsError } = useQuery<MeetingWithMinutes[]>({
+  const { data: meetings, isLoading: meetingsLoading, isError: meetingsError, error: meetingsErrorDetails } = useQuery<MeetingWithMinutes[]>({
     queryKey: ["/api/meetings"],
   });
 
-  const { data: stats, isLoading: statsLoading, isError: statsError } = useQuery<DashboardStats>({
+  const { data: stats, isLoading: statsLoading, isError: statsError, error: statsErrorDetails } = useQuery<DashboardStats>({
     queryKey: ["/api/stats"],
   });
 
@@ -175,6 +175,9 @@ export default function Dashboard() {
         ) : statsError ? (
           <div className={styles.errorState} style={{ gridColumn: "1 / -1" }}>
             <p className={styles.errorSubtitle}>Failed to load statistics</p>
+            <pre style={{ marginTop: '8px', fontSize: '11px', color: '#666' }}>
+              {statsErrorDetails?.message || 'Unknown error'}
+            </pre>
           </div>
         ) : (
           <>
@@ -235,6 +238,19 @@ export default function Dashboard() {
             <AlertCircle style={{ width: "48px", height: "48px" }} className={styles.errorIcon} />
             <p className={styles.errorTitle}>Failed to load meetings</p>
             <p className={styles.errorSubtitle}>Please try refreshing the page.</p>
+            <pre style={{ 
+              marginTop: '16px', 
+              padding: '12px', 
+              backgroundColor: '#fff', 
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '11px',
+              textAlign: 'left',
+              overflow: 'auto',
+              maxHeight: '150px'
+            }}>
+              {meetingsErrorDetails?.message || 'Unknown error'}
+            </pre>
           </div>
         ) : filteredMeetings.length > 0 ? (
           <div className={styles.meetingsGrid}>

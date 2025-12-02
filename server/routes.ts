@@ -8,6 +8,7 @@ import { generateMeetingMinutes, extractActionItems } from "./services/azureOpen
 import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
 import { requireWebhookAuth } from "./middleware/requireServiceAuth";
 import { documentExportService } from "./services/documentExport";
+import { templateService } from "./services/templateService";
 import { emailDistributionService } from "./services/emailDistribution";
 import { accessControlService } from "./services/accessControl";
 import { registerWebhookRoutes, registerAdminWebhookRoutes } from "./routes/webhooks";
@@ -20,6 +21,20 @@ import { serveStatic as setupProductionStatic } from "./static";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
+  
+  // ========== GLOBAL PRE-ROUTING GUARD ==========
+  // This middleware runs BEFORE express.static and ensures webhook requests 
+  // are never accidentally served the SPA HTML
+  app.use((req, res, next) => {
+    const path = (req.originalUrl || req.path || '').toLowerCase();
+    
+    // Debug logging for webhook requests
+    if (path.includes('/webhooks/') || path.includes('/api/')) {
+      console.log(`[PRE-ROUTE GUARD] ${req.method} ${req.originalUrl} (path=${req.path})`);
+    }
+    
+    next();
+  });
   
   // ========== PUBLIC ENDPOINTS (NO AUTHENTICATION) ==========
   
@@ -650,7 +665,8 @@ export function registerRoutes(app: Express): Server {
       console.log(`[ACCESS] User ${req.user.email} exporting DOCX for meeting: ${meeting.title}`);
       accessControlService.logAccessAttempt(req.user, meeting, true, "DOCX export");
 
-      const buffer = await documentExportService.generateDOCX(meeting);
+      const templateId = req.query.templateId as string | undefined;
+      const buffer = await documentExportService.generateDOCX(meeting, templateId);
       const filename = `meeting-minutes-${meeting.id}-${Date.now()}.docx`;
 
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
@@ -687,7 +703,8 @@ export function registerRoutes(app: Express): Server {
       console.log(`[ACCESS] User ${req.user.email} exporting PDF for meeting: ${meeting.title}`);
       accessControlService.logAccessAttempt(req.user, meeting, true, "PDF export");
 
-      const buffer = await documentExportService.generatePDF(meeting);
+      const templateId = req.query.templateId as string | undefined;
+      const buffer = await documentExportService.generatePDF(meeting, templateId);
       const filename = `meeting-minutes-${meeting.id}-${Date.now()}.pdf`;
 
       res.setHeader('Content-Type', 'application/pdf');
@@ -957,6 +974,137 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Error creating meeting from template:", error);
       res.status(500).json({ error: "Failed to create meeting from template" });
+    }
+  });
+
+  // ========== DOCUMENT TEMPLATES API ==========
+  // Templates for visual presentation of meeting minutes (DOCX/PDF export)
+
+  // Get all document templates
+  app.get("/api/document-templates", async (_req, res) => {
+    try {
+      const templates = await templateService.getAllTemplates();
+      res.json(templates);
+    } catch (error: any) {
+      console.error("Error fetching document templates:", error);
+      res.status(500).json({ error: "Failed to fetch document templates" });
+    }
+  });
+
+  // Get default document template
+  app.get("/api/document-templates/default", async (_req, res) => {
+    try {
+      const template = await templateService.getDefaultTemplate();
+      if (!template) {
+        return res.status(404).json({ error: "No default template found" });
+      }
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error fetching default document template:", error);
+      res.status(500).json({ error: "Failed to fetch default document template" });
+    }
+  });
+
+  // Get default config (for creating new templates)
+  app.get("/api/document-templates/default-config", async (_req, res) => {
+    try {
+      const config = templateService.getDefaultConfig();
+      res.json(config);
+    } catch (error: any) {
+      console.error("Error fetching default config:", error);
+      res.status(500).json({ error: "Failed to fetch default config" });
+    }
+  });
+
+  // Get single document template
+  app.get("/api/document-templates/:id", async (req, res) => {
+    try {
+      const template = await templateService.getTemplateById(req.params.id);
+      if (!template) {
+        return res.status(404).json({ error: "Document template not found" });
+      }
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error fetching document template:", error);
+      res.status(500).json({ error: "Failed to fetch document template" });
+    }
+  });
+
+  // Create document template (admin only)
+  app.post("/api/document-templates", requireRole("admin"), async (req, res) => {
+    try {
+      const { name, description, config } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ error: "Template name is required" });
+      }
+
+      const template = await templateService.createTemplate({ name, description, config });
+      res.status(201).json(template);
+    } catch (error: any) {
+      console.error("Error creating document template:", error);
+      res.status(500).json({ error: "Failed to create document template" });
+    }
+  });
+
+  // Update document template (admin only)
+  app.patch("/api/document-templates/:id", requireRole("admin"), async (req, res) => {
+    try {
+      const template = await templateService.updateTemplate(req.params.id, req.body);
+      if (!template) {
+        return res.status(404).json({ error: "Document template not found" });
+      }
+      res.json(template);
+    } catch (error: any) {
+      console.error("Error updating document template:", error);
+      res.status(500).json({ error: "Failed to update document template" });
+    }
+  });
+
+  // Delete document template (admin only)
+  app.delete("/api/document-templates/:id", requireRole("admin"), async (req, res) => {
+    try {
+      await templateService.deleteTemplate(req.params.id);
+      res.status(204).send();
+    } catch (error: any) {
+      if (error.message === "Cannot delete system templates") {
+        return res.status(403).json({ error: "Cannot delete system templates" });
+      }
+      console.error("Error deleting document template:", error);
+      res.status(500).json({ error: "Failed to delete document template" });
+    }
+  });
+
+  // Set default document template (admin only)
+  app.post("/api/document-templates/:id/set-default", requireRole("admin"), async (req, res) => {
+    try {
+      const success = await templateService.setDefaultTemplate(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Document template not found" });
+      }
+      res.json({ success: true, message: "Default template updated" });
+    } catch (error: any) {
+      console.error("Error setting default document template:", error);
+      res.status(500).json({ error: "Failed to set default document template" });
+    }
+  });
+
+  // Duplicate document template (admin only)
+  app.post("/api/document-templates/:id/duplicate", requireRole("admin"), async (req, res) => {
+    try {
+      const { name } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: "New template name is required" });
+      }
+
+      const template = await templateService.duplicateTemplate(req.params.id, name);
+      if (!template) {
+        return res.status(404).json({ error: "Document template not found" });
+      }
+      res.status(201).json(template);
+    } catch (error: any) {
+      console.error("Error duplicating document template:", error);
+      res.status(500).json({ error: "Failed to duplicate document template" });
     }
   });
 

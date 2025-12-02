@@ -33,24 +33,24 @@ const REQUIRED_SECRETS: SecretCheck[] = [
     description: 'Azure AD Client Secret for development'
   },
 
-  // Azure OpenAI - Development
+  // Azure OpenAI - Development (optional - can use Replit AI fallback)
   {
     key: 'AZURE_OPENAI_ENDPOINT_DEV',
-    required: true,
+    required: false,
     environment: 'dev',
-    description: 'Azure OpenAI endpoint URL for development'
+    description: 'Azure OpenAI endpoint URL for development (optional - Replit AI fallback available)'
   },
   {
     key: 'AZURE_OPENAI_API_KEY_DEV',
-    required: true,
+    required: false,
     environment: 'dev',
-    description: 'Azure OpenAI API key for development'
+    description: 'Azure OpenAI API key for development (optional - Replit AI fallback available)'
   },
   {
     key: 'AZURE_OPENAI_DEPLOYMENT_DEV',
-    required: true,
+    required: false,
     environment: 'dev',
-    description: 'Azure OpenAI model deployment name for development'
+    description: 'Azure OpenAI model deployment name for development (optional - Replit AI fallback available)'
   },
 
   // Microsoft Graph API - Production
@@ -151,6 +151,16 @@ export function validateConfiguration(): ValidationResult {
   const missingOptional: SecretCheck[] = [];
   const configured: SecretCheck[] = [];
 
+  // Define fallback mappings for *_DEV to AZURE_*
+  const fallbackMappings: Record<string, string> = {
+    'GRAPH_TENANT_ID_DEV': 'AZURE_TENANT_ID',
+    'GRAPH_CLIENT_ID_DEV': 'AZURE_CLIENT_ID',
+    'GRAPH_CLIENT_SECRET_DEV': 'AZURE_CLIENT_SECRET',
+    'AZURE_OPENAI_ENDPOINT_DEV': 'AZURE_OPENAI_ENDPOINT',
+    'AZURE_OPENAI_API_KEY_DEV': 'AZURE_OPENAI_API_KEY',
+    'AZURE_OPENAI_DEPLOYMENT_DEV': 'AZURE_OPENAI_DEPLOYMENT',
+  };
+
   for (const secret of REQUIRED_SECRETS) {
     // Skip production secrets in development environment
     if (!isProduction && secret.environment === 'prod') {
@@ -162,8 +172,12 @@ export function validateConfiguration(): ValidationResult {
       continue;
     }
 
+    // Check primary key, then fallback key if available
     const value = process.env[secret.key];
-    const isConfigured = value !== undefined && value !== '';
+    const fallbackKey = fallbackMappings[secret.key];
+    const fallbackValue = fallbackKey ? process.env[fallbackKey] : undefined;
+    const isConfigured = (value !== undefined && value !== '') || 
+                         (fallbackValue !== undefined && fallbackValue !== '');
 
     if (isConfigured) {
       configured.push(secret);
@@ -280,20 +294,20 @@ export function getConfig() {
     isProduction,
     useMockServices,
 
-    // Microsoft Graph
+    // Microsoft Graph - Check both GRAPH_* and AZURE_* credentials
     graph: {
-      tenantId: process.env[`GRAPH_TENANT_ID${envSuffix}`] || '',
-      clientId: process.env[`GRAPH_CLIENT_ID${envSuffix}`] || '',
-      clientSecret: process.env[`GRAPH_CLIENT_SECRET${envSuffix}`] || '',
+      tenantId: process.env[`GRAPH_TENANT_ID${envSuffix}`] || process.env.AZURE_TENANT_ID || '',
+      clientId: process.env[`GRAPH_CLIENT_ID${envSuffix}`] || process.env.AZURE_CLIENT_ID || '',
+      clientSecret: process.env[`GRAPH_CLIENT_SECRET${envSuffix}`] || process.env.AZURE_CLIENT_SECRET || '',
       appSecret: process.env[`GRAPH_APP_SECRET${envSuffix}`] || '',
     },
 
-    // Azure OpenAI
+    // Azure OpenAI - Check both suffixed and non-suffixed credentials
     azureOpenAI: {
-      endpoint: process.env[`AZURE_OPENAI_ENDPOINT${envSuffix}`] || '',
-      apiKey: process.env[`AZURE_OPENAI_API_KEY${envSuffix}`] || '',
-      deployment: process.env[`AZURE_OPENAI_DEPLOYMENT${envSuffix}`] || 'gpt-4',
-      apiVersion: process.env[`AZURE_OPENAI_API_VERSION${envSuffix}`] || '2024-02-15-preview',
+      endpoint: process.env[`AZURE_OPENAI_ENDPOINT${envSuffix}`] || process.env.AZURE_OPENAI_ENDPOINT || '',
+      apiKey: process.env[`AZURE_OPENAI_API_KEY${envSuffix}`] || process.env.AZURE_OPENAI_API_KEY || '',
+      deployment: process.env[`AZURE_OPENAI_DEPLOYMENT${envSuffix}`] || process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4',
+      apiVersion: process.env[`AZURE_OPENAI_API_VERSION${envSuffix}`] || process.env.AZURE_OPENAI_API_VERSION || '2024-02-15-preview',
     },
 
     // SharePoint

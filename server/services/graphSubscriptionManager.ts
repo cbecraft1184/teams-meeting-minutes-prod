@@ -431,6 +431,8 @@ export class GraphSubscriptionManager {
     }
     
     // Create call records subscription if missing or expired (meeting end detection)
+    // NOTE: Per architecture, we ONLY use callRecords webhook
+    // Meeting scheduling is detected via calendar delta sync (graphCalendarSync)
     if (!hasValidCallRecords) {
       console.log('🔔 [Webhook] Creating callRecords subscription (meeting end detection)...');
       await this.createSubscriptionWithRetry(
@@ -441,16 +443,8 @@ export class GraphSubscriptionManager {
       );
     }
     
-    // Create online meetings subscription if missing or expired (meeting scheduled detection)
-    if (!hasValidOnlineMeetings) {
-      console.log('🔔 [Webhook] Creating onlineMeetings subscription (meeting scheduled detection)...');
-      await this.createSubscriptionWithRetry(
-        `${baseUrl}/webhooks/graph/teams/meetings`,
-        SUBSCRIPTION_CONFIGS.onlineMeetings,
-        MAX_RETRIES,
-        RETRY_DELAY_MS
-      );
-    }
+    // NOTE: onlineMeetings subscription removed per architecture optimization
+    // Meeting scheduling is handled by calendar delta sync, not webhooks
     
     console.log('📊 [Webhook] Subscription initialization complete');
   }

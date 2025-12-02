@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { app, authentication } from '@microsoft/teams-js';
 import { setAuthToken, clearAuthToken, getAuthToken as getStoredToken } from '@/lib/authToken';
 
-const APP_ID_URI = 'api://teams-minutes-app.orangemushroom-b6a537d.eestu2.azurecontainerapps.io/71383692-c5c6-4b2c-964c-9e6579e0ed46';
+const APP_ID_URI = 'api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c';
 
 // Debug logging helper - logs to console with timestamp
 function logAuth(stage: string, data?: any) {

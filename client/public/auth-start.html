@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authenticating...</title>
+</head>
+<body>
+    <script src="https://res.cdn.office.net/teams-js/2.21.0/js/MicrosoftTeams.min.js"></script>
+    <script>
+        (async function() {
+            await microsoftTeams.app.initialize();
+            
+            const authParams = new URLSearchParams(window.location.search);
+            const clientId = '71383692-c5c6-40cc-94cf-96c97fed146c';
+            const tenantId = authParams.get('tenantId') || 'common';
+            const redirectUri = window.location.origin + '/auth-end';
+            const scope = encodeURIComponent('api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c/access_as_user openid profile offline_access');
+            const state = Math.random().toString(36).substring(7);
+            const nonce = Math.random().toString(36).substring(7);
+            
+            const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
+                `client_id=${clientId}` +
+                `&response_type=token` +
+                `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+                `&scope=${scope}` +
+                `&state=${state}` +
+                `&nonce=${nonce}` +
+                `&response_mode=fragment`;
+            
+            window.location.href = authUrl;
+        })();
+    </script>
+</body>
+</html>

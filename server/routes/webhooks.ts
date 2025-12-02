@@ -10,7 +10,7 @@ import { graphSubscriptionManager } from '../services/graphSubscriptionManager';
 import { callRecordEnrichmentService } from '../services/callRecordEnrichment';
 import { db } from '../db';
 import { graphWebhookSubscriptions, meetings } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // In-memory queue for webhook notifications (will be replaced with Redis/SQS in production)
 interface WebhookNotification {
@@ -61,6 +61,11 @@ export function registerAdminWebhookRoutes(router: Router): void {
   router.post('/api/admin/webhooks/subscriptions', createSubscription);
   router.get('/api/admin/webhooks/subscriptions', listSubscriptions);
   router.delete('/api/admin/webhooks/subscriptions/:id', deleteSubscription);
+  
+  // Processing validation management (admin only)
+  router.get('/api/admin/processing/skipped', listSkippedMeetings);
+  router.post('/api/admin/meetings/:id/force-process', forceProcessMeetingEndpoint);
+  router.get('/api/admin/meetings/:id/processing-status', getProcessingStatusEndpoint);
 }
 
 /**
@@ -84,13 +89,27 @@ async function handleValidationChallenge(req: Request, res: Response): Promise<v
 /**
  * Handle POST request with call record webhook notifications from Microsoft Graph
  * This is triggered when a Teams meeting ENDS and a call record is created
+ * 
+ * IMPORTANT: Microsoft Graph also sends validation requests as POST with validationToken
+ * in query params. We must check for this FIRST before processing as notification.
  */
 async function handleCallRecordWebhook(req: Request, res: Response): Promise<void> {
   try {
+    // CRITICAL: Check for validation token FIRST (Microsoft sends validation as POST!)
+    const validationToken = req.query.validationToken as string;
+    if (validationToken) {
+      console.log('✅ Webhook validation challenge received (via POST)');
+      console.log(`   Token: ${validationToken.substring(0, 50)}...`);
+      res.type('text/plain').status(200).send(validationToken);
+      return;
+    }
+    
     const { value: notifications } = req.body;
 
     if (!notifications || !Array.isArray(notifications)) {
-      res.status(400).json({ error: 'Invalid notification payload' });
+      console.log('⚠️ [CallRecords] POST request without notifications or validationToken');
+      console.log(`   Body: ${JSON.stringify(req.body).substring(0, 200)}`);
+      res.status(202).send(); // Return 202 to avoid retries
       return;
     }
 
@@ -181,18 +200,33 @@ async function processCallRecordNotification(notification: any): Promise<void> {
 }
 
 /**
- * Handle POST request with webhook notifications from Microsoft Graph
+ * Handle POST request with webhook notifications from Microsoft Graph for Online Meetings
+ * This is triggered when a Teams meeting is SCHEDULED, UPDATED, or DELETED
+ * 
+ * IMPORTANT: Microsoft Graph also sends validation requests as POST with validationToken
+ * in query params. We must check for this FIRST before processing as notification.
  */
 async function handleTeamsMeetingWebhook(req: Request, res: Response): Promise<void> {
   try {
-    const { value: notifications } = req.body;
-
-    if (!notifications || !Array.isArray(notifications)) {
-      res.status(400).json({ error: 'Invalid notification payload' });
+    // CRITICAL: Check for validation token FIRST (Microsoft sends validation as POST!)
+    const validationToken = req.query.validationToken as string;
+    if (validationToken) {
+      console.log('✅ [OnlineMeetings] Webhook validation challenge received (via POST)');
+      console.log(`   Token: ${validationToken.substring(0, 50)}...`);
+      res.type('text/plain').status(200).send(validationToken);
       return;
     }
 
-    console.log(`📬 Received ${notifications.length} webhook notification(s)`);
+    const { value: notifications } = req.body;
+
+    if (!notifications || !Array.isArray(notifications)) {
+      console.log('⚠️ [OnlineMeetings] POST request without notifications or validationToken');
+      console.log(`   Body: ${JSON.stringify(req.body).substring(0, 200)}`);
+      res.status(202).send(); // Return 202 to avoid retries
+      return;
+    }
+
+    console.log(`📅 [OnlineMeetings] Received ${notifications.length} meeting notification(s)`);
 
     // Validate and queue each notification
     for (const notification of notifications) {
@@ -564,6 +598,178 @@ async function deleteSubscription(req: Request, res: Response): Promise<void> {
     res.json({ message: 'Subscription deleted successfully' });
   } catch (error) {
     console.error('Error deleting subscription:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Force process a meeting that was auto-skipped due to threshold validation
+ * Requires admin role - records audit trail with override reason
+ */
+async function forceProcessMeetingEndpoint(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // Get authenticated user from request
+    const user = (req as any).user;
+    
+    if (!user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
+    }
+    
+    // Check admin role
+    if (user.role !== 'admin') {
+      res.status(403).json({ error: 'Admin role required for manual processing override' });
+      return;
+    }
+    
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 10) {
+      res.status(400).json({ error: 'Override reason required (minimum 10 characters)' });
+      return;
+    }
+    
+    const adminUserId = user.azureAdId || user.id || user.email;
+    
+    console.log(`🔧 [Admin API] Force process request for meeting ${id} by ${adminUserId}`);
+    
+    const result = await callRecordEnrichmentService.forceProcessMeeting(
+      id,
+      adminUserId,
+      reason.trim()
+    );
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: result.message,
+        meetingId: id,
+        overrideBy: adminUserId,
+        overrideReason: reason.trim()
+      });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        error: result.message 
+      });
+    }
+  } catch (error) {
+    console.error('Error forcing meeting processing:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * List meetings that were skipped during processing validation
+ * For admin dashboard to review and potentially override
+ */
+async function listSkippedMeetings(req: Request, res: Response): Promise<void> {
+  try {
+    const { PROCESSING_THRESHOLDS } = await import('../services/processingValidation');
+    
+    // Get all meetings with skipped processing decisions
+    const skippedMeetings = await db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        scheduledAt: meetings.scheduledAt,
+        status: meetings.status,
+        enrichmentStatus: meetings.enrichmentStatus,
+        actualDurationSeconds: meetings.actualDurationSeconds,
+        transcriptWordCount: meetings.transcriptWordCount,
+        processingDecision: meetings.processingDecision,
+        processingDecisionReason: meetings.processingDecisionReason,
+        processingDecisionAt: meetings.processingDecisionAt,
+        organizerEmail: meetings.organizerEmail,
+      })
+      .from(meetings)
+      .where(
+        sql`${meetings.processingDecision} IN ('skipped_duration', 'skipped_content', 'skipped_no_transcript')`
+      )
+      .orderBy(sql`${meetings.processingDecisionAt} DESC NULLS LAST`)
+      .limit(50);
+    
+    res.json({
+      meetings: skippedMeetings.map(m => ({
+        ...m,
+        actualDurationMinutes: m.actualDurationSeconds 
+          ? Math.floor(m.actualDurationSeconds / 60) 
+          : null,
+        canForceProcess: true,
+      })),
+      thresholds: {
+        minDurationSeconds: PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS,
+        minDurationMinutes: Math.floor(PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS / 60),
+        minTranscriptWords: PROCESSING_THRESHOLDS.MIN_TRANSCRIPT_WORDS,
+      },
+      count: skippedMeetings.length,
+    });
+  } catch (error) {
+    console.error('Error listing skipped meetings:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * Get processing status for a meeting (for admin dashboard)
+ * Shows validation decision, thresholds, and audit trail
+ */
+async function getProcessingStatusEndpoint(req: Request, res: Response): Promise<void> {
+  try {
+    const { id } = req.params;
+    
+    const [meeting] = await db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        status: meetings.status,
+        enrichmentStatus: meetings.enrichmentStatus,
+        actualDurationSeconds: meetings.actualDurationSeconds,
+        transcriptWordCount: meetings.transcriptWordCount,
+        processingDecision: meetings.processingDecision,
+        processingDecisionReason: meetings.processingDecisionReason,
+        processingDecisionAt: meetings.processingDecisionAt,
+      })
+      .from(meetings)
+      .where(eq(meetings.id, id))
+      .limit(1);
+    
+    if (!meeting) {
+      res.status(404).json({ error: 'Meeting not found' });
+      return;
+    }
+    
+    // Import thresholds for reference
+    const { PROCESSING_THRESHOLDS } = await import('../services/processingValidation');
+    
+    res.json({
+      meeting: {
+        id: meeting.id,
+        title: meeting.title,
+        status: meeting.status,
+        enrichmentStatus: meeting.enrichmentStatus,
+      },
+      processingValidation: {
+        decision: meeting.processingDecision,
+        reason: meeting.processingDecisionReason,
+        decisionAt: meeting.processingDecisionAt,
+        actualDurationSeconds: meeting.actualDurationSeconds,
+        actualDurationMinutes: meeting.actualDurationSeconds 
+          ? Math.floor(meeting.actualDurationSeconds / 60) 
+          : null,
+        transcriptWordCount: meeting.transcriptWordCount,
+      },
+      thresholds: {
+        minDurationSeconds: PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS,
+        minDurationMinutes: Math.floor(PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS / 60),
+        minTranscriptWords: PROCESSING_THRESHOLDS.MIN_TRANSCRIPT_WORDS,
+      },
+      canForceProcess: meeting.processingDecision !== 'processed' && 
+                       meeting.processingDecision !== 'manual_override',
+    });
+  } catch (error) {
+    console.error('Error getting processing status:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

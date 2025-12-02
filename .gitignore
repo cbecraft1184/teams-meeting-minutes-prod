@@ -37,5 +37,17 @@ Thumbs.db
 # Azure
 .azure
 
-# Screenshots and attachments (deployment logs)
+# Screenshots and attachments (may contain sensitive data)
 attached_assets/screenshots/*.png
+attached_assets/Pasted-*.txt
+attached_assets/*azure*.txt
+attached_assets/*secret*.txt
+attached_assets/*credential*.txt
+attached_assets/*key*.txt
+
+# Prevent accidental credential commits
+**/secrets.json
+**/credentials.json
+**/*secret*
+**/*credential*
+!.gitignore

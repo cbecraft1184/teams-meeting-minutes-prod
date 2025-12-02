@@ -150,3 +150,27 @@ The system is built as a full-stack application with a React-based frontend, a N
 - `skipped_content` - Transcript under 50 words
 - `skipped_no_transcript` - No transcript available
 - `manual_override` - Admin manually triggered despite thresholds
+
+### December 2, 2025 - Production Deployment (COMPLETED ✓)
+
+**Enhancement:** Successfully deployed to Azure Container Apps via GitHub Actions.
+
+**Deployment Details:**
+- **Production URL**: https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
+- **Container Registry**: teamminutesacr.azurecr.io
+- **Resource Group**: rg-teams-minutes-demo
+- **Region**: East US 2
+
+**Lessons Learned (Deployment Checklist Created):**
+1. Service principal requires Contributor role on Azure subscription
+2. GitHub Actions expects `AZURE_CREDENTIALS` as single JSON secret
+3. Never commit credentials to git - use `.gitignore` patterns
+4. See `docs/DEPLOYMENT_CHECKLIST.md` for complete requirements
+
+**Azure App Registration:**
+- Name: Teams Minutes Graph API
+- Client ID: 71383692-c5c6-40cc-94cf-96c97fed146c
+- Tenant ID: e4be879d-b4b5-4eb7-bdb8-70b31519d985
+
+**GitHub Secrets Required:**
+- `AZURE_CREDENTIALS` - JSON with clientId, clientSecret, subscriptionId, tenantId

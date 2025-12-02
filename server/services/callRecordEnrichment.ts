@@ -4,11 +4,11 @@
  * After a Teams meeting ends, this service fetches the callRecord, recordings,
  * and transcripts from Microsoft Graph API to enrich the meeting record.
  * 
- * Architecture:
- * - Event-driven: Triggered by webhook notifications when meeting ends
- * - Background catch-up: Scheduled job retries failed/stuck enrichments
- * - Exponential backoff: 5, 15, 45 minutes (Graph eventual consistency)
- * - Graceful degradation: Handles 404/202 responses (data not ready yet)
+ * ARCHITECTURE (per architect recommendation):
+ * - All background work flows through the durable queue (durableQueue.ts)
+ * - The lease-based job worker (jobWorker.ts) governs all processing
+ * - No in-memory queues - ensures crash recovery and single-worker execution
+ * - Retries handled by durableQueue with exponential backoff
  */
 
 import { db } from "../db";
@@ -16,15 +16,13 @@ import { meetings } from "@shared/schema";
 import { eq, and, lt, isNull, sql } from "drizzle-orm";
 import { getGraphClient } from "./microsoftIdentity";
 import { minutesGeneratorService } from "./minutesGenerator";
-
-/**
- * Enrichment queue item
- */
-interface EnrichmentTask {
-  meetingId: string;
-  onlineMeetingId: string;
-  attempt: number;
-}
+import { 
+  countTranscriptWords,
+  calculateActualDuration,
+  validateForProcessing,
+  recordProcessingDecision
+} from "./processingValidation";
+import { enqueueJob, type JobType } from "./durableQueue";
 
 /**
  * Graph API recording response
@@ -45,31 +43,20 @@ interface Transcript {
 }
 
 /**
- * In-memory enrichment queue
- */
-const enrichmentQueue: EnrichmentTask[] = [];
-let isProcessing = false;
-
-/**
- * Track scheduled retry timers for cleanup on shutdown
- */
-const scheduledRetries: Map<string, NodeJS.Timeout> = new Map();
-
-/**
- * Exponential backoff delays (in minutes)
- * Attempt 1 → 2: 5 minutes
- * Attempt 2 → 3: 15 minutes
- * Attempt 3 → 4: 45 minutes
+ * Exponential backoff delays (in minutes) - used for logging only
+ * Actual backoff is managed by durableQueue
  */
 const BACKOFF_DELAYS = [5, 15, 45];
 const MAX_ATTEMPTS = 4; // Allow 4 attempts total (initial + 3 retries)
 
 /**
- * Enqueue a meeting for enrichment
+ * Enqueue a meeting for enrichment via durable queue
  * Called when webhook notification indicates meeting has ended
+ * 
+ * ARCHITECTURE: Uses durableQueue for crash recovery and single-worker execution
  */
 export async function enqueueMeetingEnrichment(meetingId: string, onlineMeetingId: string): Promise<void> {
-  console.log(`📥 [Enrichment] Enqueuing meeting ${meetingId} for enrichment`);
+  console.log(`📥 [Enrichment] Enqueuing meeting ${meetingId} for enrichment via durable queue`);
   
   // Mark as enriching immediately (prevents orphaned "pending" status if process crashes)
   await db.update(meetings)
@@ -80,91 +67,23 @@ export async function enqueueMeetingEnrichment(meetingId: string, onlineMeetingI
     })
     .where(eq(meetings.id, meetingId));
   
-  // Add to queue
-  enrichmentQueue.push({
-    meetingId,
-    onlineMeetingId,
-    attempt: 1
-  });
-  
-  // Start processing if not already running
-  if (!isProcessing) {
-    processEnrichmentQueue();
-  }
-}
-
-/**
- * Process enrichment queue
- * Processes items asynchronously with retry logic
- */
-async function processEnrichmentQueue(): Promise<void> {
-  if (isProcessing || enrichmentQueue.length === 0) {
-    return;
-  }
-  
-  isProcessing = true;
-  
-  while (enrichmentQueue.length > 0) {
-    const task = enrichmentQueue.shift()!;
-    
-    try {
-      await enrichMeeting(task.meetingId, task.onlineMeetingId, task.attempt);
-    } catch (error) {
-      console.error(`❌ [Enrichment] Failed to enrich meeting ${task.meetingId}:`, error);
-      
-      // Retry with exponential backoff
-      if (task.attempt < MAX_ATTEMPTS) {
-        const delayMinutes = BACKOFF_DELAYS[task.attempt - 1] || BACKOFF_DELAYS[BACKOFF_DELAYS.length - 1];
-        const delayMs = delayMinutes * 60 * 1000;
-        const retryAt = new Date(Date.now() + delayMs);
-        
-        console.log(`🔄 [Enrichment] Scheduling retry ${task.attempt + 1}/${MAX_ATTEMPTS} in ${delayMinutes} minutes`);
-        
-        // Update database with retry schedule
-        await db.update(meetings)
-          .set({
-            enrichmentStatus: "enriching",
-            enrichmentAttempts: task.attempt,
-            lastEnrichmentAt: new Date(),
-            callRecordRetryAt: retryAt
-          })
-          .where(eq(meetings.id, task.meetingId));
-        
-        // Schedule actual retry timer (implements true exponential backoff)
-        const timerId = setTimeout(() => {
-          console.log(`⏰ [Enrichment] Retry timer fired for meeting ${task.meetingId}`);
-          enrichmentQueue.push({
-            meetingId: task.meetingId,
-            onlineMeetingId: task.onlineMeetingId,
-            attempt: task.attempt + 1
-          });
-          scheduledRetries.delete(task.meetingId);
-          
-          // Start processing if not already running
-          if (!isProcessing) {
-            processEnrichmentQueue();
-          }
-        }, delayMs);
-        
-        // Track timer for cleanup
-        scheduledRetries.set(task.meetingId, timerId);
-      } else {
-        // Max attempts reached, mark as failed
-        console.error(`❌ [Enrichment] Max attempts (${MAX_ATTEMPTS}) reached for meeting ${task.meetingId}`);
-        
-        await db.update(meetings)
-          .set({
-            enrichmentStatus: "failed",
-            enrichmentAttempts: MAX_ATTEMPTS,
-            lastEnrichmentAt: new Date(),
-            callRecordRetryAt: null // Clear retry timestamp
-          })
-          .where(eq(meetings.id, task.meetingId));
-      }
+  // Enqueue via durable queue - handled by lease-based job worker
+  try {
+    await enqueueJob({
+      jobType: 'enrich_meeting',
+      payload: { meetingId, onlineMeetingId },
+      idempotencyKey: `enrich:${meetingId}`,
+      maxRetries: MAX_ATTEMPTS
+    });
+    console.log(`✅ [Enrichment] Meeting ${meetingId} enqueued for processing`);
+  } catch (error: any) {
+    // Ignore duplicate key errors (job already enqueued)
+    if (!error.message?.includes('duplicate key')) {
+      console.error(`❌ [Enrichment] Failed to enqueue meeting ${meetingId}:`, error);
+      throw error;
     }
+    console.log(`⚠️ [Enrichment] Meeting ${meetingId} already enqueued, skipping duplicate`);
   }
-  
-  isProcessing = false;
 }
 
 /**
@@ -190,6 +109,14 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     // Mock mode: Simulate enrichment with fake data
     console.log(`🧪 [Enrichment] Mock mode: Simulating enrichment for meeting ${meetingId}`);
     
+    // Mock: Simulate a 30-minute meeting with 200-word transcript
+    const mockDurationSeconds = 30 * 60; // 30 minutes
+    const mockTranscriptWordCount = 200; // 200 words
+    
+    // Validate processing thresholds (DOD/Commercial compliance)
+    const decision = validateForProcessing(mockDurationSeconds, mockTranscriptWordCount, true);
+    await recordProcessingDecision(meetingId, decision);
+    
     await db.update(meetings)
       .set({
         callRecordId: `mock-callrecord-${onlineMeetingId}`,
@@ -205,13 +132,17 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     
     console.log(`✅ [Enrichment] Mock enrichment complete for meeting ${meetingId}`);
     
-    // Auto-generate minutes after enrichment completes (mock mode)
-    try {
-      console.log(`🤖 [Enrichment] Triggering auto-generation of minutes...`);
-      await minutesGeneratorService.autoGenerateMinutes(meetingId);
-    } catch (error) {
-      console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, error);
-      // Don't fail enrichment if minutes generation fails
+    // Only trigger AI processing if validation passed
+    if (decision.shouldProcess) {
+      try {
+        console.log(`🤖 [Enrichment] Triggering auto-generation of minutes...`);
+        await minutesGeneratorService.autoGenerateMinutes(meetingId);
+      } catch (error) {
+        console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, error);
+        // Don't fail enrichment if minutes generation fails
+      }
+    } else {
+      console.log(`⏭️ [Enrichment] Skipping AI processing: ${decision.reason}`);
     }
     
     return;
@@ -274,6 +205,41 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       }
     }
     
+    // Fetch call record for actual duration (DOD/Commercial compliance)
+    let actualDurationSeconds: number | null = null;
+    try {
+      console.log(`📊 [Enrichment] Fetching call record details for duration...`);
+      // Get the meeting's call record for actual start/end times
+      const [meetingRecord] = await db.select()
+        .from(meetings)
+        .where(eq(meetings.id, meetingId))
+        .limit(1);
+      
+      if (meetingRecord?.callRecordId) {
+        const callRecordResponse = await graphClient.get(
+          `/communications/callRecords/${meetingRecord.callRecordId}`
+        );
+        if (callRecordResponse?.startDateTime && callRecordResponse?.endDateTime) {
+          actualDurationSeconds = calculateActualDuration(
+            callRecordResponse.startDateTime,
+            callRecordResponse.endDateTime
+          );
+          console.log(`   Duration: ${actualDurationSeconds}s (${Math.floor((actualDurationSeconds || 0) / 60)}m)`);
+        }
+      }
+    } catch (durationError) {
+      console.warn(`⚠️ [Enrichment] Could not fetch call record duration:`, durationError);
+    }
+    
+    // Count transcript words for content validation
+    const transcriptWordCount = countTranscriptWords(transcriptContent);
+    console.log(`   Transcript words: ${transcriptWordCount}`);
+    
+    // Validate processing thresholds (DOD/Commercial compliance)
+    const hasTranscript = !!transcriptContent && transcriptContent.length > 0;
+    const decision = validateForProcessing(actualDurationSeconds, transcriptWordCount, hasTranscript);
+    await recordProcessingDecision(meetingId, decision);
+    
     // Update meeting record (clear retry timestamp on success)
     await db.update(meetings)
       .set({
@@ -291,8 +257,8 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     console.log(`   📹 Recording: ${latestRecording ? 'Found' : 'Not available'}`);
     console.log(`   📝 Transcript: ${latestTranscript ? 'Found' : 'Not available'}`);
     
-    // Auto-generate minutes if we have transcript content
-    if (transcriptContent) {
+    // Only trigger AI processing if validation passed
+    if (decision.shouldProcess) {
       try {
         console.log(`🤖 [Enrichment] Triggering AI minutes generation...`);
         await minutesGeneratorService.autoGenerateMinutes(meetingId);
@@ -302,7 +268,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
         // Don't fail enrichment if minutes generation fails
       }
     } else {
-      console.log(`⚠️ [Enrichment] No transcript available, skipping minutes generation`);
+      console.log(`⏭️ [Enrichment] Skipping AI processing: ${decision.reason}`);
     }
     
   } catch (error: any) {
@@ -324,7 +290,8 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
 
 /**
  * Background job: Process stuck enrichments
- * Runs every 30 minutes to catch meetings that need retry
+ * ARCHITECTURE: Now uses durable queue - this function is kept for compatibility
+ * but delegates to enqueueJob for crash-safe processing
  */
 export async function processStuckEnrichments(): Promise<void> {
   console.log(`🔄 [Background Job] Checking for stuck enrichments...`);
@@ -350,7 +317,7 @@ export async function processStuckEnrichments(): Promise<void> {
       return;
     }
     
-    console.log(`🔄 Found ${stuckMeetings.length} stuck enrichment(s), re-queuing...`);
+    console.log(`🔄 Found ${stuckMeetings.length} stuck enrichment(s), re-queuing via durable queue...`);
     
     for (const meeting of stuckMeetings) {
       if (!meeting.onlineMeetingId) {
@@ -358,16 +325,20 @@ export async function processStuckEnrichments(): Promise<void> {
         continue;
       }
       
-      enrichmentQueue.push({
-        meetingId: meeting.id,
-        onlineMeetingId: meeting.onlineMeetingId,
-        attempt: (meeting.enrichmentAttempts || 0) + 1
-      });
-    }
-    
-    // Start processing
-    if (!isProcessing) {
-      processEnrichmentQueue();
+      // Enqueue via durable queue for crash-safe processing
+      try {
+        await enqueueJob({
+          jobType: 'enrich_meeting',
+          payload: { meetingId: meeting.id, onlineMeetingId: meeting.onlineMeetingId },
+          idempotencyKey: `enrich:${meeting.id}`,
+          maxRetries: MAX_ATTEMPTS - (meeting.enrichmentAttempts || 0)
+        });
+      } catch (error: any) {
+        // Ignore duplicate key errors (job already enqueued)
+        if (!error.message?.includes('duplicate key')) {
+          console.error(`❌ Failed to enqueue meeting ${meeting.id}:`, error);
+        }
+      }
     }
     
     console.log(`✅ [Background Job] Stuck enrichment check complete`);
@@ -400,18 +371,68 @@ export async function manuallyEnrichMeeting(meetingId: string): Promise<void> {
 
 /**
  * Clear all scheduled retry timers (for graceful shutdown)
+ * ARCHITECTURE: No longer needed with durable queue - kept for API compatibility
  */
 export function clearAllRetryTimers(): void {
-  console.log(`🛑 Clearing ${scheduledRetries.size} scheduled enrichment retry timer(s)`);
-  scheduledRetries.forEach((timerId) => {
-    clearTimeout(timerId);
-  });
-  scheduledRetries.clear();
+  console.log(`✅ [Enrichment] Using durable queue - no in-memory timers to clear`);
+  // No-op: All retries are now handled by the durable queue system
+}
+
+/**
+ * Force process meeting with admin override
+ * Bypasses duration and content thresholds for manual processing
+ * 
+ * @param meetingId - Meeting ID to process
+ * @param adminUserId - Azure AD ID of admin performing override
+ * @param overrideReason - Reason for manual override (for audit trail)
+ */
+export async function forceProcessMeeting(
+  meetingId: string,
+  adminUserId: string,
+  overrideReason: string
+): Promise<{ success: boolean; message: string }> {
+  const { recordManualOverride } = await import('./processingValidation');
+  
+  const [meeting] = await db.select()
+    .from(meetings)
+    .where(eq(meetings.id, meetingId))
+    .limit(1);
+  
+  if (!meeting) {
+    return { success: false, message: `Meeting ${meetingId} not found` };
+  }
+  
+  // Check if meeting has already been processed
+  if (meeting.processingDecision === "processed" || meeting.processingDecision === "manual_override") {
+    return { success: false, message: `Meeting has already been processed (${meeting.processingDecision})` };
+  }
+  
+  // Record the manual override decision for audit trail
+  await recordManualOverride(meetingId, adminUserId, overrideReason);
+  
+  console.log(`🔧 [Manual Override] Admin ${adminUserId} forcing processing for meeting ${meetingId}`);
+  console.log(`   Reason: ${overrideReason}`);
+  
+  // Trigger AI processing directly
+  try {
+    await minutesGeneratorService.autoGenerateMinutes(meetingId);
+    return { 
+      success: true, 
+      message: `Manual processing triggered successfully. Minutes generation started.` 
+    };
+  } catch (error: any) {
+    console.error(`❌ [Manual Override] Failed to generate minutes:`, error);
+    return { 
+      success: false, 
+      message: `Failed to generate minutes: ${error.message}` 
+    };
+  }
 }
 
 export const callRecordEnrichmentService = {
   enqueueMeetingEnrichment,
   processStuckEnrichments,
   manuallyEnrichMeeting,
+  forceProcessMeeting,
   clearAllRetryTimers
 };

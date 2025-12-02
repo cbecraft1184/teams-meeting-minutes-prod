@@ -72,6 +72,11 @@ export class AccessControlService {
   /**
    * Check if user has sufficient clearance to view meeting
    * Task 4.4: Updated to use Azure AD groups
+   * 
+   * Users can see meetings if they:
+   * 1. Created the meeting (are the organizer)
+   * 2. Were invited to the meeting (are in attendees)
+   * 3. Are admin/auditor (full access)
    */
   canViewMeeting(user: AuthenticatedUser, meeting: Meeting): boolean {
     // Get effective clearance and role (Azure AD or database fallback)
@@ -81,11 +86,22 @@ export class AccessControlService {
     // Admins and auditors can view ALL meetings (subject to clearance)
     const hasFullAccess = effectiveRole === "admin" || effectiveRole === "auditor";
 
-    // 1. Check if user was an attendee (skip for admin/auditor)
+    // 1. Check if user is organizer or attendee (skip for admin/auditor)
     if (!hasFullAccess) {
-      const isAttendee = meeting.attendees.includes(user.email);
-      if (!isAttendee) {
-        return false; // Regular users can ONLY see meetings they attended
+      const userEmail = user.email?.toLowerCase();
+      const organizerEmail = meeting.organizerEmail?.toLowerCase();
+      
+      // Check if user is the organizer
+      const isOrganizer = (organizerEmail && userEmail === organizerEmail) || 
+                          (meeting.organizerAadId && user.azureAdId === meeting.organizerAadId);
+      
+      // Check if user was an attendee (case-insensitive)
+      const isAttendee = meeting.attendees.some(
+        attendee => attendee.toLowerCase() === userEmail
+      );
+      
+      if (!isOrganizer && !isAttendee) {
+        return false; // Regular users can ONLY see meetings they organized or were invited to
       }
     }
 

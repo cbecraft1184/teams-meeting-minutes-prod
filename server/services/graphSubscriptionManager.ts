@@ -27,6 +27,21 @@ const SUBSCRIPTION_CONFIG = {
   renewalBufferHours: 12,
 };
 
+const SUBSCRIPTION_CONFIGS = {
+  callRecords: {
+    resource: '/communications/callRecords',
+    changeTypes: ['created'],
+    expirationHours: 48,
+    renewalBufferHours: 12,
+  },
+  onlineMeetings: {
+    resource: '/communications/onlineMeetings',
+    changeTypes: ['created', 'updated'],
+    expirationHours: 48,
+    renewalBufferHours: 12,
+  },
+};
+
 export class GraphSubscriptionManager {
   /**
    * Create a new webhook subscription

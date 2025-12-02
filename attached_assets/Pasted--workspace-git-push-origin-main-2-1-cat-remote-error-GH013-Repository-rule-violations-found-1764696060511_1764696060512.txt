@@ -1,0 +1,49 @@
+~/workspace$ git push origin main 2>&1 | cat
+remote: error: GH013: Repository rule violations found for refs/heads/main.        
+remote: 
+remote: - GITHUB PUSH PROTECTION        
+remote:   —————————————————————————————————————————        
+remote:     Resolve the following violations before pushing again        
+remote: 
+remote:     - Push cannot contain secrets        
+remote: 
+remote:             
+remote:      (?) Learn how to resolve a blocked push        
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/working-with-push-protection-from-the-command-line#resolving-a-blocked-push        
+remote:             
+remote:      (?) This repository does not have Secret Scanning enabled, but is eligible. Enable Secret Scanning to view and manage detected secrets.        
+remote:      Visit the repository settings page, https://github.com/cbecraft1184/teams-meeting-minutes-prod/settings/security_analysis        
+remote:             
+remote:             
+remote:       —— Azure Active Directory Application Secret —————————        
+remote:        locations:        
+remote:          - commit: be835e445960712b4a03d6b312623347826aac56        
+remote:            path: attached_assets/Pasted-christopher-1-Check-if-restart-created-a-new-revision-az-containerapp-revision-list--1764171610583_1764171610583.txt:73        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/cbecraft1184/teams-meeting-minutes-prod/security/secret-scanning/unblock-secret/36ILoHE5HrSRCKCuSH4BSDFJnr2        
+remote:             
+remote:             
+remote:       —— Azure Active Directory Application Secret —————————        
+remote:        locations:        
+remote:          - commit: be835e445960712b4a03d6b312623347826aac56        
+remote:            path: attached_assets/Pasted-christopher-1-Check-if-restart-created-a-new-revision-az-containerapp-revision-list--1764171610583_1764171610583.txt:81        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/cbecraft1184/teams-meeting-minutes-prod/security/secret-scanning/unblock-secret/36ILoBnSPRJaz0DUKG9MbRGEtO3        
+remote:             
+remote:             
+remote:       —— Azure OpenAI Key ——————————————————————————————————        
+remote:        locations:        
+remote:          - commit: be835e445960712b4a03d6b312623347826aac56        
+remote:            path: attached_assets/Pasted-christopher-1-Check-if-restart-created-a-new-revision-az-containerapp-revision-list--1764171610583_1764171610583.txt:85        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/cbecraft1184/teams-meeting-minutes-prod/security/secret-scanning/unblock-secret/36ILoEQEmkpyjCAUcNOA8z8VIDN        
+remote:             
+remote: 
+remote: 
+To https://github.com/cbecraft1184/teams-meeting-minutes-prod.git
+ ! [remote rejected] main -> main (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/cbecraft1184/teams-meeting-minutes-prod.git'
+~/workspace$ 

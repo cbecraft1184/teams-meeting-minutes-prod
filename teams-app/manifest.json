@@ -59,9 +59,7 @@
   ],
   "webApplicationInfo": {
     "id": "71383692-c5c6-40cc-94cf-96c97fed146c",
-    "resource": "api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c",
-    "applicationPermissions": [],
-    "delegatedPermissions": ["access_as_user"]
+    "resource": "api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c"
   },
   "validDomains": [
     "teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io",

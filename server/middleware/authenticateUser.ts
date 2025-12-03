@@ -289,6 +289,10 @@ async function authenticateWithMicrosoft(
   }
 }
 
+// Admin email list - these users always get admin role regardless of Azure AD groups
+// Set ADMIN_EMAILS environment variable as comma-separated list, or use defaults
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'ChristopherBecraft@ChrisBecraft.onmicrosoft.com').toLowerCase().split(',').map(e => e.trim());
+
 /**
  * Validate JWT token and load/create user
  */
@@ -332,6 +336,14 @@ async function validateAndLoadUser(
     return;
   }
 
+  // Check if user is in admin email list (permanent super-admin access)
+  const userEmail = (tokenInfo.email || '').toLowerCase();
+  const isAdminEmail = ADMIN_EMAILS.includes(userEmail);
+  
+  if (isAdminEmail) {
+    log('ADMIN_EMAIL_DETECTED', { email: tokenInfo.email });
+  }
+
   // Load or create user in database
   let [user] = await db
     .select()
@@ -341,30 +353,44 @@ async function validateAndLoadUser(
 
   if (!user) {
     // Auto-provision user on first login
-    console.log(`Auto-provisioning new user: ${tokenInfo.email}`);
+    console.log(`Auto-provisioning new user: ${tokenInfo.email} (admin: ${isAdminEmail})`);
 
     const [newUser] = await db
       .insert(users)
       .values({
         email: tokenInfo.email || 'unknown@dod.gov',
         displayName: tokenInfo.name || 'Unknown User',
-        clearanceLevel: 'UNCLASSIFIED', // Default clearance (Azure AD groups will determine actual clearance)
-        role: 'viewer', // Default role
+        clearanceLevel: isAdminEmail ? 'TOP_SECRET' : 'UNCLASSIFIED',
+        role: isAdminEmail ? 'admin' : 'viewer',
         azureAdId: tokenInfo.objectId,
         azureUserPrincipalName: tokenInfo.upn || tokenInfo.email,
         tenantId: tokenInfo.tenantId,
         lastLogin: new Date(),
-        lastGraphSync: null, // Will be synced by Azure AD group sync service
+        lastGraphSync: null,
       })
       .returning();
 
     user = newUser;
   } else {
-    // Update last login
-    await db
-      .update(users)
-      .set({ lastLogin: new Date() })
-      .where(eq(users.id, user.id));
+    // Update last login AND ensure admin emails always have admin role
+    if (isAdminEmail && (user.role !== 'admin' || user.clearanceLevel !== 'TOP_SECRET')) {
+      console.log(`[Auth] Promoting ${user.email} to admin (in ADMIN_EMAILS list)`);
+      await db
+        .update(users)
+        .set({ 
+          lastLogin: new Date(),
+          role: 'admin',
+          clearanceLevel: 'TOP_SECRET'
+        })
+        .where(eq(users.id, user.id));
+      user.role = 'admin';
+      user.clearanceLevel = 'TOP_SECRET';
+    } else {
+      await db
+        .update(users)
+        .set({ lastLogin: new Date() })
+        .where(eq(users.id, user.id));
+    }
   }
 
   // Task 4.5: Fetch Azure AD groups (or use cached)
@@ -442,27 +468,38 @@ async function validateAndLoadUser(
               session.azureAdGroups = azureAdGroups;
             }
           } else {
-            // FAIL-CLOSED: Azure AD fetch failed and no valid cache - deny access
-            console.error(`🔒 [SECURITY] Azure AD groups unavailable for ${user.email} - DENYING ACCESS (fail-closed)`);
-            res.status(403).json({ 
-              message: 'Access denied: Unable to verify security clearance. Please try again later.',
-              code: 'AZURE_AD_UNAVAILABLE'
-            });
-            return;
+            // Azure AD fetch failed - check if admin email (bypass fail-closed for admins)
+            if (isAdminEmail) {
+              console.log(`⚠️ [Auth] Azure AD groups unavailable for admin ${user.email} - allowing access via ADMIN_EMAILS`);
+              // Admin emails bypass fail-closed - use database role/clearance
+            } else {
+              // FAIL-CLOSED: Azure AD fetch failed and no valid cache - deny access
+              console.error(`🔒 [SECURITY] Azure AD groups unavailable for ${user.email} - DENYING ACCESS (fail-closed)`);
+              res.status(403).json({ 
+                message: 'Access denied: Unable to verify security clearance. Please try again later.',
+                code: 'AZURE_AD_UNAVAILABLE'
+              });
+              return;
+            }
           }
         }
       }
     } catch (error) {
       console.error(`❌ [Auth] Failed to fetch Azure AD groups for ${user.email}:`, error);
       
-      // FAIL-CLOSED: If Azure AD is completely unreachable, deny access
-      // Database clearance/role are NOT authoritative in production - only Azure AD groups are
-      console.error(`🔒 [SECURITY] Azure AD unreachable for ${user.email} - DENYING ACCESS (fail-closed)`);
-      res.status(503).json({ 
-        message: 'Service temporarily unavailable: Unable to verify security clearance. Please try again later.',
-        code: 'AZURE_AD_SERVICE_UNAVAILABLE'
-      });
-      return;
+      // Admin emails bypass fail-closed security
+      if (isAdminEmail) {
+        console.log(`⚠️ [Auth] Azure AD unreachable for admin ${user.email} - allowing access via ADMIN_EMAILS`);
+        // Continue with database role/clearance
+      } else {
+        // FAIL-CLOSED: If Azure AD is completely unreachable, deny access
+        console.error(`🔒 [SECURITY] Azure AD unreachable for ${user.email} - DENYING ACCESS (fail-closed)`);
+        res.status(503).json({ 
+          message: 'Service temporarily unavailable: Unable to verify security clearance. Please try again later.',
+          code: 'AZURE_AD_SERVICE_UNAVAILABLE'
+        });
+        return;
+      }
     }
   }
 

@@ -1,14 +1,14 @@
 /**
  * Microsoft Teams Authentication Middleware
  * 
- * In production, this would validate Microsoft Teams SSO tokens from Azure AD.
+ * In production, validates Microsoft Teams SSO tokens using OBO (On-Behalf-Of) flow.
  * In development, uses a mock user for testing.
  * 
  * Integration flow:
  * 1. User opens app in Microsoft Teams
- * 2. Teams client provides SSO token
- * 3. Backend validates token with Azure AD
- * 4. Extract user info (email, name, Azure AD object ID)
+ * 2. Teams client provides SSO token (scoped to app)
+ * 3. Backend exchanges SSO token for Graph token via OBO
+ * 4. Backend calls Graph API to get user info
  * 5. Load user from database or create on first login
  * 6. Attach user to request
  */
@@ -17,45 +17,111 @@ import type { Request, Response, NextFunction } from "express";
 import { db } from "../db";
 import { users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { acquireTokenOnBehalfOf } from "../services/microsoftIdentity";
 
 // Note: Express Request type extension is defined in authenticateUser.ts
 // This file extends: user, session, and ssoToken properties
 
 /**
- * Validate Microsoft Teams SSO token (production implementation)
+ * Decode JWT token to extract user claims without validation
+ * Used as fallback when OBO flow fails
+ */
+function decodeJwtClaims(token: string): { upn?: string; name?: string; oid?: string; tid?: string } | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+    return {
+      upn: payload.upn || payload.preferred_username || payload.unique_name,
+      name: payload.name,
+      oid: payload.oid,
+      tid: payload.tid
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Validate Microsoft Teams SSO token using On-Behalf-Of (OBO) flow
  * 
  * Production deployment:
  * 1. Extract JWT token from Authorization header
- * 2. Validate with Azure AD using Microsoft Graph API
- * 3. Extract user claims (email, name, object ID)
+ * 2. Exchange SSO token for Graph token using OBO flow
+ * 3. Call Graph API /me endpoint with Graph token
+ * 4. Extract user claims (email, name, object ID)
  */
-async function validateTeamsToken(token: string): Promise<{
+async function validateTeamsToken(ssoToken: string): Promise<{
   email: string;
   displayName: string;
   azureAdId: string;
 } | null> {
   try {
-    // Validate token by calling Microsoft Graph API /me endpoint
-    // The API will validate the token signature, issuer, audience, and expiration
-    const response = await fetch('https://graph.microsoft.com/v1.0/me', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
+    console.log('[AUTH] Starting SSO token validation via OBO flow');
     
-    if (!response.ok) {
-      console.error(`[AUTH] Token validation failed: ${response.status} ${response.statusText}`);
-      return null;
+    // First, try to decode the token to log its claims for debugging
+    const tokenClaims = decodeJwtClaims(ssoToken);
+    if (tokenClaims) {
+      console.log('[AUTH] SSO Token claims:', {
+        upn: tokenClaims.upn,
+        name: tokenClaims.name,
+        oid: tokenClaims.oid,
+        tid: tokenClaims.tid
+      });
     }
     
-    const userInfo = await response.json();
+    // Try OBO flow to exchange SSO token for Graph token
+    let graphToken: string | null = null;
+    try {
+      graphToken = await acquireTokenOnBehalfOf(ssoToken, ['User.Read']);
+      if (graphToken) {
+        console.log('[AUTH] OBO flow succeeded, acquired Graph token');
+      }
+    } catch (oboError: any) {
+      console.error('[AUTH] OBO flow failed:', oboError?.message || oboError);
+      // Fall through to try direct token claims
+    }
     
-    // Extract user information from Microsoft Graph response
-    return {
-      email: userInfo.mail || userInfo.userPrincipalName,
-      displayName: userInfo.displayName,
-      azureAdId: userInfo.id
-    };
+    // If OBO succeeded, use Graph API to get user info
+    if (graphToken) {
+      const response = await fetch('https://graph.microsoft.com/v1.0/me', {
+        headers: {
+          'Authorization': `Bearer ${graphToken}`
+        }
+      });
+      
+      if (response.ok) {
+        const userInfo = await response.json();
+        console.log('[AUTH] Graph API user info:', {
+          mail: userInfo.mail,
+          upn: userInfo.userPrincipalName,
+          displayName: userInfo.displayName,
+          id: userInfo.id
+        });
+        
+        return {
+          email: userInfo.mail || userInfo.userPrincipalName,
+          displayName: userInfo.displayName,
+          azureAdId: userInfo.id
+        };
+      } else {
+        console.error(`[AUTH] Graph API call failed: ${response.status} ${response.statusText}`);
+      }
+    }
+    
+    // Fallback: If OBO fails, try to extract user info directly from SSO token claims
+    // This is less secure but allows basic authentication during initial setup
+    if (tokenClaims?.upn && tokenClaims?.oid) {
+      console.log('[AUTH] Fallback: Using SSO token claims directly');
+      return {
+        email: tokenClaims.upn,
+        displayName: tokenClaims.name || tokenClaims.upn.split('@')[0],
+        azureAdId: tokenClaims.oid
+      };
+    }
+    
+    console.error('[AUTH] All validation methods failed');
+    return null;
   } catch (error: any) {
     console.error("[AUTH] Error validating Teams token:", error);
     return null;

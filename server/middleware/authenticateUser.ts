@@ -393,115 +393,15 @@ async function validateAndLoadUser(
     }
   }
 
-  // Task 4.5: Fetch Azure AD groups (or use cached)
-  let azureAdGroups = null;
-  if (user.azureAdId) {
-    try {
-      // Check session cache first (15-min TTL)
-      const session = req.session as any;
-      if (session && session.azureAdGroups) {
-        const cached = session.azureAdGroups;
-        const now = new Date();
-        const expiresAt = new Date(cached.expiresAt);
-        
-        if (now < expiresAt) {
-          console.log(`✅ [Auth] Using session-cached Azure AD groups for ${user.email}`);
-          azureAdGroups = cached;
-        } else {
-          console.log(`⏰ [Auth] Session cache expired for ${user.email}, fetching fresh groups`);
-        }
-      }
-      
-      // If no valid session cache, fetch from Graph API or DB cache
-      if (!azureAdGroups) {
-        // First, try database cache
-        const cachedGroups = await graphGroupSyncService.getUserGroupsFromCache(user.azureAdId);
-        
-        if (cachedGroups) {
-          console.log(`✅ [Auth] Using DB-cached Azure AD groups for ${user.email}`);
-          azureAdGroups = {
-            groupNames: cachedGroups.groupNames,
-            clearanceLevel: cachedGroups.clearanceLevel,
-            role: cachedGroups.role,
-            fetchedAt: new Date(),
-            expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min from now
-          };
-          
-          // BUG FIX: Store in session cache immediately
-          if (session) {
-            session.azureAdGroups = azureAdGroups;
-          }
-        } else {
-          // Cache miss/expired - fetch fresh using access token
-          console.log(`📡 [Auth] Fetching fresh Azure AD groups for ${user.email}`);
-          const freshGroups = await graphGroupSyncService.fetchUserGroups(user.azureAdId, accessToken, user.email);
-          
-          if (freshGroups) {
-            azureAdGroups = {
-              groupNames: freshGroups.groupNames,
-              clearanceLevel: freshGroups.clearanceLevel,
-              role: freshGroups.role,
-              fetchedAt: new Date(),
-              expiresAt: new Date(Date.now() + 15 * 60 * 1000)
-            };
-            
-            // BUG FIX: Cache fresh groups to database directly (don't re-fetch)
-            await db.insert(userGroupCache).values({
-              azureAdId: user.azureAdId,
-              groupNames: freshGroups.groupNames,
-              clearanceLevel: (freshGroups.clearanceLevel || 'UNCLASSIFIED') as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
-              role: (freshGroups.role || 'viewer') as "admin" | "approver" | "auditor" | "viewer",
-              expiresAt: new Date(Date.now() + 15 * 60 * 1000)
-            }).onConflictDoUpdate({
-              target: userGroupCache.azureAdId,
-              set: {
-                groupNames: freshGroups.groupNames,
-                clearanceLevel: (freshGroups.clearanceLevel || 'UNCLASSIFIED') as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
-                role: (freshGroups.role || 'viewer') as "admin" | "approver" | "auditor" | "viewer",
-                fetchedAt: new Date(),
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000)
-              }
-            });
-            
-            // BUG FIX: Store in session cache immediately
-            if (session) {
-              session.azureAdGroups = azureAdGroups;
-            }
-          } else {
-            // Azure AD fetch failed - check if admin email (bypass fail-closed for admins)
-            if (isAdminEmail) {
-              console.log(`⚠️ [Auth] Azure AD groups unavailable for admin ${user.email} - allowing access via ADMIN_EMAILS`);
-              // Admin emails bypass fail-closed - use database role/clearance
-            } else {
-              // FAIL-CLOSED: Azure AD fetch failed and no valid cache - deny access
-              console.error(`🔒 [SECURITY] Azure AD groups unavailable for ${user.email} - DENYING ACCESS (fail-closed)`);
-              res.status(403).json({ 
-                message: 'Access denied: Unable to verify security clearance. Please try again later.',
-                code: 'AZURE_AD_UNAVAILABLE'
-              });
-              return;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`❌ [Auth] Failed to fetch Azure AD groups for ${user.email}:`, error);
-      
-      // Admin emails bypass fail-closed security
-      if (isAdminEmail) {
-        console.log(`⚠️ [Auth] Azure AD unreachable for admin ${user.email} - allowing access via ADMIN_EMAILS`);
-        // Continue with database role/clearance
-      } else {
-        // FAIL-CLOSED: If Azure AD is completely unreachable, deny access
-        console.error(`🔒 [SECURITY] Azure AD unreachable for ${user.email} - DENYING ACCESS (fail-closed)`);
-        res.status(503).json({ 
-          message: 'Service temporarily unavailable: Unable to verify security clearance. Please try again later.',
-          code: 'AZURE_AD_SERVICE_UNAVAILABLE'
-        });
-        return;
-      }
-    }
-  }
+  // SIMPLIFIED: Skip Azure AD group sync for demo/pilot
+  // All authenticated users can access the app - access control is handled at the meeting level
+  const azureAdGroups = null;
+  log('AUTH_SUCCESS', { 
+    email: user.email, 
+    role: user.role, 
+    clearanceLevel: user.clearanceLevel,
+    isAdminEmail: isAdminEmail 
+  });
 
   // Set user in request
   req.user = {

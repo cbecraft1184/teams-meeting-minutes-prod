@@ -74,6 +74,26 @@ The system is built as a full-stack application with a React-based frontend, a N
 
 ## Recent Changes
 
+### December 3, 2025 - Production Database Schema Sync (COMPLETED ✓)
+
+**Issue:** Production app returning 500 errors due to database schema drift. Missing columns like `transcript_url`, `processing_decision` caused Drizzle ORM to generate malformed SQL (`and is null` without column name).
+
+**Resolution:**
+1. Created `sync-prod-schema.sql` migration script
+2. Ran schema sync via Azure Cloud Shell psql
+3. Added missing ENUMs: `enrichment_status`, `processing_decision`, `graph_sync_status`, `meeting_source`
+4. Added missing columns to `meetings` table (processing validation fields)
+5. Created `job_worker_leases` table for distributed locking
+6. Rotated database password after accidental exposure in source code
+
+**Lessons Learned:**
+- Always run `npm run db:push` against production after schema changes
+- Never hardcode credentials in source files
+- Use `export PGPASSWORD='...'` for passwords with special characters in bash
+- Azure PostgreSQL Flexible Server doesn't have Query Editor in portal - use psql via Cloud Shell
+
+**Production Status:** ✅ Fully operational - Dashboard, meetings, stats all working
+
 ### December 2, 2025 - Optimized Architecture (COMPLETED ✓)
 
 **Enhancement:** Architecture optimized for maximum efficiency without sacrificing features.

@@ -1,9 +1,9 @@
-// Seed database with sample DOD meeting data
+// Seed database with sample meeting data
 import { db } from "./db";
 import { meetings, meetingMinutes, actionItems, meetingTemplates } from "@shared/schema";
 
 async function seed() {
-  console.log("🌱 Seeding database with sample DOD meeting data...");
+  console.log("🌱 Seeding database with sample meeting data...");
 
   try {
     // Check if data already exists
@@ -22,7 +22,7 @@ async function seed() {
         type: "briefing",
         defaultDuration: "1h",
         defaultClassification: "CONFIDENTIAL",
-        suggestedAttendees: ["commanding.officer@dod.gov", "executive.officer@dod.gov", "operations.officer@dod.gov"],
+        suggestedAttendees: ["leadership@contoso.com", "executive@contoso.com", "operations@contoso.com"],
         agendaItems: [
           "Operational Status Update",
           "Personnel Readiness",
@@ -38,7 +38,7 @@ async function seed() {
         type: "status_review",
         defaultDuration: "1h 30m",
         defaultClassification: "UNCLASSIFIED",
-        suggestedAttendees: ["project.manager@dod.gov", "team.lead@dod.gov"],
+        suggestedAttendees: ["project.manager@contoso.com", "team.lead@contoso.com"],
         agendaItems: [
           "Review Previous Action Items",
           "Project Status Updates",
@@ -54,7 +54,7 @@ async function seed() {
         type: "planning",
         defaultDuration: "2h",
         defaultClassification: "UNCLASSIFIED",
-        suggestedAttendees: ["division.chief@dod.gov", "department.head@dod.gov", "budget.officer@dod.gov"],
+        suggestedAttendees: ["division.chief@contoso.com", "department.head@contoso.com", "budget.officer@contoso.com"],
         agendaItems: [
           "Review Previous Quarter Performance",
           "Strategic Objectives Discussion",
@@ -71,7 +71,7 @@ async function seed() {
         type: "emergency_response",
         defaultDuration: "1h",
         defaultClassification: "SECRET",
-        suggestedAttendees: ["emergency.coordinator@dod.gov", "operations.manager@dod.gov", "security.officer@dod.gov"],
+        suggestedAttendees: ["emergency.coordinator@contoso.com", "operations.manager@contoso.com", "security.officer@contoso.com"],
         agendaItems: [
           "Situation Assessment",
           "Response Team Coordination",

@@ -99,7 +99,7 @@ export const meetingSourceEnum = pgEnum("meeting_source", [
   "bot"             // Created via Teams bot
 ]);
 
-// Processing decision for audit logging (DOD/Commercial compliance)
+// Processing decision for audit logging (compliance)
 export const processingDecisionEnum = pgEnum("processing_decision", [
   "pending",           // Not yet evaluated
   "processed",         // Met thresholds, AI processing triggered
@@ -148,7 +148,7 @@ export const meetings = pgTable("meetings", {
   lastEnrichmentAt: timestamp("last_enrichment_at"), // Last enrichment attempt timestamp
   callRecordRetryAt: timestamp("call_record_retry_at"), // When to retry enrichment (exponential backoff)
   
-  // Processing validation audit (DOD/Commercial compliance)
+  // Processing validation audit (compliance)
   actualDurationSeconds: integer("actual_duration_seconds"), // Actual meeting duration from call record
   transcriptWordCount: integer("transcript_word_count"), // Word count from transcript for content validation
   processingDecision: processingDecisionEnum("processing_decision").default("pending"), // Processing decision for audit

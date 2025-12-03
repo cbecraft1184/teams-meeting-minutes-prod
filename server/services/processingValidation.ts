@@ -1,7 +1,7 @@
 /**
  * Processing Validation Service
  * 
- * DOD/Commercial compliance: Validates meetings before AI processing
+ * Compliance: Validates meetings before AI processing
  * to prevent wasted resources on accidental or invalid meeting sessions.
  * 
  * Thresholds:

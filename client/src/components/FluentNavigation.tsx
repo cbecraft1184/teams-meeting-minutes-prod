@@ -264,8 +264,8 @@ export function FluentNavigation({ isOpen = true, onClose }: FluentNavigationPro
           <Shield24Filled style={{ color: tokens.colorNeutralForegroundInverted }} />
         </div>
         <div>
-          <div className={styles.title}>DOD Teams</div>
-          <div className={styles.subtitle}>Meeting Minutes</div>
+          <div className={styles.title}>Teams Meeting</div>
+          <div className={styles.subtitle}>Minutes</div>
         </div>
       </div>
 
@@ -299,7 +299,7 @@ export function FluentNavigation({ isOpen = true, onClose }: FluentNavigationPro
         />
         <div className={styles.userInfo}>
           <div className={styles.userName}>Administrator</div>
-          <div className={styles.userEmail}>admin@dod.gov</div>
+          <div className={styles.userEmail}>admin@contoso.com</div>
         </div>
       </div>
     </nav>

@@ -2,7 +2,7 @@ const fs = require('fs');
 const archiver = require('archiver');
 const path = require('path');
 
-const output = fs.createWriteStream('DOD_Meeting_Minutes_Documentation.zip');
+const output = fs.createWriteStream('Teams_Meeting_Minutes_Documentation.zip');
 const archive = archiver('zip', {
   zlib: { level: 9 }
 });

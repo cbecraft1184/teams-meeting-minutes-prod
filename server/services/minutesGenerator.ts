@@ -230,7 +230,7 @@ Attendees: ${attendeeNames.join(', ')}
 
 [01:00] ${attendeeNames[1]}: Thanks for organizing this. I've reviewed the latest reports and have some updates to share.
 
-[02:00] ${attendeeNames[1]}: First, regarding the security compliance review - we've completed the initial assessment. All systems are meeting DOD standards. We identified a few minor areas for improvement, which we'll address this quarter.
+[02:00] ${attendeeNames[1]}: First, regarding the security compliance review - we've completed the initial assessment. All systems are meeting compliance standards. We identified a few minor areas for improvement, which we'll address this quarter.
 
 [03:30] ${attendeeNames[0]}: That's excellent progress. Can you provide more details on the timeline for those improvements?
 

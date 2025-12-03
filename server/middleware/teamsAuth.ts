@@ -204,7 +204,7 @@ export async function teamsAuthMiddleware(
       // Development mode: Use mock user
       // In production, this would be replaced with real Teams SSO validation
       const mockUser = await getOrCreateUser({
-        email: "john.doe@dod.gov",
+        email: "john.doe@contoso.com",
         displayName: "John Doe",
         azureAdId: "mock-azure-id-123"
       });

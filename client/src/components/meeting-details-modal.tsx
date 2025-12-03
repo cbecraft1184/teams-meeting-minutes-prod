@@ -335,7 +335,7 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
   const approveMutation = useMutation({
     mutationFn: async (minutesId: string) => {
       return await apiRequest("POST", `/api/minutes/${minutesId}/approve`, { 
-        approvedBy: "current.user@dod.gov" 
+        approvedBy: "current.user@contoso.com" 
       });
     },
     onSuccess: () => {
@@ -363,7 +363,7 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
   const rejectMutation = useMutation({
     mutationFn: async ({ minutesId, reason }: { minutesId: string; reason: string }) => {
       return await apiRequest("POST", `/api/minutes/${minutesId}/reject`, { 
-        rejectedBy: "current.user@dod.gov",
+        rejectedBy: "current.user@contoso.com",
         reason 
       });
     },

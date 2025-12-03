@@ -294,14 +294,14 @@ export class GraphGroupSyncService {
   
   /**
    * Extract highest clearance level from group names
-   * Searches for groups matching pattern: DOD-Clearance-{LEVEL}
+   * Searches for groups matching pattern: Clearance-{LEVEL}
    * 
    * @param groupNames - Array of Azure AD group display names
    * @returns Highest clearance level or null if no clearance group found
    */
   private extractClearanceLevel(groupNames: string[]): string | null {
     const clearanceGroups = groupNames.filter(name => 
-      name.startsWith('DOD-Clearance-')
+      name.startsWith('Clearance-')
     );
     
     if (clearanceGroups.length === 0) {
@@ -314,7 +314,7 @@ export class GraphGroupSyncService {
     let highestLevel = -1;
     
     for (const groupName of clearanceGroups) {
-      const level = groupName.replace('DOD-Clearance-', '');
+      const level = groupName.replace('Clearance-', '');
       const hierarchy = CLEARANCE_HIERARCHY[level as keyof typeof CLEARANCE_HIERARCHY];
       
       if (hierarchy !== undefined && hierarchy > highestLevel) {
@@ -328,14 +328,14 @@ export class GraphGroupSyncService {
   
   /**
    * Extract highest role from group names
-   * Searches for groups matching pattern: DOD-Role-{ROLE}
+   * Searches for groups matching pattern: Role-{ROLE}
    * 
    * @param groupNames - Array of Azure AD group display names
    * @returns Highest role or 'viewer' (default)
    */
   private extractRole(groupNames: string[]): string | null {
     const roleGroups = groupNames.filter(name => 
-      name.startsWith('DOD-Role-')
+      name.startsWith('Role-')
     );
     
     if (roleGroups.length === 0) {
@@ -348,7 +348,7 @@ export class GraphGroupSyncService {
     let highestLevel = -1;
     
     for (const groupName of roleGroups) {
-      const role = groupName.replace('DOD-Role-', '').toLowerCase();
+      const role = groupName.replace('Role-', '').toLowerCase();
       const hierarchy = ROLE_HIERARCHY[role as keyof typeof ROLE_HIERARCHY];
       
       if (hierarchy !== undefined && hierarchy > highestLevel) {
@@ -373,9 +373,9 @@ export class GraphGroupSyncService {
         clearanceLevel: 'SECRET',
         role: 'admin',
         groupNames: [
-          'DOD-Clearance-SECRET',
-          'DOD-Role-Admin',
-          'DOD-IT-Department',
+          'Clearance-SECRET',
+          'Role-Admin',
+          'IT-Department',
           'All-Employees'
         ],
         source: 'mock'
@@ -387,9 +387,9 @@ export class GraphGroupSyncService {
         clearanceLevel: 'CONFIDENTIAL',
         role: 'approver',
         groupNames: [
-          'DOD-Clearance-CONFIDENTIAL',
-          'DOD-Role-Approver',
-          'DOD-Operations-Team'
+          'Clearance-CONFIDENTIAL',
+          'Role-Approver',
+          'Operations-Team'
         ],
         source: 'mock'
       };
@@ -400,9 +400,9 @@ export class GraphGroupSyncService {
         clearanceLevel: 'TOP_SECRET',
         role: 'auditor',
         groupNames: [
-          'DOD-Clearance-TOP_SECRET',
-          'DOD-Role-Auditor',
-          'DOD-Audit-Team'
+          'Clearance-TOP_SECRET',
+          'Role-Auditor',
+          'Audit-Team'
         ],
         source: 'mock'
       };
@@ -413,8 +413,8 @@ export class GraphGroupSyncService {
       clearanceLevel: 'UNCLASSIFIED',
       role: 'approver',
       groupNames: [
-        'DOD-Clearance-UNCLASSIFIED',
-        'DOD-Role-Approver',
+        'Clearance-UNCLASSIFIED',
+        'Role-Approver',
         'All-Employees'
       ],
       source: 'mock'

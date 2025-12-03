@@ -182,7 +182,7 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
         const errorCode = error.code || error.statusCode || 'UNKNOWN';
         const newAttemptCount = message.attemptCount + 1;
         
-        // DOD COMPLIANCE: Never log full error message (may contain PII)
+        // COMPLIANCE: Never log full error message (may contain PII)
         // Only log error type and code for telemetry
         const safeErrorSummary = `${errorType}:${errorCode}`;
         
@@ -205,7 +205,7 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
               .where(sql`${messageOutbox.id} = ${message.id}`);
 
             // Mark sentMessages as permanently failed
-            // DOD COMPLIANCE: Store safe error summary in database (no PII)
+            // COMPLIANCE: Store safe error summary in database (no PII)
             await tx
               .update(sentMessages)
               .set({
@@ -218,7 +218,7 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
           });
 
           telemetry.deadLetterCount++;
-          // DOD COMPLIANCE: Log only safe fields (no PII from error messages)
+          // COMPLIANCE: Log only safe fields (no PII from error messages)
           console.error(
             `[Outbox] DEAD-LETTER | msg=${message.sentMessageId} | ` +
             `errorSummary=${safeErrorSummary} | attempts=${newAttemptCount} | ` +
@@ -231,7 +231,7 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
           const nextAttemptAt = new Date(Date.now() + backoffMs);
 
           // Update for retry with exponential backoff
-          // DOD COMPLIANCE: Store safe error summary (no PII)
+          // COMPLIANCE: Store safe error summary (no PII)
           await db
             .update(messageOutbox)
             .set({
@@ -252,7 +252,7 @@ export async function processOutboxMessages(batchSize: number = 10): Promise<num
             })
             .where(sql`${sentMessages.id} = ${message.sentMessageId}`);
 
-          // DOD COMPLIANCE: Log only safe fields (no PII from error messages)
+          // COMPLIANCE: Log only safe fields (no PII from error messages)
           console.warn(
             `[Outbox] Send failed (retrying) | msg=${message.sentMessageId} | ` +
             `errorSummary=${safeErrorSummary} | attempt=${newAttemptCount}/${MAX_ATTEMPTS} | ` +

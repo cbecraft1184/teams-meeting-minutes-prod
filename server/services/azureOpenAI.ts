@@ -73,11 +73,11 @@ export async function generateMeetingMinutes(transcript: string): Promise<{
           messages: [
             {
               role: "system",
-              content: `You are an AI assistant helping to generate meeting minutes for DOD meetings. 
+              content: `You are an AI assistant helping to generate professional meeting minutes. 
 Analyze the provided meeting transcript and generate a concise, professional summary.
 
 Requirements:
-- Use formal, government-appropriate language
+- Use formal, professional language
 - Focus on key decisions and action items
 - Maintain security classification awareness
 - Structure output as JSON with these fields: summary, keyDiscussions, decisions

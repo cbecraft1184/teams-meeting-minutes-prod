@@ -276,7 +276,7 @@ export class EmailDistributionService {
   ` : ""}
 
   <div class="footer">
-    <p>This is an automated distribution from the DOD Teams Meeting Minutes System.</p>
+    <p>This is an automated distribution from the Teams Meeting Minutes System.</p>
     <p>Documents are attached in DOCX and PDF formats.</p>
     <p><strong>Classification:</strong> ${meeting.classificationLevel}</p>
   </div>

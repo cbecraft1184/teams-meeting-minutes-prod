@@ -597,7 +597,7 @@ export default function Settings() {
             <Divider />
 
             <div className={styles.formField}>
-              <Label htmlFor="tenant-id" className={styles.fieldLabel}>Microsoft Tenant ID (DOD)</Label>
+              <Label htmlFor="tenant-id" className={styles.fieldLabel}>Microsoft Tenant ID</Label>
               <Input
                 id="tenant-id"
                 placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"

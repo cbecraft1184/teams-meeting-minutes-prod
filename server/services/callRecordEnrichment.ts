@@ -113,7 +113,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     const mockDurationSeconds = 30 * 60; // 30 minutes
     const mockTranscriptWordCount = 200; // 200 words
     
-    // Validate processing thresholds (DOD/Commercial compliance)
+    // Validate processing thresholds (compliance)
     const decision = validateForProcessing(mockDurationSeconds, mockTranscriptWordCount, true);
     await recordProcessingDecision(meetingId, decision);
     
@@ -205,7 +205,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       }
     }
     
-    // Fetch call record for actual duration (DOD/Commercial compliance)
+    // Fetch call record for actual duration (compliance)
     let actualDurationSeconds: number | null = null;
     try {
       console.log(`📊 [Enrichment] Fetching call record details for duration...`);
@@ -235,7 +235,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     const transcriptWordCount = countTranscriptWords(transcriptContent);
     console.log(`   Transcript words: ${transcriptWordCount}`);
     
-    // Validate processing thresholds (DOD/Commercial compliance)
+    // Validate processing thresholds (compliance)
     const hasTranscript = !!transcriptContent && transcriptContent.length > 0;
     const decision = validateForProcessing(actualDurationSeconds, transcriptWordCount, hasTranscript);
     await recordProcessingDecision(meetingId, decision);

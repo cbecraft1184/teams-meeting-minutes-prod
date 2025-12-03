@@ -358,7 +358,7 @@ async function validateAndLoadUser(
     const [newUser] = await db
       .insert(users)
       .values({
-        email: tokenInfo.email || 'unknown@dod.gov',
+        email: tokenInfo.email || 'unknown@contoso.com',
         displayName: tokenInfo.name || 'Unknown User',
         clearanceLevel: isAdminEmail ? 'TOP_SECRET' : 'UNCLASSIFIED',
         role: isAdminEmail ? 'admin' : 'viewer',

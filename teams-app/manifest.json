@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.20/MicrosoftTeams.schema.json",
   "manifestVersion": "1.20",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "id": "6d94baf3-1ed6-4d34-8401-71c724305571",
   "developer": {
     "name": "Christopher Becraft",
@@ -26,43 +26,33 @@
     {
       "entityId": "dashboard",
       "name": "Dashboard",
-      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251203",
-      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251203",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251203b",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/?v=20251203b",
       "scopes": ["personal"]
     },
     {
       "entityId": "meetings",
       "name": "Meetings",
-      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251203",
-      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251203",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251203b",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/meetings?v=20251203b",
       "scopes": ["personal"]
     },
     {
       "entityId": "search",
       "name": "Archive",
-      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251203",
-      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251203",
+      "contentUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251203b",
+      "websiteUrl": "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/search?v=20251203b",
       "scopes": ["personal"]
     }
   ],
-  "bots": [
-    {
-      "botId": "1f6e6347-467e-4683-92cb-08627506bbcb",
-      "scopes": ["personal", "team", "groupChat"],
-      "supportsFiles": false,
-      "isNotificationOnly": false
-    }
-  ],
   "permissions": [
-    "identity",
-    "messageTeamMembers"
+    "identity"
   ],
   "webApplicationInfo": {
     "id": "71383692-c5c6-40cc-94cf-96c97fed146c",
     "resource": "api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c"
   },
   "validDomains": [
-    "teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io",
-    "token.botframework.com"
+    "teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io"
   ]
 }

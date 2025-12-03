@@ -594,8 +594,8 @@ Groups define two attributes:
 - Standard Azure security
 
 **Production Requirements:**
-- **Commercial:** SOC 2 Type II compliance
-- **Government:** ATO (Authority to Operate) for DOD
+- **Enterprise:** SOC 2 Type II compliance
+- **Government:** ATO (Authority to Operate) as required
 - **Data Residency:** Azure region selection
 - **Encryption:** FIPS 140-2 validated modules
 - **Audit Logs:** Immutable audit trail

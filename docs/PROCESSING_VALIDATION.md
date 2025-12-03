@@ -1,8 +1,8 @@
-# DOD/Commercial Processing Validation
+# Processing Validation
 
 ## Overview
 
-This document describes the processing validation system that prevents unnecessary AI processing costs for meetings that don't meet minimum content thresholds. These safeguards apply to both DOD and Commercial deployments.
+This document describes the processing validation system that prevents unnecessary AI processing costs for meetings that don't meet minimum content thresholds. These safeguards apply to all deployments.
 
 ## Problem Statement
 
@@ -183,5 +183,5 @@ For manual overrides:
 
 - All processing decisions are audited with timestamps and reasons
 - Manual overrides record the admin user ID and justification
-- These safeguards apply equally to DOD and Commercial deployments
+- These safeguards apply to all deployments
 - Thresholds can be adjusted per deployment requirements

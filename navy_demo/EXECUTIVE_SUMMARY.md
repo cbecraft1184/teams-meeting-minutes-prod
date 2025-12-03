@@ -1,7 +1,0 @@
-# NAVY ERP Meeting Minutes - Executive Summary
-
-## Technology & Value
-
-This AI-powered system automatically transforms Microsoft Teams meetings into structured, actionable minutes with zero manual effort. When a Teams meeting ends, the system captures the recording and transcript via Microsoft Graph API, then uses Azure OpenAI (GPT-4o) to generate comprehensive meeting minutes including attendee lists, key discussion points, decisions made, and action items with assignments. The organizer reviews and approves the AI-generated minutes (typically requiring less than 10 minutes of editing), then the system automatically distributes DOCX and PDF versions to all attendees via email and archives them to SharePoint with full metadata for future search and retrieval.
-
-For NAVY ERP operations, this eliminates 30-60 minutes of manual note-taking per meeting while dramatically improving decision tracking, accountability, and institutional knowledge management. Action items are automatically extracted and tracked in a centralized dashboard, ensuring follow-through on commitments. The searchable meeting archive enables teams to quickly find past decisions, review discussion context, and maintain continuity as personnel rotate. Instead of relying on incomplete handwritten notes or fragmented email threads, NAVY ERP teams gain a comprehensive, consistent, and instantly accessible record of every meeting—transforming meetings from time sinks into strategic assets that drive operational efficiency and preserve critical organizational knowledge.

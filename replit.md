@@ -161,12 +161,12 @@ The system is built as a full-stack application with a React-based frontend, a N
 
 **Note:** Architecture updated December 2, 2025. See above for current design.
 
-### December 1, 2025 - DOD/Commercial Processing Validation (COMPLETED ✓)
+### December 1, 2025 - Processing Validation (COMPLETED ✓)
 
 **Enhancement:** Processing validation prevents unnecessary AI costs for accidental meeting opens and empty transcripts.
 
 **Features Added:**
-1. **Processing Thresholds** (applies to both DOD and Commercial):
+1. **Processing Thresholds**:
    - Minimum duration: 5 minutes (filters accidental meeting opens)
    - Minimum transcript content: 50 words (filters empty/minimal transcripts)
    - Transcript availability check (requires transcription enabled)
@@ -186,7 +186,7 @@ The system is built as a full-stack application with a React-based frontend, a N
 - `server/services/processingValidation.ts` - Threshold validation logic
 - `server/services/callRecordEnrichment.ts` - Integrated validation into enrichment
 - `server/routes/webhooks.ts` - Admin override endpoints
-- `docs/DOD_PROCESSING_VALIDATION.md` - Full documentation
+- `docs/PROCESSING_VALIDATION.md` - Full documentation
 
 **Processing Decision Values:**
 - `pending` - Validation not yet performed

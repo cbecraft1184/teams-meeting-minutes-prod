@@ -111,14 +111,43 @@ async function authenticateWithMock(
     }
 
     // Ensure mock user exists in database
+    // First check by azureAdId (stable identifier), then by email
     let [dbUser] = await db
       .select()
       .from(users)
-      .where(eq(users.email, mockUser.email))
+      .where(eq(users.azureAdId, mockUser.azureAdId))
       .limit(1);
 
     if (!dbUser) {
-      // Create or update mock user in database (upsert to avoid conflicts)
+      // Also check by email in case azureAdId is null
+      [dbUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, mockUser.email))
+        .limit(1);
+    }
+
+    if (dbUser) {
+      // Update existing user if email or other fields changed
+      if (dbUser.email !== mockUser.email || dbUser.displayName !== mockUser.displayName) {
+        const [updatedUser] = await db
+          .update(users)
+          .set({
+            email: mockUser.email,
+            displayName: mockUser.displayName,
+            clearanceLevel: mockUser.clearanceLevel as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
+            role: mockUser.role as "admin" | "approver" | "auditor" | "viewer",
+            department: mockUser.department,
+            organizationalUnit: mockUser.organizationalUnit,
+            azureUserPrincipalName: mockUser.azureUserPrincipalName,
+            lastLogin: new Date(),
+          })
+          .where(eq(users.id, dbUser.id))
+          .returning();
+        dbUser = updatedUser;
+      }
+    } else {
+      // Create new user
       const [newUser] = await db
         .insert(users)
         .values({
@@ -132,15 +161,6 @@ async function authenticateWithMock(
           azureUserPrincipalName: mockUser.azureUserPrincipalName,
           tenantId: mockUser.tenantId,
           lastLogin: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: users.email,
-          set: {
-            displayName: mockUser.displayName,
-            clearanceLevel: mockUser.clearanceLevel as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
-            role: mockUser.role as "admin" | "approver" | "auditor" | "viewer",
-            lastLogin: new Date(),
-          }
         })
         .returning();
       dbUser = newUser;

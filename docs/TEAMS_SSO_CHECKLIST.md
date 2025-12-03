@@ -76,3 +76,42 @@ Go to: API permissions → Click "Grant admin consent for [Your Tenant]"
 | AADSTS65001 | Admin consent not granted | Grant admin consent in Azure AD |
 | AADSTS700016 | App not found in tenant | Verify Client ID matches |
 | SDK timeout | App not loaded in Teams context | Must open app inside Teams |
+
+---
+
+## Security: On-Behalf-Of (OBO) Flow
+
+The backend uses OBO flow to exchange the Teams SSO token for a Graph API token.
+
+**Key File:** `server/services/microsoftIdentity.ts`
+
+### Critical Security Requirements
+
+1. **Fail-Closed Pattern:** If OBO exchange fails, return `null` - never fall back to the original token
+2. **Correct Scope:** Use `['https://graph.microsoft.com/.default']` not `['User.Read']`
+3. **Error Handling:** Log errors but don't expose token details
+
+### Code Pattern (microsoftIdentity.ts)
+
+```typescript
+async function exchangeTokenOBO(teamsToken: string): Promise<string | null> {
+  try {
+    const result = await confidentialClient.acquireTokenOnBehalfOf({
+      oboAssertion: teamsToken,
+      scopes: ['https://graph.microsoft.com/.default']
+    });
+    return result?.accessToken || null;
+  } catch (error) {
+    console.error('[OBO] Token exchange failed:', error);
+    return null; // FAIL CLOSED - never return original token
+  }
+}
+```
+
+### Security Incident (December 3, 2025)
+
+**Issue:** OBO flow had insecure fallback that returned original Teams token when exchange failed.
+
+**Impact:** Allowed bypassing proper Graph API authorization.
+
+**Fix:** Removed fallback, implemented fail-closed pattern.

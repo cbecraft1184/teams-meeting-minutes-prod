@@ -74,6 +74,29 @@ The system is built as a full-stack application with a React-based frontend, a N
 
 ## Recent Changes
 
+### December 3, 2025 - Authentication Security Fix (COMPLETED ✓)
+
+**CRITICAL SECURITY FIX:** Removed insecure JWT fallback that allowed unauthenticated access.
+
+**Issue:** The On-Behalf-Of (OBO) flow in `microsoftIdentity.ts` had a fallback that returned the original Teams SSO token when OBO exchange failed. This allowed access without proper Graph API authorization.
+
+**Resolution:**
+1. **Removed insecure fallback** - OBO flow now fails closed (returns null on error)
+2. **Updated OBO scope** - Changed from `['User.Read']` to `['https://graph.microsoft.com/.default']` per Azure AD requirements
+3. **Configured Azure AD** - Added `access_as_user` scope with Teams client IDs authorized
+
+**Azure AD Configuration (Expose an API):**
+- Application ID URI: `api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c`
+- Scope: `access_as_user` (Admins and users can consent)
+- Authorized clients:
+  - `1fec8e78-bce4-4aaf-ab1b-5451cc387264` (Teams desktop/mobile)
+  - `5e3ce6c0-2b1f-4285-8d4b-75ee78787346` (Teams web)
+
+**Key Files:**
+- `server/services/microsoftIdentity.ts` - OBO token exchange (fail-closed)
+- `server/middleware/teamsAuth.ts` - JWT validation middleware
+- `docs/TEAMS_SSO_CHECKLIST.md` - Azure AD configuration guide
+
 ### December 3, 2025 - Production Database Schema Sync (COMPLETED ✓)
 
 **Issue:** Production app returning 500 errors due to database schema drift. Missing columns like `transcript_url`, `processing_decision` caused Drizzle ORM to generate malformed SQL (`and is null` without column name).
@@ -91,6 +114,8 @@ The system is built as a full-stack application with a React-based frontend, a N
 - Never hardcode credentials in source files
 - Use `export PGPASSWORD='...'` for passwords with special characters in bash
 - Azure PostgreSQL Flexible Server doesn't have Query Editor in portal - use psql via Cloud Shell
+
+**Full Procedure:** See `docs/DATABASE_SCHEMA_SYNC.md`
 
 **Production Status:** ✅ Fully operational - Dashboard, meetings, stats all working
 

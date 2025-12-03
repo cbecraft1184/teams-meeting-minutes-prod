@@ -77,17 +77,48 @@ Before pushing to main:
 
 ---
 
-## 5. Post-Deployment Verification
+## 5. Database Schema Sync (CRITICAL)
+
+If `shared/schema.ts` was modified, you MUST sync the production database:
+
+### Option A: Automated (Recommended)
+Add to GitHub Actions workflow to run automatically.
+
+### Option B: Manual via Azure Cloud Shell
+
+```bash
+# Set password (single quotes for special characters!)
+export PGPASSWORD='YOUR_PASSWORD_HERE'
+
+# Connect
+psql -h teams-minutes-db.postgres.database.azure.com -U adminuser -d teams_minutes_db
+
+# Paste SQL from sync-prod-schema.sql
+# Or run: npm run db:push (if DATABASE_URL is set)
+```
+
+### Symptoms of Schema Drift
+- 500 errors on API calls
+- SQL errors like `and is null` (missing column name)
+- Dashboard/meetings list failing to load
+
+See `docs/DATABASE_SCHEMA_SYNC.md` for full procedure.
+
+---
+
+## 6. Post-Deployment Verification
 
 After successful deployment:
 
 - [ ] App URL responds: https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
 - [ ] Health endpoint works: /health
 - [ ] Check Azure Container Apps logs for errors
+- [ ] Dashboard loads with correct stats
+- [ ] Meetings list displays properly
 
 ---
 
-## 6. Secret Rotation Schedule
+## 7. Secret Rotation Schedule
 
 Rotate these credentials every 90 days:
 
@@ -103,7 +134,7 @@ After rotation:
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 ### "No subscriptions found"
 → Service principal missing Contributor role. See Section 2.

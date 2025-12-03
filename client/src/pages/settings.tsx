@@ -631,7 +631,7 @@ export default function Settings() {
               <div className={styles.inputGroup}>
                 <div className={styles.monoInput}>
                   <Input
-                    value="/api/webhooks/teams"
+                    value="/webhooks/graph/callRecords"
                     readOnly
                     data-testid="input-webhook-url"
                   />

@@ -1,6 +1,13 @@
 import postgres from 'postgres';
 
-const DATABASE_URL = 'postgresql://adminuser:TeamsMinutes2025!Secure@teams-minutes-db.postgres.database.azure.com:5432/teams_minutes_db?sslmode=require';
+// SECURITY: Load DATABASE_URL from environment - never hardcode credentials
+const DATABASE_URL = process.env.DATABASE_URL_PROD || process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error('❌ ERROR: DATABASE_URL_PROD or DATABASE_URL environment variable is required');
+  console.error('   Set it to your Azure PostgreSQL connection string');
+  process.exit(1);
+}
 
 const sql = postgres(DATABASE_URL, { ssl: 'require' });
 

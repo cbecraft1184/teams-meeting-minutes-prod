@@ -39,6 +39,28 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 ### Document Generation
 - Supports DOCX (using `docx`) and PDF (using `pdf-lib`) formats for structured minutes output.
 
+## Testing and Quality Assurance
+
+**CRITICAL: All features must be tested before deployment recommendations.**
+
+- **Test Documentation**: See `docs/TESTING.md` for comprehensive test cases and checklists
+- **Pre-Deployment Gate**: No deployment without completing smoke test checklist
+- **Regression Prevention**: CSS/layout changes require visual verification in browser
+
+### Required Pre-Deployment Checks
+1. Run end-to-end tests on all modal tabs (Overview, Minutes, Action Items, Attachments, History)
+2. Verify modal opens correctly (not blank/collapsed)
+3. Test all interactive elements (buttons, dropdowns, forms)
+4. Capture test evidence (screenshots/logs)
+5. Document any known issues with waivers
+
+### Key Test Areas
+- Meeting Details Modal display and all tabs
+- Action item status changes and event logging
+- Document export (DOCX/PDF)
+- History/Timeline event display
+- Authentication and access control
+
 ## External Dependencies
 
 ### Microsoft Services

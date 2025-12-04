@@ -478,6 +478,68 @@ export type JobWorkerLease = typeof jobWorkerLeases.$inferSelect;
 export type InsertJobWorkerLease = typeof jobWorkerLeases.$inferInsert;
 
 // ==================================================
+// Meeting Events schema (audit trail/event history)
+// ==================================================
+
+export const meetingEventTypeEnum = pgEnum("meeting_event_type", [
+  "meeting_created",
+  "meeting_updated",
+  "meeting_completed",
+  "transcript_received",
+  "processing_started",
+  "processing_completed",
+  "processing_skipped",
+  "minutes_generated",
+  "minutes_approved",
+  "minutes_rejected",
+  "minutes_regenerated",
+  "email_sent",
+  "sharepoint_uploaded",
+  "action_item_created",
+  "action_item_updated",
+  "action_item_completed",
+  "manual_override"
+]);
+
+export const meetingEvents = pgTable("meeting_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Meeting reference
+  meetingId: varchar("meeting_id").notNull().references(() => meetings.id, { onDelete: "cascade" }),
+  
+  // Multi-tenant isolation
+  tenantId: text("tenant_id"), // Azure AD tenant ID for multi-tenant isolation
+  
+  // Event details
+  eventType: meetingEventTypeEnum("event_type").notNull(),
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Who triggered the event (null for system events)
+  actorEmail: text("actor_email"),
+  actorName: text("actor_name"),
+  actorAadId: text("actor_aad_id"), // Azure AD object ID for traceability
+  
+  // Additional metadata (flexible JSON for event-specific data)
+  metadata: jsonb("metadata").notNull().default({}).$type<Record<string, any>>(),
+  
+  // Job correlation for linking to background jobs
+  correlationId: text("correlation_id"), // Optional: links to job_queue for tracing
+  
+  // Timestamps
+  occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  meetingIdIdx: index("meeting_events_meeting_id_idx").on(table.meetingId),
+  eventTypeIdx: index("meeting_events_type_idx").on(table.eventType),
+  occurredAtIdx: index("meeting_events_occurred_at_idx").on(table.occurredAt),
+  tenantIdIdx: index("meeting_events_tenant_id_idx").on(table.tenantId),
+}));
+
+export type MeetingEvent = typeof meetingEvents.$inferSelect;
+export type InsertMeetingEvent = typeof meetingEvents.$inferInsert;
+
+// ==================================================
 // Application Settings schema (singleton table)
 // ==================================================
 
@@ -634,6 +696,21 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).omit({
   updatedAt: true,
 });
 
+export const insertMeetingEventSchema = createInsertSchema(meetingEvents).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  title: z.string()
+    .min(1, "Event title is required")
+    .max(500, "Event title must be 500 characters or less")
+    .trim(),
+  description: z.string()
+    .max(2000, "Description must be 2000 characters or less")
+    .trim()
+    .optional()
+    .nullable(),
+});
+
 // Types
 export type Meeting = typeof meetings.$inferSelect;
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
@@ -675,6 +752,14 @@ export const meetingsRelations = relations(meetings, ({ one, many }) => ({
     references: [meetingMinutes.meetingId],
   }),
   actionItems: many(actionItems),
+  events: many(meetingEvents),
+}));
+
+export const meetingEventsRelations = relations(meetingEvents, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [meetingEvents.meetingId],
+    references: [meetings.id],
+  }),
 }));
 
 export const meetingMinutesRelations = relations(meetingMinutes, ({ one, many }) => ({

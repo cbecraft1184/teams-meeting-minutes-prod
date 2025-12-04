@@ -8,6 +8,13 @@
       "when": 1764107160761,
       "tag": "0000_slim_jimmy_woo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1764870596119,
+      "tag": "0001_thin_ultimates",
+      "breakpoints": true
     }
   ]
 }

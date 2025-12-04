@@ -563,6 +563,35 @@ export const appSettings = pgTable("app_settings", {
   updatedBy: text("updated_by"), // Azure AD ID of user who last updated settings
 });
 
+// ==================================================
+// Dismissed Meetings schema (per-user meeting hiding)
+// ==================================================
+
+export const dismissedMeetings = pgTable("dismissed_meetings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Multi-tenant isolation
+  tenantId: text("tenant_id").notNull(),
+  
+  // Meeting reference
+  meetingId: varchar("meeting_id").notNull().references(() => meetings.id, { onDelete: "cascade" }),
+  
+  // User who dismissed
+  userEmail: text("user_email").notNull(),
+  
+  // Timestamps for soft-delete pattern
+  dismissedAt: timestamp("dismissed_at").defaultNow().notNull(),
+  restoredAt: timestamp("restored_at"), // null = still dismissed, set = restored
+}, (table) => ({
+  // Composite index for fast lookup of dismissed meetings per user
+  userDismissedIdx: index("dismissed_meetings_user_idx").on(table.tenantId, table.userEmail, table.restoredAt),
+  // Index for meeting lookups
+  meetingIdx: index("dismissed_meetings_meeting_idx").on(table.meetingId),
+}));
+
+export type DismissedMeeting = typeof dismissedMeetings.$inferSelect;
+export type InsertDismissedMeeting = typeof dismissedMeetings.$inferInsert;
+
 // Insert schemas with strict validation
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,

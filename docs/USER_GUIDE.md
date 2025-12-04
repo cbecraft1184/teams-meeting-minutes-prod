@@ -104,6 +104,14 @@ Below the stats, you'll see your most recent meetings with:
 
 ![Screenshot: Recent meetings list]
 
+### Pagination
+
+Meetings are displayed **5 per page** to improve performance and readability:
+
+- Use the **Previous** and **Next** buttons (arrow icons) to navigate between pages
+- The current page indicator shows "Page X of Y"
+- Page navigation is available on both the Dashboard and Meetings tabs
+
 ### Searching Meetings
 
 Use the **Search** box to find specific meetings:
@@ -113,6 +121,19 @@ Use the **Search** box to find specific meetings:
 3. Results filter as you type
 
 ![Screenshot: Search functionality]
+
+### Hiding and Restoring Meetings
+
+You can hide meetings from your view without deleting them:
+
+1. **To hide a meeting**: Click the **Hide** button (eye-off icon) on any meeting card
+2. A notification confirms the meeting has been hidden
+3. **To view hidden meetings**: Toggle the **"Show hidden"** switch in the toolbar
+4. Hidden meetings appear dimmed with a "(Hidden)" label
+5. **To restore a hidden meeting**: Click the **Restore** button (eye icon) on the hidden meeting
+6. The meeting will return to your normal list
+
+> **Note**: Hiding a meeting only affects your view. Other users can still see the meeting in their lists.
 
 ---
 

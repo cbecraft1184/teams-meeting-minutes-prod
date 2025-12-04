@@ -6,6 +6,7 @@ import {
   meetingTemplates,
   appSettings,
   meetingEvents,
+  dismissedMeetings,
   type Meeting,
   type InsertMeeting,
   type MeetingMinutes,
@@ -18,10 +19,11 @@ import {
   type AppSettings,
   type InsertAppSettings,
   type MeetingEvent,
-  type InsertMeetingEvent
+  type InsertMeetingEvent,
+  type DismissedMeeting
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, isNull, sql } from "drizzle-orm";
 
 export interface IStorage {
   // Meetings
@@ -62,6 +64,12 @@ export interface IStorage {
   getMeetingEvents(meetingId: string, options?: { limit?: number; offset?: number }): Promise<MeetingEvent[]>;
   createMeetingEvent(event: InsertMeetingEvent): Promise<MeetingEvent>;
   getMeetingEventsByDateRange(startDate: Date, endDate: Date): Promise<MeetingEvent[]>;
+
+  // Dismissed Meetings
+  dismissMeeting(tenantId: string, meetingId: string, userEmail: string): Promise<DismissedMeeting>;
+  restoreMeeting(tenantId: string, meetingId: string, userEmail: string): Promise<void>;
+  getDismissedMeetingIds(tenantId: string, userEmail: string): Promise<string[]>;
+  isMeetingDismissed(tenantId: string, meetingId: string, userEmail: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -284,6 +292,83 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(meetingEvents.occurredAt));
+  }
+
+  // Dismissed Meetings
+  async dismissMeeting(tenantId: string, meetingId: string, userEmail: string): Promise<DismissedMeeting> {
+    // Check if there's an existing dismissal record (including restored ones)
+    const [existing] = await db.select()
+      .from(dismissedMeetings)
+      .where(
+        and(
+          eq(dismissedMeetings.tenantId, tenantId),
+          eq(dismissedMeetings.meetingId, meetingId),
+          eq(dismissedMeetings.userEmail, userEmail)
+        )
+      );
+
+    if (existing) {
+      // Re-dismiss by clearing restoredAt
+      const [updated] = await db.update(dismissedMeetings)
+        .set({ 
+          dismissedAt: new Date(),
+          restoredAt: null 
+        })
+        .where(eq(dismissedMeetings.id, existing.id))
+        .returning();
+      return updated;
+    }
+
+    // Create new dismissal record
+    const [dismissed] = await db.insert(dismissedMeetings)
+      .values({
+        tenantId,
+        meetingId,
+        userEmail,
+        dismissedAt: new Date()
+      })
+      .returning();
+    return dismissed;
+  }
+
+  async restoreMeeting(tenantId: string, meetingId: string, userEmail: string): Promise<void> {
+    await db.update(dismissedMeetings)
+      .set({ restoredAt: new Date() })
+      .where(
+        and(
+          eq(dismissedMeetings.tenantId, tenantId),
+          eq(dismissedMeetings.meetingId, meetingId),
+          eq(dismissedMeetings.userEmail, userEmail),
+          isNull(dismissedMeetings.restoredAt)
+        )
+      );
+  }
+
+  async getDismissedMeetingIds(tenantId: string, userEmail: string): Promise<string[]> {
+    const dismissed = await db.select({ meetingId: dismissedMeetings.meetingId })
+      .from(dismissedMeetings)
+      .where(
+        and(
+          eq(dismissedMeetings.tenantId, tenantId),
+          eq(dismissedMeetings.userEmail, userEmail),
+          isNull(dismissedMeetings.restoredAt)
+        )
+      );
+    return dismissed.map(d => d.meetingId);
+  }
+
+  async isMeetingDismissed(tenantId: string, meetingId: string, userEmail: string): Promise<boolean> {
+    const [dismissed] = await db.select()
+      .from(dismissedMeetings)
+      .where(
+        and(
+          eq(dismissedMeetings.tenantId, tenantId),
+          eq(dismissedMeetings.meetingId, meetingId),
+          eq(dismissedMeetings.userEmail, userEmail),
+          isNull(dismissedMeetings.restoredAt)
+        )
+      );
+    return !!dismissed;
   }
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
 import { 
@@ -7,16 +7,43 @@ import {
   Dropdown, 
   Option, 
   Spinner,
+  Button,
+  Switch,
+  Badge,
   makeStyles, 
   tokens, 
-  shorthands 
+  shorthands,
+  useToastController,
+  Toast,
+  ToastTitle,
+  ToastBody
 } from "@fluentui/react-components";
 import { 
-  Search20Regular
+  Search20Regular,
+  ChevronLeft24Regular,
+  ChevronRight24Regular
 } from "@fluentui/react-icons";
-import { Calendar, AlertCircle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { Calendar, AlertCircle, EyeOff } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { APP_TOASTER_ID } from "@/App";
 import type { MeetingWithMinutes } from "@shared/schema";
+
+interface MeetingWithDismissed extends MeetingWithMinutes {
+  isDismissed?: boolean;
+}
+
+interface MeetingsResponse {
+  meetings: MeetingWithDismissed[];
+  pagination: {
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  };
+  dismissedCount: number;
+}
+
+const PAGE_SIZE = 5;
 
 const useStyles = makeStyles({
   container: {
@@ -116,19 +143,54 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase300,
     color: tokens.colorNeutralForeground3,
   },
+  paginationRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    ...shorthands.gap("8px"),
+    marginTop: "16px",
+  },
+  pageButton: {
+    minWidth: "32px",
+  },
+  pageInfo: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground3,
+    ...shorthands.padding("0", "8px"),
+  },
+  dismissedToggle: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
 });
 
 export default function Meetings() {
   const styles = useStyles();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
+  const { dispatchToast } = useToastController(APP_TOASTER_ID);
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classificationFilter, setClassificationFilter] = useState<string>("all");
   const [isSyncing, setIsSyncing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showDismissed, setShowDismissed] = useState(false);
 
-  const { data: meetings, isLoading, isError } = useQuery<MeetingWithMinutes[]>({
-    queryKey: ["/api/meetings"],
+  const offset = (currentPage - 1) * PAGE_SIZE;
+
+  const { data: meetingsData, isLoading, isError } = useQuery<MeetingsResponse>({
+    queryKey: ["/api/meetings", { limit: PAGE_SIZE, offset, includeDismissed: showDismissed }],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: PAGE_SIZE.toString(),
+        offset: offset.toString(),
+        includeDismissed: showDismissed.toString(),
+      });
+      const res = await fetch(`/api/meetings?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch meetings');
+      return res.json();
+    },
   });
 
   useEffect(() => {
@@ -136,8 +198,8 @@ export default function Meetings() {
       try {
         setIsSyncing(true);
         await apiRequest("POST", "/api/calendar/sync");
-        queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+        qc.invalidateQueries({ queryKey: ["/api/meetings"] });
+        qc.invalidateQueries({ queryKey: ["/api/stats"] });
       } catch (error) {
         console.log("[CalendarSync] Auto-sync completed or skipped");
       } finally {
@@ -146,10 +208,64 @@ export default function Meetings() {
     };
 
     syncCalendar();
-  }, [queryClient]);
+  }, [qc]);
 
-  // Meetings are already filtered by the API - users only see meetings they created or were invited to
-  const filteredMeetings = (meetings || []).filter((meeting) => {
+  const dismissMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      return apiRequest('POST', `/api/meetings/${meetingId}/dismiss`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Meeting hidden</ToastTitle>
+          <ToastBody>You can restore it using "Show hidden"</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: () => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>Failed to hide meeting</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      return apiRequest('POST', `/api/meetings/${meetingId}/restore`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Meeting restored</ToastTitle>
+          <ToastBody>The meeting is now visible in your list</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: () => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>Failed to restore meeting</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    },
+  });
+
+  const meetings = meetingsData?.meetings || [];
+  const pagination = meetingsData?.pagination;
+  const dismissedCount = meetingsData?.dismissedCount || 0;
+  const totalPages = pagination ? Math.ceil(pagination.total / PAGE_SIZE) : 1;
+
+  const filteredMeetings = meetings.filter((meeting) => {
     const matchesSearch = meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          meeting.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || meeting.status === statusFilter;
@@ -158,6 +274,18 @@ export default function Meetings() {
     
     return matchesSearch && matchesStatus && matchesClassification;
   });
+
+  const handleDismiss = (meetingId: string) => {
+    dismissMutation.mutate(meetingId);
+  };
+
+  const handleRestore = (meetingId: string) => {
+    restoreMutation.mutate(meetingId);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <div className={styles.container}>
@@ -209,15 +337,38 @@ export default function Meetings() {
           <Option value="CONFIDENTIAL">Confidential</Option>
           <Option value="SECRET">Secret</Option>
         </Dropdown>
+
+        <div className={styles.dismissedToggle}>
+          <Switch
+            checked={showDismissed}
+            onChange={(_, data) => {
+              setShowDismissed(data.checked);
+              setCurrentPage(1);
+            }}
+            data-testid="switch-show-dismissed"
+            label={
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <EyeOff size={14} />
+                Show hidden
+                {dismissedCount > 0 && (
+                  <Badge appearance="filled" size="small" color="informative">
+                    {dismissedCount}
+                  </Badge>
+                )}
+              </span>
+            }
+          />
+        </div>
       </div>
 
       <div className={styles.resultsCount}>
-        Showing {filteredMeetings.length} of {meetings?.length || 0} meetings
+        Showing {filteredMeetings.length} of {pagination?.total || 0} meetings
+        {currentPage > 1 && ` (Page ${currentPage})`}
       </div>
 
       {isLoading ? (
         <div className={styles.gridContainer} data-testid="loading-all-meetings">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+          {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className={styles.loadingCard} />
           ))}
         </div>
@@ -228,15 +379,42 @@ export default function Meetings() {
           <p className={styles.emptyDescription}>Please try refreshing the page.</p>
         </div>
       ) : filteredMeetings.length > 0 ? (
-        <div className={styles.gridContainer}>
-          {filteredMeetings.map((meeting) => (
-            <MeetingCard
-              key={meeting.id}
-              meeting={meeting}
-              onViewDetails={setSelectedMeeting}
-            />
-          ))}
-        </div>
+        <>
+          <div className={styles.gridContainer}>
+            {filteredMeetings.map((meeting) => (
+              <MeetingCard
+                key={meeting.id}
+                meeting={meeting}
+                onViewDetails={setSelectedMeeting}
+                onDismiss={handleDismiss}
+                onRestore={handleRestore}
+              />
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <div className={styles.paginationRow}>
+              <Button
+                appearance="subtle"
+                icon={<ChevronLeft24Regular />}
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                data-testid="button-prev-page"
+                className={styles.pageButton}
+              />
+              <span className={styles.pageInfo} data-testid="text-page-info">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                appearance="subtle"
+                icon={<ChevronRight24Regular />}
+                disabled={currentPage >= totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                data-testid="button-next-page"
+                className={styles.pageButton}
+              />
+            </div>
+          )}
+        </>
       ) : (
         <div className={styles.emptyState} data-testid="empty-all-meetings">
           <Calendar className={styles.emptyIcon} />
@@ -244,7 +422,9 @@ export default function Meetings() {
           <p className={styles.emptyDescription}>
             {searchQuery || statusFilter !== "all" || classificationFilter !== "all"
               ? "Try adjusting your filters or search query."
-              : "No meetings have been recorded yet."}
+              : showDismissed 
+                ? "No hidden meetings to display."
+                : "No meetings have been recorded yet."}
           </p>
         </div>
       )}

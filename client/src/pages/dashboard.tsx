@@ -1,13 +1,30 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { StatsCard } from "@/components/stats-card";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
-import { Button, SearchBox, makeStyles, tokens, shorthands } from "@fluentui/react-components";
-import { Settings24Regular, Search24Regular } from "@fluentui/react-icons";
-import { FileText, Calendar, Archive, CheckCircle2, AlertCircle } from "lucide-react";
+import { Button, SearchBox, makeStyles, tokens, shorthands, Switch, Badge, useToastController, Toast, ToastTitle, ToastBody } from "@fluentui/react-components";
+import { Settings24Regular, Search24Regular, ChevronLeft24Regular, ChevronRight24Regular } from "@fluentui/react-icons";
+import { FileText, Calendar, Archive, CheckCircle2, AlertCircle, EyeOff } from "lucide-react";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { APP_TOASTER_ID } from "@/App";
 import type { MeetingWithMinutes } from "@shared/schema";
+
+interface MeetingWithDismissed extends MeetingWithMinutes {
+  isDismissed?: boolean;
+}
+
+interface MeetingsResponse {
+  meetings: MeetingWithDismissed[];
+  pagination: {
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  };
+  dismissedCount: number;
+}
 
 type DashboardStats = {
   totalMeetings: number;
@@ -123,25 +140,137 @@ const useStyles = makeStyles({
     gridTemplateColumns: "repeat(1, 1fr)",
     ...shorthands.gap("16px"),
   },
+  paginationRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    ...shorthands.gap("8px"),
+    marginTop: "16px",
+  },
+  pageButton: {
+    minWidth: "32px",
+  },
+  pageInfo: {
+    fontSize: tokens.fontSizeBase300,
+    color: tokens.colorNeutralForeground3,
+    ...shorthands.padding("0", "8px"),
+  },
+  controlsRow: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("16px"),
+    flexWrap: "wrap",
+  },
+  dismissedToggle: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
 });
+
+const PAGE_SIZE = 5;
 
 export default function Dashboard() {
   const styles = useStyles();
+  const { dispatchToast } = useToastController(APP_TOASTER_ID);
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showDismissed, setShowDismissed] = useState(false);
 
-  const { data: meetings, isLoading: meetingsLoading, isError: meetingsError, error: meetingsErrorDetails } = useQuery<MeetingWithMinutes[]>({
-    queryKey: ["/api/meetings"],
+  const offset = (currentPage - 1) * PAGE_SIZE;
+  
+  const { data: meetingsData, isLoading: meetingsLoading, isError: meetingsError, error: meetingsErrorDetails } = useQuery<MeetingsResponse>({
+    queryKey: ["/api/meetings", { limit: PAGE_SIZE, offset, includeDismissed: showDismissed }],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        limit: PAGE_SIZE.toString(),
+        offset: offset.toString(),
+        includeDismissed: showDismissed.toString(),
+      });
+      const res = await fetch(`/api/meetings?${params}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch meetings');
+      return res.json();
+    },
   });
 
   const { data: stats, isLoading: statsLoading, isError: statsError, error: statsErrorDetails } = useQuery<DashboardStats>({
     queryKey: ["/api/stats"],
   });
 
-  const recentMeetings = meetings?.slice(0, 5) || [];
-  const filteredMeetings = recentMeetings.filter(meeting =>
+  // Dismiss mutation
+  const dismissMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      return apiRequest('POST', `/api/meetings/${meetingId}/dismiss`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Meeting hidden</ToastTitle>
+          <ToastBody>You can restore it using "Show hidden"</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: () => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>Failed to hide meeting</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    },
+  });
+
+  // Restore mutation
+  const restoreMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      return apiRequest('POST', `/api/meetings/${meetingId}/restore`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Meeting restored</ToastTitle>
+          <ToastBody>The meeting is now visible in your list</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: () => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>Failed to restore meeting</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    },
+  });
+
+  const meetings = meetingsData?.meetings || [];
+  const pagination = meetingsData?.pagination;
+  const dismissedCount = meetingsData?.dismissedCount || 0;
+  const totalPages = pagination ? Math.ceil(pagination.total / PAGE_SIZE) : 1;
+
+  // Client-side search filtering
+  const filteredMeetings = meetings.filter(meeting =>
     meeting.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleDismiss = (meetingId: string) => {
+    dismissMutation.mutate(meetingId);
+  };
+
+  const handleRestore = (meetingId: string) => {
+    restoreMutation.mutate(meetingId);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
@@ -212,18 +341,41 @@ export default function Dashboard() {
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>Recent Meetings</h2>
-          <div style={{ flex: 1, maxWidth: "400px" }}>
-            <SearchBox
-              placeholder="Search meetings..."
-              value={searchQuery}
-              onChange={(_, data) => setSearchQuery(data.value)}
-              data-testid="input-search-meetings"
-              contentBefore={<Search24Regular />}
-              dismiss={searchQuery ? {
-                'aria-label': 'Clear search',
-                onClick: () => setSearchQuery('')
-              } : undefined}
-            />
+          <div className={styles.controlsRow}>
+            <div className={styles.dismissedToggle}>
+              <Switch
+                checked={showDismissed}
+                onChange={(_, data) => {
+                  setShowDismissed(data.checked);
+                  setCurrentPage(1);
+                }}
+                data-testid="switch-show-dismissed"
+                label={
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <EyeOff size={14} />
+                    Show hidden
+                    {dismissedCount > 0 && (
+                      <Badge appearance="filled" size="small" color="informative">
+                        {dismissedCount}
+                      </Badge>
+                    )}
+                  </span>
+                }
+              />
+            </div>
+            <div style={{ flex: 1, maxWidth: "300px" }}>
+              <SearchBox
+                placeholder="Search meetings..."
+                value={searchQuery}
+                onChange={(_, data) => setSearchQuery(data.value)}
+                data-testid="input-search-meetings"
+                contentBefore={<Search24Regular />}
+                dismiss={searchQuery ? {
+                  'aria-label': 'Clear search',
+                  onClick: () => setSearchQuery('')
+                } : undefined}
+              />
+            </div>
           </div>
         </div>
 
@@ -253,20 +405,51 @@ export default function Dashboard() {
             </pre>
           </div>
         ) : filteredMeetings.length > 0 ? (
-          <div className={styles.meetingsGrid}>
-            {filteredMeetings.map((meeting) => (
-              <MeetingCard
-                key={meeting.id}
-                meeting={meeting}
-                onViewDetails={setSelectedMeeting}
-              />
-            ))}
-          </div>
+          <>
+            <div className={styles.meetingsGrid}>
+              {filteredMeetings.map((meeting) => (
+                <MeetingCard
+                  key={meeting.id}
+                  meeting={meeting}
+                  onViewDetails={setSelectedMeeting}
+                  onDismiss={handleDismiss}
+                  onRestore={handleRestore}
+                />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className={styles.paginationRow}>
+                <Button
+                  appearance="subtle"
+                  icon={<ChevronLeft24Regular />}
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  data-testid="button-prev-page"
+                  className={styles.pageButton}
+                />
+                <span className={styles.pageInfo} data-testid="text-page-info">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  appearance="subtle"
+                  icon={<ChevronRight24Regular />}
+                  disabled={currentPage >= totalPages}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  data-testid="button-next-page"
+                  className={styles.pageButton}
+                />
+              </div>
+            )}
+          </>
         ) : (
           <div className={styles.emptyState} data-testid="empty-meetings">
             <Calendar style={{ width: "48px", height: "48px" }} className={styles.emptyIcon} />
             <p className={styles.errorSubtitle}>
-              {searchQuery ? "No meetings found matching your search." : "No recent meetings to display."}
+              {searchQuery 
+                ? "No meetings found matching your search." 
+                : showDismissed 
+                  ? "No hidden meetings to display." 
+                  : "No recent meetings to display."}
             </p>
           </div>
         )}

@@ -40,9 +40,24 @@ npm run test:api
 
 - [ ] Page loads without errors
 - [ ] Stats cards display correct counts (Total Meetings, Pending, Completed, Archived)
-- [ ] Recent meetings list displays meeting cards
+- [ ] Recent meetings list displays meeting cards (max 5 per page)
 - [ ] Search box filters meetings correctly
 - [ ] Settings button navigates to /settings
+- [ ] Pagination controls visible when > 5 meetings
+- [ ] "Show hidden" toggle visible
+- [ ] Hide button works on meeting cards
+- [ ] Toast notification appears after hiding
+
+### Meetings Page (/meetings)
+
+- [ ] Page loads without errors
+- [ ] Meetings list displays meeting cards (max 5 per page)
+- [ ] Status filter dropdown works
+- [ ] Classification filter dropdown works
+- [ ] Search box filters meetings correctly
+- [ ] Pagination controls visible when > 5 meetings
+- [ ] "Show hidden" toggle visible
+- [ ] Hide/Restore buttons work correctly
 
 ### Meeting Details Modal
 
@@ -126,6 +141,27 @@ npm run test:api
 | DOCX download | Click Download DOCX | File downloads with meeting content |
 | PDF download | Click Download PDF | File downloads with meeting content |
 | Buttons disabled | View meeting without completed minutes | Buttons are disabled |
+
+### Meeting Pagination
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| Page displays 5 items | Navigate to Dashboard | Max 5 meetings shown per page |
+| Next page works | Click Next button | Shows next 5 meetings, page indicator updates |
+| Previous page works | Click Previous button | Shows previous 5 meetings |
+| Page indicator displays | View meetings list | Shows "Page X of Y" |
+| Disabled at boundaries | Go to first/last page | Prev/Next buttons disabled appropriately |
+
+### Meeting Dismiss/Restore
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| Hide meeting | Click Hide button | Meeting removed from list, toast shown |
+| Show hidden toggle | Enable "Show hidden" | Hidden meetings appear with dimmed styling |
+| Hidden count badge | Hide meetings | Badge shows count of hidden meetings |
+| Restore meeting | Click Restore on hidden | Meeting visible again, toast shown |
+| Per-user isolation | Different users hide | Each user's dismissals are independent |
+| Persists after refresh | Hide meeting, refresh | Meeting remains hidden |
 
 ---
 

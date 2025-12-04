@@ -90,6 +90,11 @@ export function registerRoutes(app: Express): Server {
   // ========== MEETINGS API ==========
   
   // Get all meetings (filtered by user access)
+  // Query params:
+  //   - limit: number of meetings per page (default: all)
+  //   - offset: starting position for pagination (default: 0)
+  //   - includeDismissed: "true" to include dismissed meetings (default: false)
+  //   - sort: "date_asc" | "date_desc" | "title_asc" | "title_desc" | "status" (default: date_desc)
   app.get("/api/meetings", async (req, res) => {
     try {
       if (!req.user) {
@@ -99,18 +104,151 @@ export function registerRoutes(app: Express): Server {
       const allMeetings = await storage.getAllMeetings();
       
       // Filter meetings based on user's access level (Azure AD groups or database fallback)
-      const accessibleMeetings = accessControlService.filterMeetings(req.user, allMeetings);
+      let accessibleMeetings = accessControlService.filterMeetings(req.user, allMeetings);
+      
+      // Get user's tenant and email for dismissal filtering
+      const tenantId = (req.user as any).tenantId || 'default';
+      const userEmail = req.user.email;
+      
+      // Get dismissed meeting IDs for this user
+      const dismissedIds = await storage.getDismissedMeetingIds(tenantId, userEmail);
+      const dismissedSet = new Set(dismissedIds);
+      
+      // Filter out dismissed meetings unless includeDismissed=true
+      const includeDismissed = req.query.includeDismissed === 'true';
+      
+      // Add dismissed flag to each meeting and filter if needed
+      const meetingsWithDismissed = accessibleMeetings.map(m => ({
+        ...m,
+        isDismissed: dismissedSet.has(m.id)
+      }));
+      
+      let filteredMeetings = includeDismissed 
+        ? meetingsWithDismissed 
+        : meetingsWithDismissed.filter(m => !m.isDismissed);
+      
+      // Apply sorting
+      const sort = (req.query.sort as string) || 'date_desc';
+      switch (sort) {
+        case 'date_asc':
+          filteredMeetings.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+          break;
+        case 'date_desc':
+          filteredMeetings.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
+          break;
+        case 'title_asc':
+          filteredMeetings.sort((a, b) => a.title.localeCompare(b.title));
+          break;
+        case 'title_desc':
+          filteredMeetings.sort((a, b) => b.title.localeCompare(a.title));
+          break;
+        case 'status':
+          const statusOrder = { scheduled: 0, in_progress: 1, completed: 2, archived: 3 };
+          filteredMeetings.sort((a, b) => (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99));
+          break;
+      }
+      
+      // Get total count before pagination
+      const total = filteredMeetings.length;
+      const dismissedCount = meetingsWithDismissed.filter(m => m.isDismissed).length;
+      
+      // Apply pagination if limit is provided
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      
+      if (limit) {
+        filteredMeetings = filteredMeetings.slice(offset, offset + limit);
+      }
       
       // Log access with Azure AD group status
       const permissions = accessControlService.getUserPermissions(req.user);
       const authSource = permissions.azureAdGroupsActive ? "Azure AD groups" : "database fallback";
       
-      console.log(`[ACCESS] User ${req.user.email} (${permissions.role}/${permissions.clearanceLevel}) viewing ${accessibleMeetings.length}/${allMeetings.length} meetings [${authSource}]`);
+      console.log(`[ACCESS] User ${req.user.email} (${permissions.role}/${permissions.clearanceLevel}) viewing ${filteredMeetings.length}/${total} meetings [${authSource}]`);
       
-      res.json(accessibleMeetings);
+      // Return paginated response with metadata
+      res.json({
+        meetings: filteredMeetings,
+        pagination: {
+          total,
+          offset,
+          limit: limit || total,
+          hasMore: limit ? (offset + limit) < total : false
+        },
+        dismissedCount
+      });
     } catch (error: any) {
       console.error("Error fetching meetings:", error);
       res.status(500).json({ error: "Failed to fetch meetings" });
+    }
+  });
+
+  // Dismiss a meeting for the current user
+  app.post("/api/meetings/:id/dismiss", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const meetingId = req.params.id;
+      const tenantId = (req.user as any).tenantId || 'default';
+      const userEmail = req.user.email;
+
+      // Verify meeting exists and user has access
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Dismiss the meeting
+      const dismissed = await storage.dismissMeeting(tenantId, meetingId, userEmail);
+      
+      console.log(`[DISMISS] User ${userEmail} dismissed meeting ${meetingId}`);
+      
+      res.json({ 
+        success: true, 
+        message: "Meeting dismissed",
+        dismissedAt: dismissed.dismissedAt
+      });
+    } catch (error: any) {
+      console.error("Error dismissing meeting:", error);
+      res.status(500).json({ error: "Failed to dismiss meeting" });
+    }
+  });
+
+  // Restore a dismissed meeting for the current user
+  app.post("/api/meetings/:id/restore", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const meetingId = req.params.id;
+      const tenantId = (req.user as any).tenantId || 'default';
+      const userEmail = req.user.email;
+
+      // Verify meeting exists
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Restore the meeting
+      await storage.restoreMeeting(tenantId, meetingId, userEmail);
+      
+      console.log(`[RESTORE] User ${userEmail} restored meeting ${meetingId}`);
+      
+      res.json({ 
+        success: true, 
+        message: "Meeting restored"
+      });
+    } catch (error: any) {
+      console.error("Error restoring meeting:", error);
+      res.status(500).json({ error: "Failed to restore meeting" });
     }
   });
 

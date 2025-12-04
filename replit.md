@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project delivers an AI-powered Microsoft Teams meeting minutes management system for Azure Commercial with full Microsoft 365 integration. Its primary purpose is to automate and streamline the process of capturing, generating, reviewing, and distributing meeting minutes. Key capabilities include automatic meeting capture, AI-driven minutes generation, a configurable review and approval workflow, document export (DOCX/PDF), automated email distribution, and SharePoint archival. The system aims to enhance productivity within Microsoft 365 environments.
+This project delivers an AI-powered Microsoft Teams meeting minutes management system for Azure Commercial with full Microsoft 365 integration. Its primary purpose is to automate and streamline the process of capturing, generating, reviewing, and distributing meeting minutes. Key capabilities include automatic meeting capture, AI-driven minutes generation, a configurable review and approval workflow, document export (DOCX/PDF), automated email distribution, SharePoint archival, and per-user meeting visibility management with pagination. The system aims to enhance productivity within Microsoft 365 environments.
 
 ## User Preferences
 

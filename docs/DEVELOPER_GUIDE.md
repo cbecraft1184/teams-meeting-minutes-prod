@@ -386,21 +386,62 @@ All API endpoints require authentication. In production, JWT tokens from Azure A
 
 **GET /api/meetings**
 
-Returns meetings accessible to the current user.
+Returns paginated meetings accessible to the current user with dismiss status.
+
+Query Parameters:
+- `limit` - Number of meetings per page (default: all)
+- `offset` - Starting position for pagination (default: 0)
+- `includeDismissed` - "true" to include dismissed meetings (default: false)
+- `sort` - Sorting option: date_asc, date_desc, title_asc, title_desc, status (default: date_desc)
 
 Response:
 ```json
-[
-  {
-    "id": "uuid",
-    "title": "Weekly Standup",
-    "startDate": "2025-12-04T10:00:00Z",
-    "endDate": "2025-12-04T10:30:00Z",
-    "status": "completed",
-    "classification": "UNCLASSIFIED",
-    "hasMinutes": true
-  }
-]
+{
+  "meetings": [
+    {
+      "id": "uuid",
+      "title": "Weekly Standup",
+      "startDate": "2025-12-04T10:00:00Z",
+      "endDate": "2025-12-04T10:30:00Z",
+      "status": "completed",
+      "classification": "UNCLASSIFIED",
+      "hasMinutes": true,
+      "isDismissed": false
+    }
+  ],
+  "pagination": {
+    "total": 12,
+    "offset": 0,
+    "limit": 5,
+    "hasMore": true
+  },
+  "dismissedCount": 2
+}
+```
+
+**POST /api/meetings/:id/dismiss**
+
+Hides a meeting from the current user's view. Per-user dismissal is keyed by (tenantId, meetingId, userEmail) for multi-tenant isolation.
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Meeting dismissed",
+  "dismissedAt": "2025-12-04T10:00:00Z"
+}
+```
+
+**POST /api/meetings/:id/restore**
+
+Restores a previously hidden meeting to the user's view.
+
+Response:
+```json
+{
+  "success": true,
+  "message": "Meeting restored"
+}
 ```
 
 **GET /api/meetings/:id**

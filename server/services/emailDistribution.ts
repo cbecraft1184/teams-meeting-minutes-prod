@@ -288,6 +288,103 @@ export class EmailDistributionService {
   }
 
   /**
+   * Send support request email to configured support address
+   */
+  async sendSupportRequest(request: {
+    userEmail: string;
+    userName: string;
+    subject: string;
+    category: string;
+    description: string;
+  }): Promise<void> {
+    const supportEmail = process.env.SUPPORT_EMAIL;
+    if (!supportEmail) {
+      console.warn("[Email] SUPPORT_EMAIL not configured, skipping email notification");
+      return;
+    }
+
+    const emailSubject = `[Help Request] ${request.category}: ${request.subject}`;
+    const body = this.generateSupportRequestBody(request);
+
+    const recipients: EmailRecipient[] = [{ email: supportEmail, name: "Support Team" }];
+
+    if (this.useMockServices) {
+      this.logEmailToConsole(recipients, emailSubject, body, []);
+      return;
+    }
+
+    await this.sendViaGraphAPI(recipients, emailSubject, body, []);
+  }
+
+  /**
+   * Generate email body for support request
+   */
+  private generateSupportRequestBody(request: {
+    userEmail: string;
+    userName: string;
+    subject: string;
+    category: string;
+    description: string;
+  }): string {
+    const timestamp = format(new Date(), "MMMM dd, yyyy 'at' HH:mm");
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
+    .header { background-color: #0078d4; color: white; padding: 20px; }
+    .content { padding: 20px; background-color: #f8f9fa; }
+    .field { margin-bottom: 15px; }
+    .field-label { font-weight: bold; color: #333; }
+    .field-value { background-color: white; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px; margin-top: 5px; }
+    .description { white-space: pre-wrap; }
+    .footer { padding: 15px; font-size: 12px; color: #666; border-top: 1px solid #dee2e6; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h2 style="margin: 0;">Meeting Minutes - Help Request</h2>
+  </div>
+  
+  <div class="content">
+    <div class="field">
+      <div class="field-label">From:</div>
+      <div class="field-value">${request.userName} (${request.userEmail})</div>
+    </div>
+    
+    <div class="field">
+      <div class="field-label">Category:</div>
+      <div class="field-value">${request.category}</div>
+    </div>
+    
+    <div class="field">
+      <div class="field-label">Subject:</div>
+      <div class="field-value">${request.subject}</div>
+    </div>
+    
+    <div class="field">
+      <div class="field-label">Description:</div>
+      <div class="field-value description">${request.description}</div>
+    </div>
+    
+    <div class="field">
+      <div class="field-label">Submitted:</div>
+      <div class="field-value">${timestamp}</div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>This is an automated message from the Meeting Minutes Help System.</p>
+    <p>Reply directly to this email to respond to the user.</p>
+  </div>
+</body>
+</html>
+    `.trim();
+  }
+
+  /**
    * Generate email body for approval notification
    */
   private generateApprovalEmailBody(meeting: MeetingWithMinutes): string {

@@ -1779,6 +1779,118 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ========== HELP SYSTEM API ==========
+  
+  // Rate limiting store for help requests (in-memory, reset on restart)
+  const helpRequestRateLimits: Map<string, { count: number; resetTime: number }> = new Map();
+  const RATE_LIMIT_MAX_REQUESTS = 5;
+  const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+  
+  // Submit help request - sends email to support
+  app.post("/api/help/request", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const userEmail = req.user.email;
+      const now = Date.now();
+      
+      // Rate limiting check
+      const userLimit = helpRequestRateLimits.get(userEmail);
+      if (userLimit) {
+        if (now < userLimit.resetTime) {
+          if (userLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
+            console.warn(`[Help Request] Rate limit exceeded for ${userEmail}`);
+            return res.status(429).json({ 
+              error: "Too many requests. Please try again later.",
+              retryAfter: Math.ceil((userLimit.resetTime - now) / 1000 / 60) + " minutes"
+            });
+          }
+          userLimit.count++;
+        } else {
+          // Reset window
+          helpRequestRateLimits.set(userEmail, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+        }
+      } else {
+        helpRequestRateLimits.set(userEmail, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+      }
+
+      // Validate and sanitize input
+      const rawSubject = req.body.subject;
+      const rawCategory = req.body.category;
+      const rawDescription = req.body.description;
+      
+      // Type and length validation
+      if (typeof rawSubject !== 'string' || typeof rawDescription !== 'string') {
+        return res.status(400).json({ error: "Subject and description must be strings" });
+      }
+      
+      if (rawSubject.length < 3 || rawSubject.length > 200) {
+        return res.status(400).json({ error: "Subject must be between 3 and 200 characters" });
+      }
+      
+      if (rawDescription.length < 10 || rawDescription.length > 4000) {
+        return res.status(400).json({ error: "Description must be between 10 and 4000 characters" });
+      }
+      
+      // Sanitize: Strip HTML tags and trim whitespace
+      const stripHtml = (str: string) => str.replace(/<[^>]*>/g, '').trim();
+      const subject = stripHtml(rawSubject).substring(0, 200);
+      const description = stripHtml(rawDescription).substring(0, 4000);
+      const validCategories = ['general', 'bug', 'feature', 'access'];
+      const category = validCategories.includes(rawCategory) ? rawCategory : 'general';
+      
+      if (!subject || !description) {
+        return res.status(400).json({ error: "Subject and description are required" });
+      }
+      
+      // Log the support request
+      console.log(`[Help Request] New request from ${userEmail}: ${subject} (${category})`);
+
+      // Create event for audit trail
+      try {
+        // For now, just log and return success
+        // In production, this would send an email via Graph API
+        console.log(`[Help Request] Details:
+          User: ${userEmail}
+          Subject: ${subject}
+          Category: ${category}
+          Description: ${description.substring(0, 200)}...
+        `);
+
+        // If email distribution service is configured, send notification
+        // This is optional - if not configured, the request is just logged
+        if (process.env.SUPPORT_EMAIL) {
+          try {
+            await emailDistributionService.sendSupportRequest({
+              userEmail,
+              userName: req.user.displayName,
+              subject,
+              category,
+              description
+            });
+            console.log(`[Help Request] Email sent to ${process.env.SUPPORT_EMAIL}`);
+          } catch (emailError) {
+            console.warn("[Help Request] Could not send email notification:", emailError);
+            // Don't fail the request if email fails
+          }
+        }
+      } catch (error) {
+        console.error("[Help Request] Error processing request:", error);
+      }
+
+      res.json({ 
+        success: true, 
+        message: "Support request submitted successfully",
+        requestId: `HR-${Date.now()}`
+      });
+    } catch (error: any) {
+      console.error("Error submitting help request:", error);
+      res.status(500).json({ error: error.message || "Failed to submit request" });
+    }
+  });
+
   // CRITICAL: Set up static file serving for production AFTER all API/webhook routes
   // This ensures webhook routes are matched before the catch-all SPA middleware
   // In development, Vite handles this via setupVite in index.ts

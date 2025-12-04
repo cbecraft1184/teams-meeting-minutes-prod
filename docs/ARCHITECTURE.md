@@ -89,7 +89,7 @@ The Teams Meeting Minutes AI system is an enterprise-grade Microsoft Teams appli
 | UI Framework | Fluent UI React | Native Teams look and feel |
 | State Management | TanStack Query v5 | Server state synchronization |
 | Backend | Node.js + Express | RESTful API server |
-| Database | PostgreSQL (Neon/Azure) | Relational data persistence |
+| Database | PostgreSQL (Azure Commercial) | Relational data persistence |
 | ORM | Drizzle ORM | Type-safe database access |
 | AI | Azure OpenAI (GPT-4o) | Minutes generation |
 | Authentication | Microsoft Entra ID + MSAL | Enterprise SSO |

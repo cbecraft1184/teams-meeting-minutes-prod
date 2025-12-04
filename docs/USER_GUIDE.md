@@ -1,5 +1,12 @@
 # Teams Meeting Minutes - User Guide
 
+**Version:** 1.0  
+**Last Updated:** December 4, 2025  
+**Audience:** End Users  
+**Platform:** Azure Commercial Cloud (Not applicable to Azure Government or other sovereign clouds)
+
+---
+
 ## Table of Contents
 
 1. [Introduction](#introduction)
@@ -29,7 +36,7 @@ Teams Meeting Minutes is an AI-powered application that automatically captures y
 
 ### Who Should Use This Guide
 
-This guide is for **end users** who will use the Teams Meeting Minutes app in their daily work. For installation and technical configuration, see the [Administrator Guide](ADMIN_INSTALLATION_GUIDE.md).
+This guide is for **end users** who will use the Teams Meeting Minutes app in their daily work. For installation and technical configuration, see the [Administrator Guide](ADMIN_GUIDE.md) and [Installation Manual](INSTALLATION_MANUAL.md).
 
 ---
 
@@ -369,7 +376,7 @@ If you experience issues:
 
 1. Check the [Troubleshooting](#troubleshooting) section above
 2. Contact your IT administrator
-3. Refer to the [Administrator Guide](ADMIN_INSTALLATION_GUIDE.md) for technical issues
+3. Refer to the [Troubleshooting Guide](TROUBLESHOOTING_GUIDE.md) for technical issues
 
 ---
 

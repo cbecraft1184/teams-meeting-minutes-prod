@@ -7,10 +7,12 @@
 3. [Dashboard Overview](#dashboard-overview)
 4. [Managing Meetings](#managing-meetings)
 5. [Viewing Meeting Minutes](#viewing-meeting-minutes)
-6. [Approving Minutes](#approving-minutes)
-7. [Exporting Documents](#exporting-documents)
-8. [Archive](#archive)
-9. [Tips and Best Practices](#tips-and-best-practices)
+   - [Managing Action Item Status](#managing-action-item-status)
+6. [Viewing Meeting History](#viewing-meeting-history)
+7. [Approving Minutes](#approving-minutes)
+8. [Exporting Documents](#exporting-documents)
+9. [Archive](#archive)
+10. [Tips and Best Practices](#tips-and-best-practices)
 
 ---
 
@@ -170,6 +172,72 @@ Action items are automatically extracted from the meeting:
 
 ![Screenshot: Action items list]
 
+### Managing Action Item Status
+
+You can update the status of action items to track their progress:
+
+1. Open the meeting details and click the **Action Items** tab
+2. Locate the action item you want to update
+3. Click the **Status** dropdown on that item
+4. Select the new status:
+   - **Pending** - Not yet started
+   - **In Progress** - Currently being worked on
+   - **Completed** - Task finished
+
+![Screenshot: Action item status dropdown]
+
+When you change a status:
+- A confirmation message appears
+- The change is saved immediately
+- An event is recorded in the History tab for audit purposes
+
+---
+
+## Viewing Meeting History
+
+The **History** tab provides a complete audit trail of all actions taken on a meeting.
+
+### Accessing the History Tab
+
+1. Open any meeting's detail view
+2. Click the **History** tab (clock icon)
+3. View the timeline of events
+
+### Understanding the Event Timeline
+
+The timeline shows events in chronological order (newest first):
+
+| Event Type | Description |
+|------------|-------------|
+| **Minutes Generated** | AI completed generating meeting minutes |
+| **Minutes Approved** | An approver accepted the minutes |
+| **Minutes Rejected** | An approver declined the minutes (includes reason) |
+| **Email Sent** | Minutes were distributed via email |
+| **Archived to SharePoint** | Minutes were saved to document library |
+| **Action Item Updated** | Someone changed an action item's status |
+
+### Event Details
+
+Each event in the timeline shows:
+
+- **Icon** - Visual indicator of the event type
+- **Title** - What happened (e.g., "Minutes Approved")
+- **Description** - Additional details or context
+- **Timestamp** - When the event occurred
+- **Actor** - Who performed the action (name and email)
+
+![Screenshot: History timeline]
+
+### Using History for Auditing
+
+The History tab helps you:
+
+- **Track who approved** minutes and when
+- **See rejection reasons** if minutes were declined
+- **Monitor action item progress** through status changes
+- **Verify distribution** of minutes via email
+- **Confirm archival** to SharePoint
+
 ---
 
 ## Approving Minutes
@@ -327,5 +395,12 @@ If you experience issues:
 
 ---
 
-*Last Updated: December 3, 2025*
-*Version: 1.0*
+*Last Updated: December 4, 2025*
+*Version: 1.1*
+
+### Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.1 | Dec 4, 2025 | Added: Managing Action Item Status, Viewing Meeting History (audit trail) |
+| 1.0 | Dec 3, 2025 | Initial release |

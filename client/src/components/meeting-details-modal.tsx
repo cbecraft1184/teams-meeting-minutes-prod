@@ -76,14 +76,17 @@ const useStyles = makeStyles({
     maxWidth: "896px",
     width: "90vw",
     maxHeight: "90vh",
+    minHeight: "400px",
     display: "flex",
     flexDirection: "column",
   },
   dialogBody: {
     display: "flex",
     flexDirection: "column",
-    flex: "1 1 0",
-    ...shorthands.overflow("hidden"),
+    flex: "1 1 auto",
+    minHeight: "0",
+    overflowY: "auto",
+    overflowX: "hidden",
   },
   header: {
     ...shorthands.padding("24px", "24px", "16px"),
@@ -118,8 +121,10 @@ const useStyles = makeStyles({
     ...shorthands.padding("0", "24px"),
   },
   tabContent: {
-    flex: "1 1 0",
-    ...shorthands.overflow("auto"),
+    flex: "1 1 auto",
+    minHeight: "200px",
+    overflowY: "auto",
+    overflowX: "hidden",
     ...shorthands.padding("24px"),
   },
   overviewGrid: {

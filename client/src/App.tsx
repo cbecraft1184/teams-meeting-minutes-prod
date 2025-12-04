@@ -6,6 +6,7 @@ import { Navigation24Regular } from "@fluentui/react-icons";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserSwitcher } from "@/components/user-switcher";
+import { AppMenu } from "@/components/app-menu";
 import { FluentNavigation } from "@/components/FluentNavigation";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { TeamsProvider, useTeams } from "@/contexts/TeamsContext";
@@ -13,6 +14,7 @@ import Dashboard from "@/pages/dashboard";
 import Meetings from "@/pages/meetings";
 import Search from "@/pages/search";
 import Settings from "@/pages/settings";
+import Help from "@/pages/help";
 import NotFound from "@/pages/not-found";
 import { useState } from "react";
 
@@ -26,6 +28,7 @@ function Router() {
       <Route path="/meetings" component={Meetings} />
       <Route path="/search" component={Search} />
       <Route path="/settings" component={Settings} />
+      <Route path="/help" component={Help} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -212,8 +215,12 @@ function AppContent() {
           <h1 className={styles.headerTitle} data-testid="text-app-title">
             Meeting Minutes
           </h1>
-          <div className={styles.classificationBadge} data-testid="badge-classification-header">
-            UNCLASSIFIED
+          <div className={styles.headerSpacer} />
+          <div className={styles.headerActions}>
+            <div className={styles.classificationBadge} data-testid="badge-classification-header">
+              UNCLASSIFIED
+            </div>
+            <AppMenu />
           </div>
         </header>
         <main className={styles.contentConstrained}>
@@ -242,6 +249,7 @@ function AppContent() {
             </div>
             <UserSwitcher />
             <ThemeToggle />
+            <AppMenu />
           </div>
         </header>
         <main className={styles.contentConstrained}>

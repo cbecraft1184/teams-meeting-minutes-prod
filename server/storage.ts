@@ -5,6 +5,7 @@ import {
   actionItems,
   meetingTemplates,
   appSettings,
+  meetingEvents,
   type Meeting,
   type InsertMeeting,
   type MeetingMinutes,
@@ -15,10 +16,12 @@ import {
   type InsertMeetingTemplate,
   type MeetingWithMinutes,
   type AppSettings,
-  type InsertAppSettings
+  type InsertAppSettings,
+  type MeetingEvent,
+  type InsertMeetingEvent
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Meetings
@@ -54,6 +57,11 @@ export interface IStorage {
   // Application Settings
   getSettings(): Promise<AppSettings>;
   updateSettings(updates: Partial<InsertAppSettings>): Promise<AppSettings>;
+
+  // Meeting Events (Audit Trail)
+  getMeetingEvents(meetingId: string, options?: { limit?: number; offset?: number }): Promise<MeetingEvent[]>;
+  createMeetingEvent(event: InsertMeetingEvent): Promise<MeetingEvent>;
+  getMeetingEventsByDateRange(startDate: Date, endDate: Date): Promise<MeetingEvent[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -246,6 +254,36 @@ export class DatabaseStorage implements IStorage {
     
     if (!settings) throw new Error('Failed to update settings');
     return settings;
+  }
+
+  // Meeting Events (Audit Trail)
+  async getMeetingEvents(meetingId: string, options?: { limit?: number; offset?: number }): Promise<MeetingEvent[]> {
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    
+    return await db.select()
+      .from(meetingEvents)
+      .where(eq(meetingEvents.meetingId, meetingId))
+      .orderBy(desc(meetingEvents.occurredAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async createMeetingEvent(event: InsertMeetingEvent): Promise<MeetingEvent> {
+    const [newEvent] = await db.insert(meetingEvents).values(event).returning();
+    return newEvent;
+  }
+
+  async getMeetingEventsByDateRange(startDate: Date, endDate: Date): Promise<MeetingEvent[]> {
+    return await db.select()
+      .from(meetingEvents)
+      .where(
+        and(
+          gte(meetingEvents.occurredAt, startDate),
+          lte(meetingEvents.occurredAt, endDate)
+        )
+      )
+      .orderBy(desc(meetingEvents.occurredAt));
   }
 }
 

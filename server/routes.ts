@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema, users } from "@shared/schema";
+import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema, insertMeetingEventSchema, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
@@ -510,6 +510,25 @@ export function registerRoutes(app: Express): Server {
       console.log(`📧 Email job enqueued: ${emailJobId}`);
       console.log(`📤 SharePoint job enqueued: ${sharepointJobId}`);
 
+      // Log the approval event
+      await storage.createMeetingEvent({
+        meetingId: meeting.id,
+        tenantId: (req.user as any).tenantId || null,
+        eventType: "minutes_approved",
+        title: "Minutes Approved",
+        description: `Minutes approved by ${req.user.displayName || req.user.email}. Email and SharePoint distribution jobs have been enqueued.`,
+        actorEmail: req.user.email,
+        actorName: req.user.displayName || req.user.email,
+        actorAadId: req.user.id,
+        metadata: { 
+          minutesId: req.params.id, 
+          emailJobId, 
+          sharepointJobId,
+          approvalSource: authSource
+        },
+        correlationId: null,
+      });
+
       res.json({
         ...updatedMinutes,
         workflow: {
@@ -570,6 +589,24 @@ export function registerRoutes(app: Express): Server {
         approvedBy: rejectedBy,
         approvedAt: new Date(),
         rejectionReason: reason
+      });
+
+      // Log the rejection event
+      await storage.createMeetingEvent({
+        meetingId: meeting.id,
+        tenantId: (req.user as any).tenantId || null,
+        eventType: "minutes_rejected",
+        title: "Minutes Rejected",
+        description: `Minutes rejected by ${req.user.displayName || req.user.email}. Reason: ${reason}`,
+        actorEmail: req.user.email,
+        actorName: req.user.displayName || req.user.email,
+        actorAadId: req.user.id,
+        metadata: { 
+          minutesId: req.params.id, 
+          rejectionReason: reason,
+          authSource: authSource
+        },
+        correlationId: null,
       });
 
       res.json(updatedMinutes);
@@ -635,6 +672,76 @@ export function registerRoutes(app: Express): Server {
       }
       console.error("Error requesting revision:", error);
       res.status(500).json({ error: "Failed to request revision" });
+    }
+  });
+
+  // ========== MEETING EVENTS API (AUDIT TRAIL) ==========
+
+  // Get meeting event history (with access control)
+  app.get("/api/meetings/:id/events", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to view event history without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot view event history for meetings you cannot access" });
+      }
+
+      const limit = parseInt(req.query.limit as string) || 50;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const events = await storage.getMeetingEvents(req.params.id, { limit, offset });
+      res.json(events);
+    } catch (error: any) {
+      console.error("Error fetching meeting events:", error);
+      res.status(500).json({ error: "Failed to fetch meeting events" });
+    }
+  });
+
+  // Create a meeting event (used by services for audit logging)
+  app.post("/api/meetings/:id/events", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to create event without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot create events for meetings you cannot access" });
+      }
+
+      // Validate request body with schema
+      const eventData = insertMeetingEventSchema.parse({
+        ...req.body,
+        meetingId: req.params.id,
+        tenantId: (req.user as any).tenantId || null,
+        actorEmail: req.user.email,
+        actorName: req.user.displayName || req.user.email,
+        actorAadId: req.user.id,
+        metadata: req.body.metadata || {},
+      });
+
+      const event = await storage.createMeetingEvent(eventData);
+
+      res.status(201).json(event);
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid event data", details: error.errors });
+      }
+      console.error("Error creating meeting event:", error);
+      res.status(500).json({ error: "Failed to create meeting event" });
     }
   });
 
@@ -776,7 +883,41 @@ export function registerRoutes(app: Express): Server {
     try {
       // STRICT VALIDATION: Validate partial updates against schema
       const validatedData = insertActionItemSchema.partial().parse(req.body);
+      
+      // Get the current item to detect status changes
+      const existingItem = await storage.getActionItem(req.params.id);
+      if (!existingItem) {
+        return res.status(404).json({ error: "Action item not found" });
+      }
+      
       const item = await storage.updateActionItem(req.params.id, validatedData);
+      
+      // Log event if status changed
+      if (validatedData.status && validatedData.status !== existingItem.status) {
+        const eventType = validatedData.status === "completed" ? "action_item_completed" : "action_item_updated";
+        const eventTitle = validatedData.status === "completed" 
+          ? "Action Item Completed" 
+          : `Action Item Status Changed to ${validatedData.status.replace('_', ' ')}`;
+        
+        await storage.createMeetingEvent({
+          meetingId: existingItem.meetingId,
+          tenantId: null,
+          eventType,
+          title: eventTitle,
+          description: `Action item "${existingItem.description.substring(0, 50)}${existingItem.description.length > 50 ? '...' : ''}" status changed from ${existingItem.status} to ${validatedData.status}`,
+          actorEmail: req.user?.email || "system",
+          actorName: req.user?.displayName || req.user?.email || "System",
+          actorAadId: req.user?.id || null,
+          metadata: { 
+            actionItemId: req.params.id,
+            oldStatus: existingItem.status,
+            newStatus: validatedData.status,
+            assignee: existingItem.assignee
+          },
+          correlationId: null,
+        });
+      }
+      
       res.json(item);
     } catch (error: any) {
       if (error.name === "ZodError") {

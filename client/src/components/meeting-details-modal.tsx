@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogTrigger,
@@ -25,6 +25,12 @@ import {
   ToastTitle,
   ToastBody,
   useToastController,
+  Menu,
+  MenuTrigger,
+  MenuPopover,
+  MenuList,
+  MenuItem,
+  Spinner,
 } from "@fluentui/react-components";
 import { 
   Calendar, 
@@ -37,14 +43,26 @@ import {
   User,
   ThumbsUp,
   ThumbsDown,
-  Mail
+  Mail,
+  History,
+  CheckCircle,
+  AlertCircle,
+  ArrowRightCircle,
+  XCircle,
+  Send,
+  Upload,
+  Edit,
+  RefreshCw,
+  ChevronDown,
+  Play,
+  Circle
 } from "lucide-react";
 import { format } from "date-fns";
 import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
 import { ProcessingStatus } from "./processing-status";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { MeetingWithMinutes } from "@shared/schema";
+import type { MeetingWithMinutes, MeetingEvent } from "@shared/schema";
 import { APP_TOASTER_ID } from "@/App";
 
 interface MeetingDetailsModalProps {
@@ -318,6 +336,92 @@ const useStyles = makeStyles({
   processingIndicator: {
     marginBottom: "12px",
   },
+  timeline: {
+    position: "relative",
+    ...shorthands.padding("0"),
+    ...shorthands.margin("0"),
+    listStyleType: "none",
+  },
+  timelineItem: {
+    position: "relative",
+    ...shorthands.padding("0", "0", "16px", "32px"),
+    "::before": {
+      content: '""',
+      position: "absolute",
+      left: "10px",
+      top: "24px",
+      bottom: "0",
+      width: "2px",
+      backgroundColor: tokens.colorNeutralStroke2,
+    },
+    "&:last-child::before": {
+      display: "none",
+    },
+  },
+  timelineIcon: {
+    position: "absolute",
+    left: "0",
+    top: "0",
+    width: "22px",
+    height: "22px",
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: tokens.colorNeutralBackground1,
+    ...shorthands.border("2px", "solid", tokens.colorNeutralStroke2),
+  },
+  timelineIconSuccess: {
+    backgroundColor: tokens.colorPaletteGreenBackground1,
+    ...shorthands.border("2px", "solid", tokens.colorPaletteGreenBorder1),
+  },
+  timelineIconWarning: {
+    backgroundColor: tokens.colorPaletteYellowBackground1,
+    ...shorthands.border("2px", "solid", tokens.colorPaletteYellowBorder1),
+  },
+  timelineIconError: {
+    backgroundColor: tokens.colorPaletteRedBackground1,
+    ...shorthands.border("2px", "solid", tokens.colorPaletteRedBorder1),
+  },
+  timelineIconInfo: {
+    backgroundColor: tokens.colorPaletteBlueBorderActive,
+    ...shorthands.border("2px", "solid", tokens.colorBrandStroke1),
+  },
+  timelineContent: {
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    ...shorthands.padding("12px", "16px"),
+    ...shorthands.border("1px", "solid", tokens.colorNeutralStroke1),
+  },
+  timelineTitle: {
+    fontSize: tokens.fontSizeBase300,
+    fontWeight: tokens.fontWeightSemibold,
+    color: tokens.colorNeutralForeground1,
+    marginBottom: "4px",
+  },
+  timelineDescription: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground2,
+    marginBottom: "8px",
+  },
+  timelineMeta: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("12px"),
+    fontSize: tokens.fontSizeBase100,
+    color: tokens.colorNeutralForeground3,
+    flexWrap: "wrap",
+  },
+  timelineMetaItem: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("4px"),
+  },
+  loadingSpinner: {
+    display: "flex",
+    justifyContent: "center",
+    ...shorthands.padding("48px"),
+  },
 });
 
 export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDetailsModalProps) {
@@ -390,6 +494,86 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
     }
   });
 
+  // Action item status update mutation
+  const updateActionItemMutation = useMutation({
+    mutationFn: async ({ actionItemId, status }: { actionItemId: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/action-items/${actionItemId}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Action item updated</ToastTitle>
+          <ToastBody>The action item status has been updated.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to update action item"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    }
+  });
+
+  // Fetch meeting events for history tab
+  const { data: events = [], isLoading: eventsLoading } = useQuery<MeetingEvent[]>({
+    queryKey: ["/api/meetings", meeting?.id, "events"],
+    enabled: !!meeting?.id && selectedTab === "history",
+  });
+
+  // Helper function to get icon for event type
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case "meeting_created":
+        return <Calendar className={styles.iconSmall} />;
+      case "minutes_generated":
+        return <FileText className={styles.iconSmall} />;
+      case "minutes_approved":
+        return <CheckCircle className={styles.iconSmall} />;
+      case "minutes_rejected":
+        return <XCircle className={styles.iconSmall} />;
+      case "minutes_regenerated":
+        return <RefreshCw className={styles.iconSmall} />;
+      case "email_sent":
+        return <Send className={styles.iconSmall} />;
+      case "sharepoint_uploaded":
+        return <Upload className={styles.iconSmall} />;
+      case "processing_completed":
+        return <CheckCircle className={styles.iconSmall} />;
+      case "processing_skipped":
+        return <AlertCircle className={styles.iconSmall} />;
+      case "action_item_created":
+      case "action_item_updated":
+      case "action_item_completed":
+        return <CheckCircle2 className={styles.iconSmall} />;
+      default:
+        return <ArrowRightCircle className={styles.iconSmall} />;
+    }
+  };
+
+  // Helper function to get icon style for event type
+  const getEventIconStyle = (eventType: string) => {
+    switch (eventType) {
+      case "minutes_approved":
+      case "processing_completed":
+      case "action_item_completed":
+        return mergeClasses(styles.timelineIcon, styles.timelineIconSuccess);
+      case "minutes_rejected":
+      case "processing_skipped":
+        return mergeClasses(styles.timelineIcon, styles.timelineIconError);
+      case "email_sent":
+      case "sharepoint_uploaded":
+        return mergeClasses(styles.timelineIcon, styles.timelineIconInfo);
+      default:
+        return styles.timelineIcon;
+    }
+  };
+
   if (!meeting) return null;
 
   const showApprovalActions = meeting.minutes?.processingStatus === "completed" && 
@@ -425,6 +609,7 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
               <Tab value="minutes" data-testid="tab-minutes">Minutes</Tab>
               <Tab value="actions" data-testid="tab-actions">Action Items</Tab>
               <Tab value="attachments" data-testid="tab-attachments">Attachments</Tab>
+              <Tab value="history" data-testid="tab-history">History</Tab>
             </TabList>
           </div>
 
@@ -611,9 +796,15 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                           <div className={styles.actionItemText}>
                             <p className={styles.actionItemTask}>{item.task}</p>
                             <div className={styles.actionItemMeta}>
-                              <span>Assigned to: <span style={{ color: tokens.colorNeutralForeground1 }}>{item.assignee}</span></span>
+                              <span>
+                                <User className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} style={{ display: 'inline', verticalAlign: 'middle' }} />
+                                {item.assignee}
+                              </span>
                               {item.dueDate && (
-                                <span>Due: <span style={{ color: tokens.colorNeutralForeground1 }}>{format(new Date(item.dueDate), "PP")}</span></span>
+                                <span>
+                                  <Calendar className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} style={{ display: 'inline', verticalAlign: 'middle' }} />
+                                  {format(new Date(item.dueDate), "PP")}
+                                </span>
                               )}
                             </div>
                           </div>
@@ -623,12 +814,50 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                             >
                               {item.priority}
                             </Badge>
-                            <Badge 
-                              appearance={item.status === "completed" ? "outline" : "filled"}
-                              color="informative"
-                            >
-                              {item.status}
-                            </Badge>
+                            <Menu>
+                              <MenuTrigger disableButtonEnhancement>
+                                <Button 
+                                  appearance="subtle"
+                                  size="small"
+                                  data-testid={`button-status-${item.id}`}
+                                  disabled={updateActionItemMutation.isPending}
+                                >
+                                  {item.status === "pending" && <Circle className={styles.iconSmall} style={{ marginRight: '4px' }} />}
+                                  {item.status === "in_progress" && <Play className={styles.iconSmall} style={{ marginRight: '4px' }} />}
+                                  {item.status === "completed" && <CheckCircle className={styles.iconSmall} style={{ marginRight: '4px' }} />}
+                                  {item.status === "pending" ? "Pending" : item.status === "in_progress" ? "In Progress" : "Completed"}
+                                  <ChevronDown className={styles.iconSmall} style={{ marginLeft: '4px' }} />
+                                </Button>
+                              </MenuTrigger>
+                              <MenuPopover>
+                                <MenuList>
+                                  <MenuItem 
+                                    data-testid={`menu-item-pending-${item.id}`}
+                                    onClick={() => updateActionItemMutation.mutate({ actionItemId: item.id, status: "pending" })}
+                                    disabled={item.status === "pending"}
+                                  >
+                                    <Circle className={styles.iconSmall} style={{ marginRight: '8px' }} />
+                                    Pending
+                                  </MenuItem>
+                                  <MenuItem 
+                                    data-testid={`menu-item-in-progress-${item.id}`}
+                                    onClick={() => updateActionItemMutation.mutate({ actionItemId: item.id, status: "in_progress" })}
+                                    disabled={item.status === "in_progress"}
+                                  >
+                                    <Play className={styles.iconSmall} style={{ marginRight: '8px' }} />
+                                    In Progress
+                                  </MenuItem>
+                                  <MenuItem 
+                                    data-testid={`menu-item-completed-${item.id}`}
+                                    onClick={() => updateActionItemMutation.mutate({ actionItemId: item.id, status: "completed" })}
+                                    disabled={item.status === "completed"}
+                                  >
+                                    <CheckCircle className={styles.iconSmall} style={{ marginRight: '8px' }} />
+                                    Completed
+                                  </MenuItem>
+                                </MenuList>
+                              </MenuPopover>
+                            </Menu>
                           </div>
                         </div>
                       </div>
@@ -684,6 +913,52 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                     <FileText className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
                     <p className={styles.emptyText}>No documents available yet.</p>
                   </div>
+                )}
+              </div>
+            )}
+
+            {selectedTab === "history" && (
+              <div data-testid="container-history">
+                {eventsLoading ? (
+                  <div className={styles.loadingSpinner} data-testid="loading-history">
+                    <Badge appearance="outline">Loading history...</Badge>
+                  </div>
+                ) : events.length === 0 ? (
+                  <div className={styles.emptyState} data-testid="empty-history">
+                    <History className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
+                    <p className={styles.emptyText} data-testid="text-empty-history">No event history recorded yet.</p>
+                    <p className={styles.emptyText} style={{ marginTop: "8px", fontSize: "12px" }}>
+                      Events will be recorded as the meeting progresses through its lifecycle.
+                    </p>
+                  </div>
+                ) : (
+                  <ul className={styles.timeline} data-testid="timeline-events">
+                    {events.map((event, index) => (
+                      <li key={event.id} className={styles.timelineItem} data-testid={`timeline-event-${event.id}`}>
+                        <div className={getEventIconStyle(event.eventType)} data-testid={`timeline-icon-${event.id}`}>
+                          {getEventIcon(event.eventType)}
+                        </div>
+                        <div className={styles.timelineContent}>
+                          <h4 className={styles.timelineTitle} data-testid={`timeline-title-${event.id}`}>{event.title}</h4>
+                          {event.description && (
+                            <p className={styles.timelineDescription} data-testid={`timeline-description-${event.id}`}>{event.description}</p>
+                          )}
+                          <div className={styles.timelineMeta}>
+                            <span className={styles.timelineMetaItem} data-testid={`timeline-time-${event.id}`}>
+                              <Clock className={styles.iconSmall} />
+                              {format(new Date(event.occurredAt), "PPp")}
+                            </span>
+                            {event.actorName && (
+                              <span className={styles.timelineMetaItem} data-testid={`timeline-actor-${event.id}`}>
+                                <User className={styles.iconSmall} />
+                                {event.actorName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             )}

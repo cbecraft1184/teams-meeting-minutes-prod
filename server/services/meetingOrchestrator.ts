@@ -1,10 +1,22 @@
 import { db } from "../db";
-import { meetings, meetingMinutes } from "@shared/schema";
+import { meetings, meetingMinutes, meetingEvents } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { enqueueJob, completeJob, failJob } from "./durableQueue";
-import type { Job } from "@shared/schema";
+import type { Job, InsertMeetingEvent } from "@shared/schema";
 import { teamsProactiveMessaging } from "./teamsProactiveMessaging";
 import { callRecordEnrichmentService } from "./callRecordEnrichment";
+
+/**
+ * Helper to log meeting events in the audit trail
+ */
+async function logMeetingEvent(event: InsertMeetingEvent): Promise<void> {
+  try {
+    await db.insert(meetingEvents).values(event);
+  } catch (error) {
+    console.error("[Orchestrator] Failed to log meeting event:", error);
+    // Don't throw - event logging should not break workflow
+  }
+}
 
 /**
  * Meeting Lifecycle Orchestrator
@@ -215,6 +227,23 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
 
     console.log(`[Orchestrator] Minutes generation complete for meeting: ${meetingId}`);
 
+    // Log the minutes generation event
+    await logMeetingEvent({
+      meetingId,
+      tenantId: null,
+      eventType: "minutes_generated",
+      title: "Meeting Minutes Generated",
+      description: "AI-powered meeting minutes have been successfully generated and are ready for review.",
+      actorEmail: "system",
+      actorName: "System",
+      actorAadId: null,
+      metadata: { 
+        minutesId: minutes.id,
+        jobId: job.id
+      },
+      correlationId: job.idempotencyKey,
+    });
+
     // Send Teams Adaptive Card notification if minutes are approved
     const updatedMinutes = await db.query.meetingMinutes.findFirst({
       where: (m, { eq }) => eq(m.id, minutes.id),
@@ -291,6 +320,25 @@ async function processSendEmailJob(job: Job): Promise<void> {
     ]);
 
     console.log(`[Orchestrator] Email sent for meeting: ${meetingId} to ${meeting.attendees.length} attendees`);
+
+    // Log the email sent event
+    await logMeetingEvent({
+      meetingId,
+      tenantId: null,
+      eventType: "email_sent",
+      title: "Minutes Distributed via Email",
+      description: `Meeting minutes distributed to ${meeting.attendees.length} attendees with DOCX and PDF attachments.`,
+      actorEmail: "system",
+      actorName: "System",
+      actorAadId: null,
+      metadata: { 
+        minutesId,
+        recipientCount: meeting.attendees.length,
+        attachments: ["DOCX", "PDF"],
+        jobId: job.id
+      },
+      correlationId: job.idempotencyKey,
+    });
   } catch (error: any) {
     console.error(`[Orchestrator] Email failed for meeting ${meetingId}:`, error.message);
     throw error;
@@ -359,6 +407,25 @@ async function processUploadSharePointJob(job: Job): Promise<void> {
       .where(eq(meetings.id, meetingId));
 
     console.log(`[Orchestrator] SharePoint upload complete for meeting: ${meetingId} - ${sharepointUrl}`);
+
+    // Log the SharePoint upload event
+    await logMeetingEvent({
+      meetingId,
+      tenantId: null,
+      eventType: "sharepoint_uploaded",
+      title: "Minutes Archived to SharePoint",
+      description: `Meeting minutes have been successfully uploaded to SharePoint document library.`,
+      actorEmail: "system",
+      actorName: "System",
+      actorAadId: null,
+      metadata: { 
+        minutesId,
+        sharepointUrl,
+        classificationLevel: meeting.classificationLevel,
+        jobId: job.id
+      },
+      correlationId: job.idempotencyKey,
+    });
   } catch (error: any) {
     console.error(`[Orchestrator] SharePoint upload failed for meeting ${meetingId}:`, error.message);
     throw error;

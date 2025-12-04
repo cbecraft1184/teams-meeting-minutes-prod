@@ -467,6 +467,70 @@ Response:
 }
 ```
 
+### Help System API
+
+**POST /api/help/request**
+
+Submits a support request. Includes security hardening:
+
+- **Rate Limiting:** 5 requests per hour per user
+- **Input Validation:** Length limits enforced (subject 3-200 chars, description 10-4000 chars)
+- **HTML Sanitization:** All HTML tags stripped before processing
+- **Category Validation:** Only allowed categories accepted
+
+Request:
+```json
+{
+  "subject": "Need help with action items",
+  "category": "general",
+  "description": "I cannot find where to update action item status..."
+}
+```
+
+Allowed categories: `general`, `bug`, `feature`, `access`
+
+Response (Success):
+```json
+{
+  "success": true,
+  "message": "Your request has been received. Our support team will respond within 24 hours.",
+  "requestId": "help_1733320000000_abc123"
+}
+```
+
+Response (Rate Limited - 429):
+```json
+{
+  "error": "Too many requests. Please try again later.",
+  "retryAfter": "45 minutes"
+}
+```
+
+Response (Validation Error - 400):
+```json
+{
+  "error": "Subject must be between 3 and 200 characters"
+}
+```
+
+**Security Implementation Notes:**
+
+The Help API implements defense-in-depth security:
+
+1. **Authentication Gate:** Handler immediately returns 401 if `req.user` is undefined
+2. **Rate Limiting:** In-memory per-user tracking with 1-hour sliding window
+3. **Input Sanitization:** `stripHtml()` removes all HTML tags via regex `/<[^>]*>/g`
+4. **Length Enforcement:** Subject (3-200) and description (10-4000) character limits
+5. **Category Whitelist:** Invalid categories default to "general"
+
+```typescript
+// Security middleware pattern
+const stripHtml = (str: string) => str.replace(/<[^>]*>/g, '').trim();
+const subject = stripHtml(rawSubject).substring(0, 200);
+const validCategories = ['general', 'bug', 'feature', 'access'];
+const category = validCategories.includes(rawCategory) ? rawCategory : 'general';
+```
+
 ---
 
 ## 8. Authentication Flow

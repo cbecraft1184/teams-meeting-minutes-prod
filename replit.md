@@ -60,6 +60,7 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - Document export (DOCX/PDF)
 - History/Timeline event display
 - Authentication and access control
+- Help System search and Contact Support form
 
 ## External Dependencies
 

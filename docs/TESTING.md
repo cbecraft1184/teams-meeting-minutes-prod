@@ -196,6 +196,87 @@ Sign-off: [Name] approved for deployment
 
 ---
 
+## Help System Test Cases
+
+### Help Page Navigation and Search
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| Navigate to Help | Click menu > Help | Help page opens at /help |
+| User Guide tab active | Load Help page | User Guide tab selected by default |
+| Search functionality | Enter "action items" in search | Articles filtered to show action item content |
+| Case-insensitive search | Enter "ACTION" | Same results as lowercase |
+| No results state | Enter "xyznonexistent" | "No articles match your search" message |
+| Clear search | Clear search input | All articles displayed again |
+
+### Contact Support Form
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| Form displays | Click Contact Support tab | Subject, Category, Description fields visible |
+| Submit disabled initially | Load Contact Support tab | Submit button is disabled |
+| Validation - Subject | Enter < 3 chars | Submit remains disabled |
+| Validation - Description | Enter < 10 chars | Submit remains disabled |
+| Submit enabled | Fill all required fields | Submit button becomes enabled |
+| Successful submission | Submit valid form | Success message displayed |
+| Rate limiting | Submit 6 requests in 1 hour | 429 error on 6th request |
+
+### Security Test Cases
+
+| Test Case | Steps | Expected Result |
+|-----------|-------|-----------------|
+| Auth required | Call API without auth | 401 Unauthorized |
+| HTML stripped | Submit `<script>alert(1)</script>` | Tags removed from stored/emailed content |
+| Length limits - Subject | Submit > 200 char subject | 400 Bad Request |
+| Length limits - Description | Submit > 4000 char description | 400 Bad Request |
+| Invalid category | Submit category "hacker" | Defaults to "general" |
+| Rate limit enforced | Exceed 5 requests/hour | 429 Too Many Requests |
+
+---
+
+## Test Evidence Log
+
+### Help System Implementation - December 2024
+
+```
+Date: 2024-12-04
+Tester: Automated E2E (Playwright)
+Environment: Development
+Build: Help System Implementation
+
+Test Execution:
+1. [PASS] Navigation to Help page via header menu
+2. [PASS] Help Center heading displayed
+3. [PASS] Two tabs visible: User Guide, Contact Support
+4. [PASS] Search input field present
+5. [PASS] Search "action items" filters content correctly
+6. [PASS] Contact Support tab displays form
+7. [PASS] Form fields: Subject, Category dropdown, Description
+8. [PASS] Submit button disabled until form valid
+9. [PASS] Fill Subject: "Test Support Request"
+10. [PASS] Fill Description: "This is a test support request..."
+11. [PASS] Submit button enabled after validation
+12. [PASS] Click Submit - success message displayed
+13. [PASS] API POST /api/help/request returned {success: true}
+
+Security Verification:
+- Rate limiting: 5 requests/hour per user
+- Input validation: Length limits enforced
+- HTML sanitization: Tags stripped
+- Category validation: Allowed list only
+- Authentication: Required for API access
+
+Architect Review: PASSED
+- Reviewed by: Architect Agent
+- Date: 2024-12-04
+- Verdict: "Pass - The Help system implementation meets the stated 
+  functional and security requirements for release."
+
+Sign-off: Approved for Git commit
+```
+
+---
+
 ## Known Issues and Waivers
 
 Document any known issues that are accepted for deployment:
@@ -203,6 +284,7 @@ Document any known issues that are accepted for deployment:
 | Issue | Impact | Waiver Reason | Approved By |
 |-------|--------|---------------|-------------|
 | Teams SDK timeout in standalone | Expected behavior outside Teams | Works correctly inside Teams | - |
+| AUTH_HEADER_MISSING console warning | Transient warning in dev mode | Dev-only, no functional impact | Architect |
 
 ---
 

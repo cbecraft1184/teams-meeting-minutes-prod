@@ -189,3 +189,6 @@ export async function deleteDocument(
 
   await client.api(`/drives/${driveId}/root:/${filePath}`).delete();
 }
+
+// Alias for backwards compatibility with routes.ts
+export const uploadToSharePoint = uploadDocument;

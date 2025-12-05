@@ -97,13 +97,33 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           setTheme(newTheme === 'dark' ? 'dark' : newTheme === 'contrast' ? 'contrast' : 'default');
         });
         
-        // Get SSO token with detailed error handling
+        // Get SSO token with detailed error handling and retry
         logAuth('SSO_TOKEN_REQUESTING', { resource: APP_ID_URI });
         try {
-          const token = await authentication.getAuthToken({ 
-            resources: [APP_ID_URI],
-            silent: true 
-          });
+          let token: string | null = null;
+          let lastError: any = null;
+          
+          // Retry up to 3 times with increasing delays
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              logAuth('SSO_TOKEN_ATTEMPT', { attempt });
+              token = await authentication.getAuthToken({ 
+                resources: [APP_ID_URI],
+                silent: true 
+              });
+              if (token) break;
+            } catch (attemptErr: any) {
+              lastError = attemptErr;
+              logAuth('SSO_TOKEN_ATTEMPT_FAILED', { attempt, error: attemptErr?.message });
+              if (attempt < 3) {
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+              }
+            }
+          }
+          
+          if (!token && lastError) {
+            throw lastError;
+          }
           
           logAuth('SSO_TOKEN_RECEIVED', { 
             tokenLength: token?.length,

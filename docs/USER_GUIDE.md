@@ -135,6 +135,8 @@ You can hide meetings from your view without deleting them:
 
 > **Note**: Hiding a meeting only affects your view. Other users can still see the meeting in their lists.
 
+> **Persistence**: Hidden meetings stay hidden even if you log out, close the browser, or access the app from a different device. They remain hidden until you manually restore them.
+
 ---
 
 ## Managing Meetings

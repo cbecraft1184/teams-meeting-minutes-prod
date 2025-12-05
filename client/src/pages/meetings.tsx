@@ -217,7 +217,7 @@ export default function Meetings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
       dispatchToast(
-        <Toast>
+        <Toast data-testid="toast-meeting-hidden">
           <ToastTitle>Meeting hidden</ToastTitle>
           <ToastBody>You can restore it using "Show hidden"</ToastBody>
         </Toast>,
@@ -226,7 +226,7 @@ export default function Meetings() {
     },
     onError: () => {
       dispatchToast(
-        <Toast>
+        <Toast data-testid="toast-hide-error">
           <ToastTitle>Error</ToastTitle>
           <ToastBody>Failed to hide meeting</ToastBody>
         </Toast>,
@@ -242,7 +242,7 @@ export default function Meetings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
       dispatchToast(
-        <Toast>
+        <Toast data-testid="toast-meeting-restored">
           <ToastTitle>Meeting restored</ToastTitle>
           <ToastBody>The meeting is now visible in your list</ToastBody>
         </Toast>,
@@ -251,7 +251,7 @@ export default function Meetings() {
     },
     onError: () => {
       dispatchToast(
-        <Toast>
+        <Toast data-testid="toast-restore-error">
           <ToastTitle>Error</ToastTitle>
           <ToastBody>Failed to restore meeting</ToastBody>
         </Toast>,

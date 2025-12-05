@@ -267,7 +267,13 @@ function AppWithProviders() {
   return (
     <FluentProvider theme={getFluentTheme(isInTeams, theme)}>
       <ThemeProvider defaultTheme="light">
-        <Toaster toasterId={APP_TOASTER_ID} />
+        <Toaster 
+          toasterId={APP_TOASTER_ID} 
+          position="top-end"
+          timeout={4000}
+          pauseOnHover={true}
+          data-testid="app-toaster"
+        />
         <AppContent />
       </ThemeProvider>
     </FluentProvider>

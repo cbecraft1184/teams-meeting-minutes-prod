@@ -7,7 +7,7 @@ import { MeetingDetailsModal } from "@/components/meeting-details-modal";
 import { Button, SearchBox, makeStyles, tokens, shorthands, Switch, Badge, useToastController, Toast, ToastTitle, ToastBody } from "@fluentui/react-components";
 import { Settings24Regular, Search24Regular, ChevronLeft24Regular, ChevronRight24Regular } from "@fluentui/react-icons";
 import { FileText, Calendar, Archive, CheckCircle2, AlertCircle, EyeOff } from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getAuthHeaders } from "@/lib/queryClient";
 import { APP_TOASTER_ID } from "@/App";
 import type { MeetingWithMinutes } from "@shared/schema";
 
@@ -188,7 +188,10 @@ export default function Dashboard() {
         offset: offset.toString(),
         includeDismissed: showDismissed.toString(),
       });
-      const res = await fetch(`/api/meetings?${params}`, { credentials: 'include' });
+      const res = await fetch(`/api/meetings?${params}`, { 
+        headers: getAuthHeaders(),
+        credentials: 'include' 
+      });
       if (!res.ok) throw new Error('Failed to fetch meetings');
       return res.json();
     },

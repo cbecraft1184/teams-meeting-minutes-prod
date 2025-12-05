@@ -3,6 +3,7 @@ import { app, authentication } from '@microsoft/teams-js';
 import { setAuthToken, clearAuthToken, getAuthToken as getStoredToken } from '@/lib/authToken';
 
 const APP_ID_URI = 'api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c';
+const SSO_SCOPE = `${APP_ID_URI}/access_as_user`;
 
 // Debug logging helper - logs to console with timestamp
 function logAuth(stage: string, data?: any) {
@@ -103,7 +104,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         logAuth('TEAMS_NOTIFY_SUCCESS');
         
         // Get SSO token with detailed error handling and retry
-        logAuth('SSO_TOKEN_REQUESTING', { resource: APP_ID_URI });
+        logAuth('SSO_TOKEN_REQUESTING', { scope: SSO_SCOPE });
         try {
           let token: string | null = null;
           let lastError: any = null;
@@ -113,7 +114,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             try {
               logAuth('SSO_TOKEN_ATTEMPT', { attempt });
               token = await authentication.getAuthToken({ 
-                resources: [APP_ID_URI],
+                resources: [SSO_SCOPE],
                 silent: true 
               });
               if (token) break;
@@ -233,7 +234,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     
     try {
       const token = await authentication.getAuthToken({ 
-        resources: [APP_ID_URI],
+        resources: [SSO_SCOPE],
         silent: true 
       });
       logAuth('GET_AUTH_TOKEN_SUCCESS', { tokenLength: token?.length });

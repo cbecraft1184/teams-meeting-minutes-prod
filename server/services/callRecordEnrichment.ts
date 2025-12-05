@@ -261,7 +261,8 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     if (decision.shouldProcess) {
       try {
         console.log(`🤖 [Enrichment] Triggering AI minutes generation...`);
-        await minutesGeneratorService.autoGenerateMinutes(meetingId);
+        // Pass the real transcript content to minutes generator
+        await minutesGeneratorService.autoGenerateMinutes(meetingId, transcriptContent);
         console.log(`✅ [Enrichment] Minutes generation triggered for meeting ${meetingId}`);
       } catch (minutesError) {
         console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, minutesError);

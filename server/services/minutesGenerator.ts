@@ -26,8 +26,10 @@ import { enqueueJob } from "./durableQueue";
 
 /**
  * Generate meeting minutes automatically after enrichment
+ * @param meetingId - ID of the meeting to generate minutes for
+ * @param transcriptContent - Optional real transcript content from Graph API (if not provided, uses mock)
  */
-export async function autoGenerateMinutes(meetingId: string): Promise<void> {
+export async function autoGenerateMinutes(meetingId: string, transcriptContent?: string | null): Promise<void> {
   console.log(`🤖 [MinutesGenerator] Auto-generating minutes for meeting ${meetingId}`);
   
   try {
@@ -50,18 +52,25 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       return;
     }
     
-    // Generate mock transcript (in production, this would be fetched from Graph API)
-    const mockTranscript = generateMockTranscript(meeting);
+    // Use real transcript if provided, otherwise generate mock for testing
+    let transcript: string;
+    if (transcriptContent && transcriptContent.trim().length > 0) {
+      console.log(`📝 [MinutesGenerator] Using real transcript (${transcriptContent.length} chars)`);
+      transcript = transcriptContent;
+    } else {
+      console.log(`⚠️ [MinutesGenerator] No transcript provided - using mock transcript for testing`);
+      transcript = generateMockTranscript(meeting);
+    }
     
     console.log(`🔄 [MinutesGenerator] Calling AI to generate minutes...`);
     
     // Generate minutes using AI
-    const minutesData = await generateMeetingMinutes(mockTranscript);
+    const minutesData = await generateMeetingMinutes(transcript);
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // Extract action items
-    const actionItemsData = await extractActionItems(mockTranscript);
+    // Extract action items from the same transcript
+    const actionItemsData = await extractActionItems(transcript);
     
     // Check approval settings
     const settings = await storage.getSettings();

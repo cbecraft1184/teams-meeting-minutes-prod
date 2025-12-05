@@ -1,13 +1,16 @@
 import { AzureOpenAI } from "openai";
 import OpenAI from "openai";
 import pRetry, { AbortError } from "p-retry";
+import { getConfig } from "./configValidator";
 
 // Lazy initialization of Azure OpenAI client (only in production with proper credentials)
 let azureClient: AzureOpenAI | null = null;
 let replitAIClient: OpenAI | null = null;
 
 function getAIClient(): AzureOpenAI | OpenAI {
-  // Production: Use Azure OpenAI Government Cloud
+  const config = getConfig();
+  
+  // Production: Use Azure OpenAI (REQUIRED)
   if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
     if (!azureClient) {
       azureClient = new AzureOpenAI({
@@ -20,15 +23,27 @@ function getAIClient(): AzureOpenAI | OpenAI {
     return azureClient;
   }
   
-  // Development fallback: Use Replit AI Integrations
+  // In production mode (USE_MOCK_SERVICES=false), Azure credentials are REQUIRED
+  // Do not fall back to Replit AI which doesn't exist in Azure
+  if (!config.useMockServices) {
+    throw new Error(
+      "[PRODUCTION ERROR] Azure OpenAI credentials not configured. " +
+      "In production mode (USE_MOCK_SERVICES=false), Azure OpenAI is REQUIRED. " +
+      "Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables. " +
+      "Replit AI fallback is NOT available in Azure production environment."
+    );
+  }
+  
+  // Development only: Use Replit AI Integrations as fallback
   if (!replitAIClient) {
     if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
       throw new Error(
-        "Neither Azure OpenAI nor Replit AI credentials found. " +
+        "No AI credentials found. " +
         "For production: Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT. " +
         "For development: Ensure Replit AI Integrations are enabled."
       );
     }
+    console.log("⚠️ [AI] Using Replit AI fallback (DEVELOPMENT ONLY)");
     replitAIClient = new OpenAI({
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY

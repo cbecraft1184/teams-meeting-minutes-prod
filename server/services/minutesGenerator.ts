@@ -23,6 +23,7 @@ import { generateMeetingMinutes, extractActionItems } from "./azureOpenAI";
 import { ZodError } from "zod";
 import { storage } from "../storage";
 import { enqueueJob } from "./durableQueue";
+import { getConfig } from "./configValidator";
 
 /**
  * Generate meeting minutes automatically after enrichment
@@ -52,14 +53,25 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
       return;
     }
     
-    // Use real transcript if provided, otherwise generate mock for testing
+    // Use real transcript if provided
+    // In production (useMockServices=false), require real transcript - no mock data
+    const config = getConfig();
     let transcript: string;
+    
     if (transcriptContent && transcriptContent.trim().length > 0) {
       console.log(`📝 [MinutesGenerator] Using real transcript (${transcriptContent.length} chars)`);
       transcript = transcriptContent;
-    } else {
-      console.log(`⚠️ [MinutesGenerator] No transcript provided - using mock transcript for testing`);
+    } else if (config.useMockServices) {
+      // Development only: Use mock transcript for testing
+      console.log(`⚠️ [MinutesGenerator] No transcript provided - using mock transcript (DEV MODE ONLY)`);
       transcript = generateMockTranscript(meeting);
+    } else {
+      // Production: Fail if no real transcript available
+      throw new Error(
+        `[PRODUCTION ERROR] No transcript available for meeting ${meetingId}. ` +
+        `In production mode (USE_MOCK_SERVICES=false), real transcripts are required. ` +
+        `Ensure meeting has transcription enabled or wait for transcript to be available.`
+      );
     }
     
     console.log(`🔄 [MinutesGenerator] Calling AI to generate minutes...`);

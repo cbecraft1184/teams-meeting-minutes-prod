@@ -97,12 +97,27 @@ The app registration in Azure AD requires these **application permissions** with
 | `Sites.ReadWrite.All` | SharePoint document archival (optional) |
 
 ### Environment Variables
-**Required for production:**
+**Required for production (Azure):**
 - `USE_MOCK_SERVICES=false` - Disables mock data, uses real Graph API and Azure OpenAI
 - `ENABLE_JOB_WORKER=true` - Enables background job processing
+- `APP_URL` - Azure Container Apps URL (e.g., https://your-app.azurecontainerapps.io)
+- `AZURE_OPENAI_API_KEY` - Azure OpenAI API key (required, no Replit fallback in production)
+- `AZURE_OPENAI_ENDPOINT` - Azure OpenAI endpoint URL
+- `AZURE_OPENAI_DEPLOYMENT` - Azure OpenAI deployment name
+
+**Required for Graph webhooks (optional feature):**
 - `ENABLE_GRAPH_WEBHOOKS=true` - Enables Graph API webhook subscriptions
+- Requires `CallRecords.Read.All` permission with admin consent
 
 **Optional for full functionality:**
 - `SHAREPOINT_SITE_URL` - SharePoint site URL for document archival
 - `SHAREPOINT_LIBRARY` - SharePoint document library name
 - `GRAPH_SENDER_EMAIL` - Email sender address for automated emails
+
+### Platform Differences
+| Feature | Replit (Development) | Azure (Production) |
+|---------|---------------------|-------------------|
+| AI Provider | Replit AI fallback | Azure OpenAI (required) |
+| Mock Data | Allowed (USE_MOCK_SERVICES=true) | Disabled (USE_MOCK_SERVICES=false) |
+| Transcripts | Mock transcripts allowed | Real transcripts required |
+| Webhook URL | N/A | APP_URL required |

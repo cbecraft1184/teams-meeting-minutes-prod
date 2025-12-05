@@ -81,3 +81,28 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - **Backend**: Express, Drizzle ORM, MSAL, Microsoft Graph Client.
 - **AI**: OpenAI SDK.
 - **Documents**: `docx`, `pdf-lib`.
+
+## Production Configuration
+
+### Required Azure AD App Permissions
+The app registration in Azure AD requires these **application permissions** with **admin consent**:
+
+| Permission | Purpose |
+|------------|---------|
+| `CallRecords.Read.All` | Subscribe to callRecords webhook for meeting end detection |
+| `Calendars.Read` | Delta sync for meeting scheduling |
+| `OnlineMeetings.Read.All` | Read meeting details and transcripts |
+| `User.Read.All` | Read user profiles for attendee information |
+| `Mail.Send` | Send automated email distribution (optional) |
+| `Sites.ReadWrite.All` | SharePoint document archival (optional) |
+
+### Environment Variables
+**Required for production:**
+- `USE_MOCK_SERVICES=false` - Disables mock data, uses real Graph API and Azure OpenAI
+- `ENABLE_JOB_WORKER=true` - Enables background job processing
+- `ENABLE_GRAPH_WEBHOOKS=true` - Enables Graph API webhook subscriptions
+
+**Optional for full functionality:**
+- `SHAREPOINT_SITE_URL` - SharePoint site URL for document archival
+- `SHAREPOINT_LIBRARY` - SharePoint document library name
+- `GRAPH_SENDER_EMAIL` - Email sender address for automated emails

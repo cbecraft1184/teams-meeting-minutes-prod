@@ -104,7 +104,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         logAuth('TEAMS_NOTIFY_SUCCESS');
         
         // Get SSO token with detailed error handling and retry
-        logAuth('SSO_TOKEN_REQUESTING', { scope: SSO_SCOPE });
+        logAuth('SSO_TOKEN_REQUESTING', { resource: APP_ID_URI });
         try {
           let token: string | null = null;
           let lastError: any = null;
@@ -114,7 +114,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             try {
               logAuth('SSO_TOKEN_ATTEMPT', { attempt });
               token = await authentication.getAuthToken({ 
-                resources: [SSO_SCOPE],
+                resources: [APP_ID_URI],
                 silent: true 
               });
               if (token) break;
@@ -234,7 +234,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     
     try {
       const token = await authentication.getAuthToken({ 
-        resources: [SSO_SCOPE],
+        resources: [APP_ID_URI],
         silent: true 
       });
       logAuth('GET_AUTH_TOKEN_SUCCESS', { tokenLength: token?.length });

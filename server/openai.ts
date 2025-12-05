@@ -1,45 +1,14 @@
-import { AzureOpenAI } from "openai";
+// Reference: blueprint:javascript_openai_ai_integrations
 import OpenAI from "openai";
+import pLimit from "p-limit";
 import pRetry, { AbortError } from "p-retry";
 
-// Lazy initialization of Azure OpenAI client (only in production with proper credentials)
-let azureClient: AzureOpenAI | null = null;
-let replitAIClient: OpenAI | null = null;
-
-function getAIClient(): AzureOpenAI | OpenAI {
-  // Production: Use Azure OpenAI Government Cloud
-  if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
-    if (!azureClient) {
-      azureClient = new AzureOpenAI({
-        apiKey: process.env.AZURE_OPENAI_API_KEY,
-        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
-        apiVersion: process.env.AZURE_OPENAI_API_VERSION || "2024-02-15-preview",
-        deployment: process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4-teams-minutes"
-      });
-    }
-    return azureClient;
-  }
-  
-  // Development fallback: Use Replit AI Integrations
-  if (!replitAIClient) {
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      throw new Error(
-        "Neither Azure OpenAI nor Replit AI credentials found. " +
-        "For production: Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT. " +
-        "For development: Ensure Replit AI Integrations are enabled."
-      );
-    }
-    replitAIClient = new OpenAI({
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-    });
-  }
-  return replitAIClient;
-}
-
-function isUsingAzure(): boolean {
-  return !!(process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT);
-}
+// This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
+// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+});
 
 // Helper function to check if error is rate limit or quota violation
 function isRateLimitError(error: any): boolean {
@@ -53,23 +22,16 @@ function isRateLimitError(error: any): boolean {
 }
 
 // Generate meeting minutes from transcript
-// Uses Azure OpenAI Government in production, Replit AI in development
 export async function generateMeetingMinutes(transcript: string): Promise<{
   summary: string;
   keyDiscussions: string[];
   decisions: string[];
 }> {
-  const client = getAIClient();
-  const usingAzure = isUsingAzure();
-  
-  if (!usingAzure) {
-    console.warn("⚠️  Using Replit AI (development). Production MUST use Azure OpenAI Government.");
-  }
-
   return await pRetry(
     async () => {
       try {
-        const createParams: any = {
+        const response = await openai.chat.completions.create({
+          model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
           messages: [
             {
               role: "system",
@@ -94,22 +56,13 @@ Output JSON format:
               content: `Generate meeting minutes from this transcript:\n\n${transcript}`
             }
           ],
+          max_completion_tokens: 8192,
           response_format: { type: "json_object" }
-        };
+        });
 
-        // Azure uses max_tokens, Replit AI uses max_completion_tokens
-        if (usingAzure) {
-          createParams.max_tokens = 8192;
-        } else {
-          createParams.model = "gpt-4o";
-          createParams.max_completion_tokens = 8192;
-        }
-
-        const response = await client.chat.completions.create(createParams);
         const content = response.choices[0]?.message?.content || "{}";
         return JSON.parse(content);
       } catch (error: any) {
-        console.error("Azure OpenAI error:", error);
         if (isRateLimitError(error)) {
           throw error; // Rethrow to trigger p-retry
         }
@@ -121,32 +74,22 @@ Output JSON format:
       minTimeout: 2000,
       maxTimeout: 128000,
       factor: 2,
-      onFailedAttempt: (error) => {
-        console.warn(`Azure OpenAI attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`);
-      }
     }
   );
 }
 
 // Extract action items from transcript
-// Uses Azure OpenAI Government in production, Replit AI in development
 export async function extractActionItems(transcript: string): Promise<Array<{
   task: string;
   assignee: string;
   dueDate: string | null;
   priority: string;
 }>> {
-  const client = getAIClient();
-  const usingAzure = isUsingAzure();
-  
-  if (!usingAzure) {
-    console.warn("⚠️  Using Replit AI (development). Production MUST use Azure OpenAI Government.");
-  }
-
   return await pRetry(
     async () => {
       try {
-        const createParams: any = {
+        const response = await openai.chat.completions.create({
+          model: "gpt-5", // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
           messages: [
             {
               role: "system",
@@ -171,23 +114,14 @@ Output as JSON array:
               content: transcript
             }
           ],
+          max_completion_tokens: 4096,
           response_format: { type: "json_object" }
-        };
+        });
 
-        // Azure uses max_tokens, Replit AI uses max_completion_tokens
-        if (usingAzure) {
-          createParams.max_tokens = 4096;
-        } else {
-          createParams.model = "gpt-4o";
-          createParams.max_completion_tokens = 4096;
-        }
-
-        const response = await client.chat.completions.create(createParams);
         const content = response.choices[0]?.message?.content || '{"items":[]}';
         const parsed = JSON.parse(content);
         return parsed.items || parsed.actionItems || [];
       } catch (error: any) {
-        console.error("Azure OpenAI error:", error);
         if (isRateLimitError(error)) {
           throw error;
         }
@@ -199,9 +133,6 @@ Output as JSON array:
       minTimeout: 2000,
       maxTimeout: 128000,
       factor: 2,
-      onFailedAttempt: (error) => {
-        console.warn(`Azure OpenAI attempt ${error.attemptNumber} failed. ${error.retriesLeft} retries left.`);
-      }
     }
   );
 }

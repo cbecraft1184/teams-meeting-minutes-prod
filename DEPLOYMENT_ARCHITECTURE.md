@@ -572,17 +572,17 @@ Groups define two attributes:
 
 ## Development vs. Production Differences
 
-| Aspect | Development | Production (Azure) |
+| Aspect | Development (Replit) | Production (Azure) |
 |--------|---------------------|-------------------|
-| **Database** | PostgreSQL (local/serverless) | Azure Database for PostgreSQL |
+| **Database** | Neon PostgreSQL (serverless) | Azure Database for PostgreSQL |
 | **Authentication** | Mock users (config/mockUsers.json) | Azure AD OAuth 2.0 |
 | **Microsoft Graph** | Mock services | Real Graph API calls |
-| **Azure OpenAI** | Azure OpenAI Service | Azure OpenAI Service |
+| **Azure OpenAI** | Replit AI fallback | Azure OpenAI Service |
 | **Bot Framework** | Mock responses | Real bot messaging |
-| **HTTPS** | Local SSL | Azure Container Apps SSL |
+| **HTTPS** | Replit SSL | Azure Container Apps SSL |
 | **Secrets** | Environment variables | Azure Key Vault |
 | **Monitoring** | Console logs | Application Insights |
-| **Domain** | Local development | `*.azurecontainerapps.io` (Azure Commercial) or custom |
+| **Domain** | `*.replit.dev` | `*.azurecontainerapps.io` (Azure Commercial) or custom |
 
 ---
 

@@ -24,7 +24,7 @@ import {
   ChevronRight24Regular
 } from "@fluentui/react-icons";
 import { Calendar, AlertCircle, EyeOff } from "lucide-react";
-import { apiRequest, queryClient, getAuthHeaders } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { APP_TOASTER_ID } from "@/App";
 import type { MeetingWithMinutes } from "@shared/schema";
 
@@ -187,10 +187,7 @@ export default function Meetings() {
         offset: offset.toString(),
         includeDismissed: showDismissed.toString(),
       });
-      const res = await fetch(`/api/meetings?${params}`, { 
-        headers: getAuthHeaders(),
-        credentials: 'include' 
-      });
+      const res = await fetch(`/api/meetings?${params}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch meetings');
       return res.json();
     },

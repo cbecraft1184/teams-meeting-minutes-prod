@@ -44,7 +44,7 @@ import {
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTheme } from "@/hooks/use-theme";
 import { useState } from "react";
-import { queryClient, getAuthHeaders } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useToastController } from "@fluentui/react-components";
 import { APP_TOASTER_ID } from "@/App";
 
@@ -463,8 +463,6 @@ export default function Settings() {
     mutationFn: async (templateId: string) => {
       const response = await fetch(`/api/document-templates/${templateId}/set-default`, {
         method: "POST",
-        headers: getAuthHeaders(),
-        credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to set default template");
       return response.json();
@@ -496,11 +494,7 @@ export default function Settings() {
       const response = await fetch("/api/settings", {
         method: "PATCH",
         body: JSON.stringify(updates),
-        headers: { 
-          "Content-Type": "application/json",
-          ...getAuthHeaders() 
-        },
-        credentials: "include",
+        headers: { "Content-Type": "application/json" },
       });
       if (!response.ok) throw new Error("Failed to update settings");
       return response.json();

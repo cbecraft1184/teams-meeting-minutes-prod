@@ -123,7 +123,7 @@ Automated Microsoft Teams meeting minutes generation using Azure OpenAI for demo
 ### Mock Mode (Development)
 By default, the application runs in mock mode:
 - **Mock users:** Pre-configured test users (no Azure AD required)
-- **Mock AI:** Mock AI responses (no Azure OpenAI required)
+- **Mock AI:** Replit AI generates minutes (no Azure OpenAI required)
 - **Mock Graph:** Simulated Microsoft Graph API responses
 - **Full functionality:** Complete approval workflow, action items, search
 
@@ -159,7 +159,7 @@ Switch users in development using the user switcher in the top-right corner.
 - **[Architecture Documentation](DEPLOYMENT_ARCHITECTURE.md)** - System architecture and tech stack
 
 ### Development
-- **[Project Overview](replit.md)** - System architecture and configuration
+- **[Project Overview](replit.md)** - System architecture, preferences, recent changes
 - **Environment Setup:** See "Local Development Setup" above
 - **Database Schema:** See `shared/schema.ts` (12 tables)
 
@@ -198,7 +198,7 @@ Switch users in development using the user switcher in the top-right corner.
 
 **Issues:** Report via GitHub issues  
 **Questions:** See documentation in `COMMERCIAL_DEMO_DEPLOYMENT.md`  
-**Updates:** See project documentation for recent changes
+**Updates:** Check `replit.md` for recent changes
 
 ---
 

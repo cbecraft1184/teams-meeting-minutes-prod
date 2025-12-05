@@ -73,10 +73,8 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    // Log error for debugging but do NOT rethrow - that crashes the container
-    console.error(`[ERROR] ${status}: ${message}`, err.stack || err);
-
     res.status(status).json({ message });
+    throw err;
   });
 
   // importantly only setup vite in development and after
@@ -122,18 +120,11 @@ app.use((req, res, next) => {
     // Until then, use polling-based enrichment in jobWorker (default behavior)
     const config = getConfig();
     if (!config.useMockServices && process.env.ENABLE_GRAPH_WEBHOOKS === "true") {
-      // In production mode, APP_URL should be explicitly set to the Azure Container Apps URL
-      const baseUrl = process.env.APP_URL;
-      if (!baseUrl) {
-        console.error('[PRODUCTION WARNING] APP_URL not set for Graph webhooks.');
-        console.error('  Set APP_URL to your Azure Container Apps URL (e.g., https://your-app.azurecontainerapps.io)');
-        log("Graph webhooks disabled - APP_URL not configured");
-      } else {
-        log(`Initializing Graph webhooks (baseUrl: ${baseUrl})...`);
-        graphSubscriptionManager.initializeSubscription(baseUrl).catch(err => {
-          console.error('Failed to initialize Graph webhooks:', err);
-        });
-      }
+      const baseUrl = process.env.APP_URL || `https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io`;
+      log(`Initializing Graph webhooks (baseUrl: ${baseUrl})...`);
+      graphSubscriptionManager.initializeSubscription(baseUrl).catch(err => {
+        console.error('Failed to initialize Graph webhooks:', err);
+      });
     } else {
       log("Graph webhooks disabled - using polling-based enrichment instead");
       log("  (Set ENABLE_GRAPH_WEBHOOKS=true after granting CallRecords.Read.All permission)");

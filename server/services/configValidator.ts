@@ -33,24 +33,24 @@ const REQUIRED_SECRETS: SecretCheck[] = [
     description: 'Azure AD Client Secret for development'
   },
 
-  // Azure OpenAI - Development
+  // Azure OpenAI - Development (optional - can use Replit AI fallback)
   {
     key: 'AZURE_OPENAI_ENDPOINT_DEV',
     required: false,
     environment: 'dev',
-    description: 'Azure OpenAI endpoint URL for development'
+    description: 'Azure OpenAI endpoint URL for development (optional - Replit AI fallback available)'
   },
   {
     key: 'AZURE_OPENAI_API_KEY_DEV',
     required: false,
     environment: 'dev',
-    description: 'Azure OpenAI API key for development'
+    description: 'Azure OpenAI API key for development (optional - Replit AI fallback available)'
   },
   {
     key: 'AZURE_OPENAI_DEPLOYMENT_DEV',
     required: false,
     environment: 'dev',
-    description: 'Azure OpenAI model deployment name for development'
+    description: 'Azure OpenAI model deployment name for development (optional - Replit AI fallback available)'
   },
 
   // Microsoft Graph API - Production

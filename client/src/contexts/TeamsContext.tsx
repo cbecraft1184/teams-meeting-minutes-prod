@@ -3,7 +3,6 @@ import { app, authentication } from '@microsoft/teams-js';
 import { setAuthToken, clearAuthToken, getAuthToken as getStoredToken } from '@/lib/authToken';
 
 const APP_ID_URI = 'api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c';
-const SSO_SCOPE = `${APP_ID_URI}/access_as_user`;
 
 // Debug logging helper - logs to console with timestamp
 function logAuth(stage: string, data?: any) {
@@ -98,38 +97,13 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           setTheme(newTheme === 'dark' ? 'dark' : newTheme === 'contrast' ? 'contrast' : 'default');
         });
         
-        // CRITICAL: Tell Teams initialization is complete BEFORE SSO
-        // This prevents Teams from timing out during token acquisition
-        app.notifySuccess();
-        logAuth('TEAMS_NOTIFY_SUCCESS');
-        
-        // Get SSO token with detailed error handling and retry
+        // Get SSO token with detailed error handling
         logAuth('SSO_TOKEN_REQUESTING', { resource: APP_ID_URI });
         try {
-          let token: string | null = null;
-          let lastError: any = null;
-          
-          // Retry up to 3 times with increasing delays
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              logAuth('SSO_TOKEN_ATTEMPT', { attempt });
-              token = await authentication.getAuthToken({ 
-                resources: [APP_ID_URI],
-                silent: true 
-              });
-              if (token) break;
-            } catch (attemptErr: any) {
-              lastError = attemptErr;
-              logAuth('SSO_TOKEN_ATTEMPT_FAILED', { attempt, error: attemptErr?.message });
-              if (attempt < 3) {
-                await new Promise(r => setTimeout(r, 1000 * attempt));
-              }
-            }
-          }
-          
-          if (!token && lastError) {
-            throw lastError;
-          }
+          const token = await authentication.getAuthToken({ 
+            resources: [APP_ID_URI],
+            silent: true 
+          });
           
           logAuth('SSO_TOKEN_RECEIVED', { 
             tokenLength: token?.length,
@@ -199,6 +173,10 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             setError(`SSO authentication failed: ${tokenErr?.message || 'Unknown error'}`);
           }
         }
+        
+        // Tell Teams initialization is complete (must be after all setup)
+        app.notifySuccess();
+        logAuth('TEAMS_NOTIFY_SUCCESS');
         
         setIsInitialized(true);
         logAuth('INIT_COMPLETE_IN_TEAMS');

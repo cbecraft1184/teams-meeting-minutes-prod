@@ -1,8 +1,8 @@
 /**
  * Minutes Generation Service
  * 
- * Automatically generates meeting minutes after enrichment completes.
- * Uses Azure OpenAI Service exclusively.
+ * Automatically generates meeting minutes after enrichment completes
+ * Uses Azure OpenAI (production) or Replit AI (development)
  * 
  * STRICT VALIDATION:
  * - All meeting minutes validated before database writes
@@ -23,15 +23,12 @@ import { generateMeetingMinutes, extractActionItems } from "./azureOpenAI";
 import { ZodError } from "zod";
 import { storage } from "../storage";
 import { enqueueJob } from "./durableQueue";
-import { getConfig } from "./configValidator";
 
 /**
  * Generate meeting minutes automatically after enrichment
- * @param meetingId - ID of the meeting to generate minutes for
- * @param transcriptContent - Optional real transcript content from Graph API (if not provided, uses mock)
  */
-export async function autoGenerateMinutes(meetingId: string, transcriptContent?: string | null): Promise<void> {
-  console.log(`[MinutesGenerator] Auto-generating minutes for meeting ${meetingId}`);
+export async function autoGenerateMinutes(meetingId: string): Promise<void> {
+  console.log(`🤖 [MinutesGenerator] Auto-generating minutes for meeting ${meetingId}`);
   
   try {
     // Get meeting details
@@ -49,47 +46,29 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
       .where(eq(meetingMinutes.meetingId, meetingId));
     
     if (existingMinutes.length > 0) {
-      console.log(`[MinutesGenerator] Minutes already exist for meeting ${meetingId}, skipping`);
+      console.log(`ℹ️  [MinutesGenerator] Minutes already exist for meeting ${meetingId}, skipping`);
       return;
     }
     
-    // Use real transcript if provided
-    // In production (useMockServices=false), require real transcript - no mock data
-    const config = getConfig();
-    let transcript: string;
+    // Generate mock transcript (in production, this would be fetched from Graph API)
+    const mockTranscript = generateMockTranscript(meeting);
     
-    if (transcriptContent && transcriptContent.trim().length > 0) {
-      console.log(`[MinutesGenerator] Using real transcript (${transcriptContent.length} chars)`);
-      transcript = transcriptContent;
-    } else if (config.useMockServices) {
-      // Development only: Use mock transcript for testing
-      console.log(`[MinutesGenerator] No transcript provided - using mock transcript (DEV MODE ONLY)`);
-      transcript = generateMockTranscript(meeting);
-    } else {
-      // Production: Fail if no real transcript available
-      throw new Error(
-        `[PRODUCTION ERROR] No transcript available for meeting ${meetingId}. ` +
-        `In production mode (USE_MOCK_SERVICES=false), real transcripts are required. ` +
-        `Ensure meeting has transcription enabled or wait for transcript to be available.`
-      );
-    }
-    
-    console.log(`[MinutesGenerator] Calling Azure OpenAI to generate minutes...`);
+    console.log(`🔄 [MinutesGenerator] Calling AI to generate minutes...`);
     
     // Generate minutes using AI
-    const minutesData = await generateMeetingMinutes(transcript);
+    const minutesData = await generateMeetingMinutes(mockTranscript);
     
-    console.log(`[MinutesGenerator] Extracting action items...`);
+    console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // Extract action items from the same transcript
-    const actionItemsData = await extractActionItems(transcript);
+    // Extract action items
+    const actionItemsData = await extractActionItems(mockTranscript);
     
     // Check approval settings
     const settings = await storage.getSettings();
     const requiresApproval = settings.requireApprovalForMinutes;
     const initialApprovalStatus = requiresApproval ? "pending_review" as const : "approved" as const;
     
-    console.log(`[MinutesGenerator] Approval required: ${requiresApproval} -> Initial status: ${initialApprovalStatus}`);
+    console.log(`⚙️  [MinutesGenerator] Approval required: ${requiresApproval} → Initial status: ${initialApprovalStatus}`);
     
     // STRICT VALIDATION: Validate meeting minutes data before database write
     const minutesPayload = {
@@ -110,7 +89,7 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
         .values(validatedMinutes)
         .returning();
       
-      console.log(`[MinutesGenerator] Created meeting minutes ${createdMinutes.id}`);
+      console.log(`✅ [MinutesGenerator] Created meeting minutes ${createdMinutes.id}`);
       
       // STRICT VALIDATION: Validate each action item before database write
       if (actionItemsData.length > 0) {
@@ -132,7 +111,7 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
             validatedActionItems.push(validatedItem);
           } catch (error) {
             if (error instanceof ZodError) {
-              console.error(`[MinutesGenerator] Invalid action item data:`, {
+              console.error(`❌ [MinutesGenerator] Invalid action item data:`, {
                 item: actionItemPayload,
                 errors: error.errors
               });
@@ -145,13 +124,13 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
         
         if (validatedActionItems.length > 0) {
           await db.insert(actionItems).values(validatedActionItems);
-          console.log(`[MinutesGenerator] Created ${validatedActionItems.length}/${actionItemsData.length} action items (skipped ${actionItemsData.length - validatedActionItems.length} invalid)`);
+          console.log(`✅ [MinutesGenerator] Created ${validatedActionItems.length}/${actionItemsData.length} action items (skipped ${actionItemsData.length - validatedActionItems.length} invalid)`);
         }
       }
       
     } catch (error) {
       if (error instanceof ZodError) {
-        console.error(`[MinutesGenerator] Invalid meeting minutes data:`, {
+        console.error(`❌ [MinutesGenerator] Invalid meeting minutes data:`, {
           payload: minutesPayload,
           errors: error.errors
         });
@@ -168,11 +147,11 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
       })
       .where(eq(meetings.id, meetingId));
     
-    console.log(`[MinutesGenerator] Meeting minutes generation complete for ${meetingId}`);
+    console.log(`✅ [MinutesGenerator] Meeting minutes generation complete for ${meetingId}`);
     
     // If approval not required, automatically trigger distribution workflow
     if (!requiresApproval) {
-      console.log(`[MinutesGenerator] Auto-approval enabled - triggering approval workflow automatically`);
+      console.log(`🚀 [MinutesGenerator] Auto-approval enabled - triggering approval workflow automatically`);
       
       // Use the same workflow as manual approval to ensure proper document generation and distribution
       const { triggerApprovalWorkflow } = await import("./meetingOrchestrator");
@@ -186,12 +165,12 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
           meetingId: meetingId,
           minutesId: minutesRecord[0].id
         });
-        console.log(`[MinutesGenerator] Auto-distribution workflow triggered for meeting ${meetingId}`);
+        console.log(`✅ [MinutesGenerator] Auto-distribution workflow triggered for meeting ${meetingId}`);
       }
     }
     
   } catch (error) {
-    console.error(`[MinutesGenerator] Failed to generate minutes for meeting ${meetingId}:`, error);
+    console.error(`❌ [MinutesGenerator] Failed to generate minutes for meeting ${meetingId}:`, error);
     
     // Get meeting for fallback attendees
     const [meeting] = await db.select()
@@ -218,7 +197,7 @@ export async function autoGenerateMinutes(meetingId: string, transcriptContent?:
           .onConflictDoNothing();
       } catch (validationError) {
         // If even the fallback fails validation, log error but don't create record
-        console.error(`[MinutesGenerator] Fallback record validation failed:`, validationError);
+        console.error(`❌ [MinutesGenerator] Fallback record validation failed:`, validationError);
       }
     }
     

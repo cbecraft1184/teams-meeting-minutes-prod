@@ -1,194 +1,143 @@
-/**
- * SharePoint Client
- * 
- * Uses Microsoft Graph API with Azure AD client credentials flow.
- * Production deployment: Azure Container Apps.
- */
+// Reference: blueprint:sharepoint
 import { Client } from '@microsoft/microsoft-graph-client';
 import { getConfig } from './configValidator';
-import { acquireTokenByClientCredentials } from './microsoftIdentity';
 
-async function getAccessToken(): Promise<string> {
+let connectionSettings: any;
+
+async function getAccessToken() {
+  // Check if mock services are enabled (Azure production will have this set to false)
   const config = getConfig();
-  
   if (config.useMockServices) {
     throw new Error('SharePoint not available in mock mode (set USE_MOCK_SERVICES=false)');
   }
 
-  const token = await acquireTokenByClientCredentials();
-  
-  if (!token) {
-    throw new Error(
-      '[CONFIGURATION ERROR] Failed to acquire Azure AD token for SharePoint. ' +
-      'Ensure AZURE_TENANT_ID, AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET are configured, ' +
-      'and Sites.ReadWrite.All permission is granted with admin consent.'
-    );
+  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
+    return connectionSettings.settings.access_token;
   }
   
-  return token;
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME
+  const xReplitToken = process.env.REPL_IDENTITY 
+    ? 'repl ' + process.env.REPL_IDENTITY 
+    : process.env.WEB_REPL_RENEWAL 
+    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+    : null;
+
+  if (!xReplitToken) {
+    throw new Error('X_REPLIT_TOKEN not found for repl/depl (Replit-only SharePoint integration)');
+  }
+
+  connectionSettings = await fetch(
+    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sharepoint',
+    {
+      headers: {
+        'Accept': 'application/json',
+        'X_REPLIT_TOKEN': xReplitToken
+      }
+    }
+  ).then(res => res.json()).then(data => data.items?.[0]);
+
+  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+
+  if (!connectionSettings || !accessToken) {
+    throw new Error('SharePoint not connected');
+  }
+  return accessToken;
 }
 
-async function getClient() {
+// WARNING: Never cache this client.
+// Access tokens expire, so a new client must be created each time.
+// Always call this function again to get a fresh client.
+export async function getUncachableSharePointClient() {
   const accessToken = await getAccessToken();
-  return Client.init({
-    authProvider: (done) => done(null, accessToken)
+
+  return Client.initWithMiddleware({
+    authProvider: {
+      getAccessToken: async () => accessToken
+    }
   });
 }
 
-export async function getSiteId(siteUrl: string): Promise<string> {
-  const client = await getClient();
-  const url = new URL(siteUrl);
-  const hostname = url.hostname;
-  const sitePath = url.pathname;
-
-  const site = await client.api(`/sites/${hostname}:${sitePath}`).get();
-  return site.id;
-}
-
-export async function getLibraryDriveId(siteId: string, libraryName: string): Promise<string> {
-  const client = await getClient();
-  const drives = await client.api(`/sites/${siteId}/drives`).get();
-  const library = drives.value.find((d: any) => d.name === libraryName);
-  if (!library) {
-    throw new Error(`Library "${libraryName}" not found in site`);
-  }
-  return library.id;
-}
-
-export async function uploadDocument(
-  siteUrl: string,
-  libraryName: string,
+// Upload document to SharePoint
+export async function uploadToSharePoint(
   fileName: string,
-  content: Buffer,
-  folderPath?: string
-): Promise<{ webUrl: string; id: string }> {
-  const client = await getClient();
-  const siteId = await getSiteId(siteUrl);
-  const driveId = await getLibraryDriveId(siteId, libraryName);
-
-  const uploadPath = folderPath 
-    ? `/drives/${driveId}/root:/${folderPath}/${fileName}:/content`
-    : `/drives/${driveId}/root:/${fileName}:/content`;
-
-  const result = await client.api(uploadPath)
-    .put(content);
-
-  return {
-    webUrl: result.webUrl,
-    id: result.id
-  };
-}
-
-export async function createFolder(
-  siteUrl: string,
-  libraryName: string,
-  folderPath: string
-): Promise<{ id: string; webUrl: string }> {
-  const client = await getClient();
-  const siteId = await getSiteId(siteUrl);
-  const driveId = await getLibraryDriveId(siteId, libraryName);
-
-  const pathParts = folderPath.split('/').filter(Boolean);
-  let currentPath = '';
-  let lastResult: any = null;
-
-  for (const part of pathParts) {
-    const parentPath = currentPath 
-      ? `/drives/${driveId}/root:/${currentPath}:/children`
-      : `/drives/${driveId}/root/children`;
-
-    try {
-      lastResult = await client.api(parentPath).post({
-        name: part,
-        folder: {},
-        '@microsoft.graph.conflictBehavior': 'fail'
-      });
-    } catch (error: any) {
-      if (error.statusCode === 409) {
-        const checkPath = currentPath 
-          ? `/drives/${driveId}/root:/${currentPath}/${part}`
-          : `/drives/${driveId}/root:/${part}`;
-        lastResult = await client.api(checkPath).get();
-      } else {
-        throw error;
-      }
-    }
-    currentPath = currentPath ? `${currentPath}/${part}` : part;
+  fileContent: Buffer,
+  metadata: {
+    classificationLevel: string;
+    meetingDate: Date;
+    attendeeCount: number;
+    meetingId: string;
+  }
+): Promise<string> {
+  // Mock mode: Return mock URL without calling SharePoint
+  const config = getConfig();
+  if (config.useMockServices) {
+    console.log(`🔧 [SharePoint] Mock mode - simulating upload: ${fileName}`);
+    return `https://mock-sharepoint.example.com/sites/meetings/Documents/${fileName}`;
   }
 
-  return {
-    id: lastResult?.id || '',
-    webUrl: lastResult?.webUrl || ''
-  };
+  const client = await getUncachableSharePointClient();
+  
+  // Extract site and library from environment
+  // SHAREPOINT_SITE_URL should be the full site URL (e.g., https://yourorg.sharepoint.com/sites/meetings)
+  // SHAREPOINT_LIBRARY should be the document library name (e.g., "Meeting Minutes" or "Documents")
+  const siteUrl = process.env.SHAREPOINT_SITE_URL;
+  const libraryName = process.env.SHAREPOINT_LIBRARY || 'Documents';
+  
+  if (!siteUrl) {
+    throw new Error('SHAREPOINT_SITE_URL environment variable not configured');
+  }
+  
+  // Create folder structure: YYYY/MM-Month/Classification
+  const year = metadata.meetingDate.getFullYear();
+  const month = String(metadata.meetingDate.getMonth() + 1).padStart(2, '0');
+  const monthName = metadata.meetingDate.toLocaleString('default', { month: 'long' });
+  const folderPath = `${year}/${month}-${monthName}/${metadata.classificationLevel}`;
+  
+  try {
+    // Parse site URL to get host and path
+    // Example: https://contoso.sharepoint.com/sites/meetings
+    const siteUrlObj = new URL(siteUrl);
+    const hostName = siteUrlObj.hostname; // contoso.sharepoint.com
+    const sitePath = siteUrlObj.pathname.replace(/^\//, ''); // sites/meetings
+    
+    // Step 1: Get site ID
+    // GET /sites/{hostname}:/{server-relative-path}
+    const siteResponse = await client.api(`/sites/${hostName}:/${sitePath}`).get();
+    const siteId = siteResponse.id;
+    
+    // Step 2: Get drive ID for the document library
+    // GET /sites/{site-id}/drives
+    const drivesResponse = await client.api(`/sites/${siteId}/drives`).get();
+    const drive = drivesResponse.value.find((d: any) => d.name === libraryName);
+    
+    if (!drive) {
+      throw new Error(`Document library "${libraryName}" not found. Available libraries: ${drivesResponse.value.map((d: any) => d.name).join(', ')}`);
+    }
+    
+    const driveId = drive.id;
+    
+    // Step 3: Upload file using correct Graph API format
+    // PUT /drives/{drive-id}/root:/{folder-path}/{filename}:/content
+    const uploadPath = `/drives/${driveId}/root:/${folderPath}/${fileName}:/content`;
+    
+    const uploadResponse = await client.api(uploadPath)
+      .put(fileContent);
+    
+    // Step 4: Set metadata on the uploaded item
+    const itemId = uploadResponse.id;
+    await client.api(`/drives/${driveId}/items/${itemId}/listItem`)
+      .patch({
+        fields: {
+          Classification: metadata.classificationLevel,
+          MeetingDate: metadata.meetingDate.toISOString(),
+          AttendeeCount: metadata.attendeeCount,
+          MeetingID: metadata.meetingId
+        }
+      });
+    
+    return uploadResponse.webUrl;
+  } catch (error: any) {
+    console.error('SharePoint upload error:', error);
+    throw new Error(`Failed to upload to SharePoint: ${error.message}`);
+  }
 }
-
-export async function listFolderContents(
-  siteUrl: string,
-  libraryName: string,
-  folderPath?: string
-): Promise<Array<{ name: string; type: 'file' | 'folder'; webUrl: string }>> {
-  const client = await getClient();
-  const siteId = await getSiteId(siteUrl);
-  const driveId = await getLibraryDriveId(siteId, libraryName);
-
-  const listPath = folderPath
-    ? `/drives/${driveId}/root:/${folderPath}:/children`
-    : `/drives/${driveId}/root/children`;
-
-  const result = await client.api(listPath).get();
-
-  return result.value.map((item: any) => ({
-    name: item.name,
-    type: item.folder ? 'folder' : 'file',
-    webUrl: item.webUrl
-  }));
-}
-
-export async function getDocumentMetadata(
-  siteUrl: string,
-  libraryName: string,
-  filePath: string
-): Promise<{ id: string; name: string; webUrl: string; size: number; lastModified: string }> {
-  const client = await getClient();
-  const siteId = await getSiteId(siteUrl);
-  const driveId = await getLibraryDriveId(siteId, libraryName);
-
-  const result = await client.api(`/drives/${driveId}/root:/${filePath}`).get();
-
-  return {
-    id: result.id,
-    name: result.name,
-    webUrl: result.webUrl,
-    size: result.size,
-    lastModified: result.lastModifiedDateTime
-  };
-}
-
-export async function downloadDocument(
-  siteUrl: string,
-  libraryName: string,
-  filePath: string
-): Promise<Buffer> {
-  const client = await getClient();
-  const siteId = await getSiteId(siteUrl);
-  const driveId = await getLibraryDriveId(siteId, libraryName);
-
-  const result = await client.api(`/drives/${driveId}/root:/${filePath}:/content`).get();
-
-  return Buffer.from(result);
-}
-
-export async function deleteDocument(
-  siteUrl: string,
-  libraryName: string,
-  filePath: string
-): Promise<void> {
-  const client = await getClient();
-  const siteId = await getSiteId(siteUrl);
-  const driveId = await getLibraryDriveId(siteId, libraryName);
-
-  await client.api(`/drives/${driveId}/root:/${filePath}`).delete();
-}
-
-// Alias for backwards compatibility with routes.ts
-export const uploadToSharePoint = uploadDocument;

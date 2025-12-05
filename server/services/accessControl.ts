@@ -38,9 +38,10 @@ const CLEARANCE_LEVELS = {
   "TOP_SECRET": 3
 } as const;
 
-// Feature flag: Set to true to enable strict attendee-based filtering
-// When false (default), all authenticated users can see all meetings
-const ENABLE_STRICT_FILTERING = false;
+// Feature flag: Set to true to enable strict classification-based filtering
+// When true, users can only see meetings at or below their clearance level
+// SECURITY: Enabled for production - classification enforcement is active
+const ENABLE_STRICT_FILTERING = true;
 
 export class AccessControlService {
   /**

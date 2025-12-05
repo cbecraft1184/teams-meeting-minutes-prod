@@ -97,6 +97,11 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           setTheme(newTheme === 'dark' ? 'dark' : newTheme === 'contrast' ? 'contrast' : 'default');
         });
         
+        // CRITICAL: Tell Teams initialization is complete BEFORE SSO
+        // This prevents Teams from timing out during token acquisition
+        app.notifySuccess();
+        logAuth('TEAMS_NOTIFY_SUCCESS');
+        
         // Get SSO token with detailed error handling and retry
         logAuth('SSO_TOKEN_REQUESTING', { resource: APP_ID_URI });
         try {
@@ -193,10 +198,6 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             setError(`SSO authentication failed: ${tokenErr?.message || 'Unknown error'}`);
           }
         }
-        
-        // Tell Teams initialization is complete (must be after all setup)
-        app.notifySuccess();
-        logAuth('TEAMS_NOTIFY_SUCCESS');
         
         setIsInitialized(true);
         logAuth('INIT_COMPLETE_IN_TEAMS');

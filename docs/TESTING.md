@@ -313,6 +313,61 @@ Sign-off: Approved for Git commit
 
 ---
 
+## CRITICAL: Production vs Development Authentication
+
+**This section documents a critical difference that has caused production failures.**
+
+### Authentication Difference
+
+| Environment | Auth Method | How It Works |
+|-------------|-------------|--------------|
+| Development | Session cookies | `credentials: 'include'` passes session cookies |
+| Production | Bearer tokens | `Authorization: Bearer <token>` header required |
+
+### The Problem
+
+Custom `fetch()` calls that use only `credentials: 'include'` will:
+- ✅ **PASS** in development (session cookies work)
+- ❌ **FAIL** in production (Bearer token not sent)
+
+### Required Pattern
+
+**WRONG** (dev-only):
+```typescript
+const res = await fetch('/api/meetings', { 
+  credentials: 'include' 
+});
+```
+
+**CORRECT** (works in both environments):
+```typescript
+import { getAuthHeaders } from "@/lib/queryClient";
+
+const res = await fetch('/api/meetings', { 
+  headers: getAuthHeaders(),
+  credentials: 'include' 
+});
+```
+
+### Pre-Deployment Checklist for API Calls
+
+Before any deployment that touches frontend code:
+
+- [ ] **Audit all custom `fetch()` calls** - Do they include `getAuthHeaders()`?
+- [ ] **Verify mutations use auth** - All POST/PATCH/DELETE include headers
+- [ ] **Check new queries** - Any custom `queryFn` must include auth headers
+- [ ] **Use shared helpers** - Prefer `apiRequest()` over raw `fetch()` when possible
+
+### Files Fixed (December 2024)
+
+| File | Issue | Fix Applied |
+|------|-------|-------------|
+| dashboard.tsx | Custom queryFn missing auth headers | Added `getAuthHeaders()` |
+| meetings.tsx | Custom queryFn missing auth headers | Added `getAuthHeaders()` |
+| settings.tsx | Two mutations missing auth headers | Added `getAuthHeaders()` |
+
+---
+
 ## Known Issues and Waivers
 
 Document any known issues that are accepted for deployment:

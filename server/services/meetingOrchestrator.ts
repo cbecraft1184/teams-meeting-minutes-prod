@@ -231,7 +231,12 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
 
     console.log(`[Orchestrator] Minutes generation complete for meeting: ${meetingId}`);
 
-    // Log the minutes generation event
+    // Fetch the newly created minutes record (created by autoGenerateMinutes)
+    const generatedMinutes = await db.query.meetingMinutes.findFirst({
+      where: (m, { eq }) => eq(m.meetingId, meetingId),
+    });
+
+    // Log the minutes generation event with the correct minutes ID
     await logMeetingEvent({
       meetingId,
       tenantId: null,
@@ -242,33 +247,26 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
       actorName: "System",
       actorAadId: null,
       metadata: { 
-        minutesId: minutes.id,
+        minutesId: generatedMinutes?.id || null,
         jobId: job.id
       },
       correlationId: job.idempotencyKey,
     });
 
     // Send Teams Adaptive Card notification if minutes are approved
-    const updatedMinutes = await db.query.meetingMinutes.findFirst({
-      where: (m, { eq }) => eq(m.id, minutes.id),
-    });
-
-    if (updatedMinutes && updatedMinutes.approvalStatus === 'approved') {
-      const meeting = await db.query.meetings.findFirst({
-        where: (m, { eq }) => eq(m.id, meetingId),
-      });
-
+    if (generatedMinutes && generatedMinutes.approvalStatus === 'approved') {
       if (meeting) {
-        await teamsProactiveMessaging.notifyMeetingProcessed(meeting, updatedMinutes);
+        await teamsProactiveMessaging.notifyMeetingProcessed(meeting, generatedMinutes);
       }
     }
   } catch (error: any) {
     // Rollback: Mark minutes generation as failed
+    // Query by meetingId since the original placeholder was deleted
     await db.update(meetingMinutes)
       .set({
         processingStatus: "failed",
       })
-      .where(eq(meetingMinutes.id, minutes.id));
+      .where(eq(meetingMinutes.meetingId, meetingId));
 
     throw error;
   }

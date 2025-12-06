@@ -52,8 +52,8 @@ export async function enqueueJob(params: {
     }).onConflictDoNothing().returning({ id: jobQueue.id });
 
     if (result.length === 0) {
-      console.log(`[DurableQueue] Job already exists: ${idempotencyKey}`);
-      return null; // Job already exists
+      // Silent - job already exists with this idempotency key (expected behavior for dedup)
+      return null;
     }
 
     console.log(`[DurableQueue] Enqueued job: ${jobType} (${idempotencyKey})`);

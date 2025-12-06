@@ -304,6 +304,9 @@ export async function getWorkerStatus(): Promise<{
 
 /**
  * Scan for meetings that have ended and need enrichment
+ * 
+ * IMPORTANT: Only scans meetings that haven't been enriched yet.
+ * Meetings with enrichmentStatus = 'enriched' or 'enriching' are skipped.
  */
 async function scanForEndedMeetings(): Promise<number> {
   try {
@@ -311,17 +314,21 @@ async function scanForEndedMeetings(): Promise<number> {
     
     // Find meetings that:
     // 1. Have endTime in the past (meeting ended)
-    // 2. Haven't been enriched yet (transcriptUrl is null)
+    // 2. Haven't been enriched yet (enrichmentStatus is 'pending' or 'failed')
     // 3. Processing decision is pending or null
     const endedMeetings = await db.select({
       id: meetings.id,
       title: meetings.title,
       endTime: meetings.endTime,
+      enrichmentStatus: meetings.enrichmentStatus,
     })
     .from(meetings)
     .where(and(
       lt(meetings.endTime, bufferTime),
-      isNull(meetings.transcriptUrl),
+      or(
+        eq(meetings.enrichmentStatus, 'pending'),
+        eq(meetings.enrichmentStatus, 'failed')
+      ),
       or(
         eq(meetings.processingDecision, 'pending'),
         isNull(meetings.processingDecision)
@@ -332,13 +339,18 @@ async function scanForEndedMeetings(): Promise<number> {
     let enqueued = 0;
     for (const meeting of endedMeetings) {
       try {
-        await enqueueJob({
+        const jobId = await enqueueJob({
           jobType: 'enrich_meeting',
           payload: { meetingId: meeting.id },
           idempotencyKey: `enrich:${meeting.id}`
         });
-        enqueued++;
-        console.log(`[JobWorker] Enqueued enrichment for meeting: ${meeting.title} (${meeting.id})`);
+        
+        // Only count and log if job was actually created (not a duplicate)
+        if (jobId) {
+          enqueued++;
+          console.log(`[JobWorker] Enqueued enrichment for meeting: ${meeting.title} (${meeting.id})`);
+        }
+        // If jobId is null, enqueueJob already logged "Job already exists"
       } catch (error: any) {
         // Ignore duplicate key errors (already enqueued)
         if (!error.message?.includes('duplicate key')) {

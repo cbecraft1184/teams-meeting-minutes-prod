@@ -596,9 +596,10 @@ export async function getUserInfoFromToken(accessToken: string): Promise<{
 
 /**
  * Check if token has required scopes
+ * Uses secure token validation with signature verification
  */
-export function hasRequiredScopes(token: string, requiredScopes: string[]): boolean {
-  const decoded = decodeToken(token);
+export async function hasRequiredScopes(token: string, requiredScopes: string[]): Promise<boolean> {
+  const decoded = await validateAccessToken(token);
   if (!decoded || !decoded.scp) {
     return false;
   }

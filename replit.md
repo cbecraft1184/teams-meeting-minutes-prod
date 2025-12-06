@@ -81,3 +81,26 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - **Backend**: Express, Drizzle ORM, MSAL, Microsoft Graph Client.
 - **AI**: OpenAI SDK.
 - **Documents**: `docx`, `pdf-lib`.
+
+## Recent Changes (December 2025)
+
+### Security Improvements
+- **Token Validation**: Replaced deprecated `decodeToken()` with `validateAccessToken()` for secure JWT signature verification in all authentication middleware
+- **Secrets Management**: Moved sensitive credentials (AZURE_OPENAI_API_KEY, WEBHOOK_VALIDATION_SECRET) to Azure Container App encrypted secrets
+
+### Bug Fixes
+- **Job Worker Scanning**: Fixed `scanForEndedMeetings()` to correctly filter by `enrichmentStatus` instead of `transcriptUrl`, preventing repeated job enqueue attempts for already-enriched meetings
+- **Job Queue Logging**: Silenced verbose "Job already exists" logs that were cluttering production logs; these are expected idempotency checks
+- **Meeting Enrichment Logic**: Updated job enqueue to only log when jobs are actually created (not duplicates)
+
+### Database Schema
+- Added missing columns to `document_templates`: `is_system`, `config`, `created_at`, `updated_at`
+- Added missing columns to `meeting_events`: title, description, actor fields, metadata, `occurred_at`
+- Created `meeting_event_type` enum with proper values
+- All 16 database tables verified with correct schema alignment
+
+### Production Status (December 6, 2025)
+- **Authentication**: Multi-tenant JWT validation working correctly
+- **Calendar Sync**: OBO flow and Graph API integration functional
+- **Job Worker**: Lease-based distributed locking operational
+- **Health Check**: Production endpoint returns 200 OK

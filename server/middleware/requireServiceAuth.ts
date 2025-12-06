@@ -9,7 +9,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { getConfig } from '../services/configValidator';
-import { decodeToken } from '../services/microsoftIdentity';
+import { validateAccessToken } from '../services/microsoftIdentity';
 import crypto from 'crypto';
 
 /**
@@ -85,17 +85,10 @@ export async function requireApplicationAuth(
 
   const accessToken = authHeader.substring(7);
 
-  // Decode and validate token
-  const decoded = decodeToken(accessToken);
+  // Validate token with signature verification (also checks expiry)
+  const decoded = await validateAccessToken(accessToken);
   if (!decoded) {
     res.status(401).json({ message: 'Invalid application token' });
-    return;
-  }
-
-  // Check if token is expired
-  const now = Math.floor(Date.now() / 1000);
-  if (decoded.exp && decoded.exp < now) {
-    res.status(401).json({ message: 'Application token expired' });
     return;
   }
 

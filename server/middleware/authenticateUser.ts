@@ -10,7 +10,7 @@
 
 import type { Request, Response, NextFunction } from 'express';
 import { getConfig } from '../services/configValidator';
-import { getUserInfoFromToken, decodeToken } from '../services/microsoftIdentity';
+import { getUserInfoFromToken } from '../services/microsoftIdentity';
 import { db } from '../db';
 import { users, userGroupCache } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
@@ -344,18 +344,8 @@ async function validateAndLoadUser(
     tokenType: tokenInfo.tokenType
   });
 
-  // Check if token is expired (redundant check - validateAccessToken already checks expiry)
-  const decoded = decodeToken(accessToken);
-  if (!decoded || !decoded.exp) {
-    res.status(401).json({ message: 'Invalid token format' });
-    return;
-  }
-
-  const now = Math.floor(Date.now() / 1000);
-  if (decoded.exp < now) {
-    res.status(401).json({ message: 'Token expired' });
-    return;
-  }
+  // Token expiry is already validated by getUserInfoFromToken/validateAccessToken
+  // No need for redundant expiry check here
 
   // Check if user is in admin email list (permanent super-admin access)
   const userEmail = (tokenInfo.email || '').toLowerCase();

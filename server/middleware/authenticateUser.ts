@@ -230,7 +230,7 @@ async function authenticateWithMock(
       }
     }
 
-    // Set user in request
+    // Set user in request - CRITICAL: include tenantId for multi-tenant queries
     req.user = {
       id: dbUser.id,
       email: dbUser.email,
@@ -241,6 +241,7 @@ async function authenticateWithMock(
       organizationalUnit: dbUser.organizationalUnit,
       azureAdId: dbUser.azureAdId,
       azureAdGroups: azureAdGroups,
+      tenantId: mockUser.tenantId || dbUser.tenantId || 'default',
     };
 
     // Store in session
@@ -423,7 +424,7 @@ async function validateAndLoadUser(
     isAdminEmail: isAdminEmail 
   });
 
-  // Set user in request
+  // Set user in request - CRITICAL: include tenantId for multi-tenant queries
   req.user = {
     id: user.id,
     email: user.email,
@@ -434,6 +435,7 @@ async function validateAndLoadUser(
     organizationalUnit: user.organizationalUnit,
     azureAdId: user.azureAdId,
     azureAdGroups: azureAdGroups,
+    tenantId: tokenInfo.tenantId || user.tenantId,
   };
   
   // Store SSO token for On-Behalf-Of flow (Graph API calls with delegated permissions)

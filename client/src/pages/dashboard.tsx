@@ -9,6 +9,7 @@ import { Settings24Regular, Search24Regular, ChevronLeft24Regular, ChevronRight2
 import { FileText, Calendar, Archive, CheckCircle2, AlertCircle, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/authToken";
+import { useTeams } from "@/contexts/TeamsContext";
 import { APP_TOASTER_ID } from "@/App";
 import type { MeetingWithMinutes } from "@shared/schema";
 
@@ -174,6 +175,7 @@ const PAGE_SIZE = 5;
 export default function Dashboard() {
   const styles = useStyles();
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
+  const { isInitialized } = useTeams();
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -201,10 +203,12 @@ export default function Dashboard() {
       if (!res.ok) throw new Error('Failed to fetch meetings');
       return res.json();
     },
+    enabled: isInitialized,
   });
 
   const { data: stats, isLoading: statsLoading, isError: statsError, error: statsErrorDetails } = useQuery<DashboardStats>({
     queryKey: ["/api/stats"],
+    enabled: isInitialized,
   });
 
   // Dismiss mutation

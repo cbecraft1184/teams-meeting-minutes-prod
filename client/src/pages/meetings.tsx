@@ -26,6 +26,7 @@ import {
 import { Calendar, AlertCircle, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/authToken";
+import { useTeams } from "@/contexts/TeamsContext";
 import { APP_TOASTER_ID } from "@/App";
 import type { MeetingWithMinutes } from "@shared/schema";
 
@@ -170,6 +171,7 @@ export default function Meetings() {
   const styles = useStyles();
   const qc = useQueryClient();
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
+  const { isInitialized } = useTeams();
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -200,6 +202,7 @@ export default function Meetings() {
       if (!res.ok) throw new Error('Failed to fetch meetings');
       return res.json();
     },
+    enabled: isInitialized,
   });
 
   useEffect(() => {

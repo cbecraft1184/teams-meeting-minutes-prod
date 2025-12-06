@@ -102,8 +102,10 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     })
     .where(eq(meetings.id, meetingId));
   
-  // Get Graph API client
-  const useMockServices = process.env.USE_MOCK_SERVICES !== "false";
+  // Get Graph API client - CRITICAL: default to real services in production
+  const isProduction = process.env.NODE_ENV === 'production';
+  const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
+                          (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
   
   if (useMockServices) {
     // Mock mode: Simulate enrichment with fake data

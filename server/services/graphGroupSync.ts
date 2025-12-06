@@ -125,9 +125,10 @@ export class GraphGroupSyncService {
       return this.getDesignatedAdminGroups();
     }
     
-    // Match configValidator logic: default to mock mode in dev (when undefined)
+    // CRITICAL: default to real services in production, mock only in dev
+    const isProduction = process.env.NODE_ENV === 'production';
     const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
-                            process.env.USE_MOCK_SERVICES === undefined;
+                            (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
     
     // Mock mode: Return fake groups for testing
     if (useMockServices) {

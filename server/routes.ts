@@ -1533,7 +1533,9 @@ export function registerRoutes(app: Express): Server {
   // Get list of available mock users (development only)
   app.get("/api/dev/mock-users", async (req, res) => {
     try {
-      const useMockServices = process.env.USE_MOCK_SERVICES !== "false";
+      const isProduction = process.env.NODE_ENV === 'production';
+      const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
+                              (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
       if (!useMockServices) {
         return res.status(400).json({ 
           error: "Mock users only available in development mode" 
@@ -1556,7 +1558,9 @@ export function registerRoutes(app: Express): Server {
   // Switch to a different mock user (development only)
   app.post("/api/dev/switch-user", async (req, res) => {
     try {
-      const useMockServices = process.env.USE_MOCK_SERVICES !== "false";
+      const isProduction = process.env.NODE_ENV === 'production';
+      const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
+                              (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
       if (!useMockServices) {
         return res.status(400).json({ 
           error: "User switching only available in development mode" 
@@ -1652,11 +1656,13 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const useMockServices = process.env.USE_MOCK_SERVICES !== "false";
+      const isProduction = process.env.NODE_ENV === 'production';
+      const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
+                              (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
       if (!useMockServices) {
         return res.status(400).json({ 
           error: "Demo endpoint only available in mock mode",
-          hint: "Set USE_MOCK_SERVICES=true or leave undefined for development" 
+          hint: "Set USE_MOCK_SERVICES=true in development only" 
         });
       }
 

@@ -144,8 +144,9 @@ interface ValidationResult {
 export function validateConfiguration(): ValidationResult {
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
+  // CRITICAL: In production, default to FALSE (no mock). In dev, default to TRUE.
   const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
-                          process.env.USE_MOCK_SERVICES === undefined; // default to true in dev
+                          (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
 
   const missingRequired: SecretCheck[] = [];
   const missingOptional: SecretCheck[] = [];
@@ -282,8 +283,9 @@ export function logValidationResults(result: ValidationResult): void {
 export function getConfig() {
   const nodeEnv = process.env.NODE_ENV || 'development';
   const isProduction = nodeEnv === 'production';
+  // CRITICAL: In production, default to FALSE (no mock). In dev, default to TRUE.
   const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
-                          process.env.USE_MOCK_SERVICES === undefined;
+                          (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
 
   // Determine which environment suffix to use
   const envSuffix = isProduction ? '_PROD' : '_DEV';

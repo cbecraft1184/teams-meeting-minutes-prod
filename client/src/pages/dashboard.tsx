@@ -175,11 +175,13 @@ const PAGE_SIZE = 5;
 export default function Dashboard() {
   const styles = useStyles();
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
-  const { isInitialized } = useTeams();
+  const { isInitialized, hasToken, isInTeams } = useTeams();
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showDismissed, setShowDismissed] = useState(false);
+  
+  const canFetch = isInitialized && (hasToken || !isInTeams);
 
   const offset = (currentPage - 1) * PAGE_SIZE;
   
@@ -203,12 +205,12 @@ export default function Dashboard() {
       if (!res.ok) throw new Error('Failed to fetch meetings');
       return res.json();
     },
-    enabled: isInitialized,
+    enabled: canFetch,
   });
 
   const { data: stats, isLoading: statsLoading, isError: statsError, error: statsErrorDetails } = useQuery<DashboardStats>({
     queryKey: ["/api/stats"],
-    enabled: isInitialized,
+    enabled: canFetch,
   });
 
   // Dismiss mutation

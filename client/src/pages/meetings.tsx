@@ -171,7 +171,7 @@ export default function Meetings() {
   const styles = useStyles();
   const qc = useQueryClient();
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
-  const { isInitialized } = useTeams();
+  const { isInitialized, hasToken, isInTeams } = useTeams();
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -180,6 +180,7 @@ export default function Meetings() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showDismissed, setShowDismissed] = useState(false);
 
+  const canFetch = isInitialized && (hasToken || !isInTeams);
   const offset = (currentPage - 1) * PAGE_SIZE;
 
   const { data: meetingsData, isLoading, isError } = useQuery<MeetingsResponse>({
@@ -202,7 +203,7 @@ export default function Meetings() {
       if (!res.ok) throw new Error('Failed to fetch meetings');
       return res.json();
     },
-    enabled: isInitialized,
+    enabled: canFetch,
   });
 
   useEffect(() => {

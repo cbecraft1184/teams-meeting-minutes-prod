@@ -24,6 +24,7 @@ export interface TeamsContextValue {
   isInTeams: boolean;
   error: string | null;
   ssoError: any | null;
+  hasToken: boolean;
 }
 
 const TeamsContext = createContext<TeamsContextValue | undefined>(undefined);
@@ -35,6 +36,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [ssoError, setSsoError] = useState<any | null>(null);
   const [isInTeams, setIsInTeams] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
     async function initializeTeams() {
@@ -132,6 +134,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           }
           
           setAuthToken(token);
+          setHasToken(true);
           
           // Verify token was stored
           const storedToken = getStoredToken();
@@ -238,6 +241,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         isInTeams,
         error,
         ssoError,
+        hasToken,
       }}
     >
       {children}

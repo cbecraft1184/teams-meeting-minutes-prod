@@ -22,6 +22,17 @@ import { Archive, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { MeetingWithMinutes } from "@shared/schema";
 
+interface MeetingsResponse {
+  meetings: MeetingWithMinutes[];
+  pagination: {
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  };
+  dismissedCount: number;
+}
+
 const useStyles = makeStyles({
   container: {
     display: "flex",
@@ -143,11 +154,13 @@ export default function Search() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classificationFilter, setClassificationFilter] = useState<string>("all");
 
-  const { data: meetings, isLoading, isError } = useQuery<MeetingWithMinutes[]>({
+  const { data, isLoading, isError } = useQuery<MeetingsResponse>({
     queryKey: ["/api/meetings"],
   });
 
-  const filteredMeetings = (meetings || []).filter((meeting) => {
+  const meetings = data?.meetings || [];
+
+  const filteredMeetings = meetings.filter((meeting) => {
     const matchesSearch = searchQuery === "" || 
       meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       meeting.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||

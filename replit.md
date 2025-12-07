@@ -104,3 +104,26 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - **Calendar Sync**: OBO flow and Graph API integration functional
 - **Job Worker**: Lease-based distributed locking operational
 - **Health Check**: Production endpoint returns 200 OK
+
+### Email & SharePoint Testing (December 7, 2025)
+- **SharePoint Client Fix**: Replaced Replit connector token acquisition with Azure MSAL client credentials flow for production compatibility
+- **E2E Test Plans**: Created comprehensive test documentation for Email Distribution and SharePoint Archive
+- **Code Review**: Completed 3x review of email and archive services, documented findings
+- **Documentation Created**:
+  - `docs/EMAIL_ARCHIVE_E2E_TEST_PLAN.md` - 16 test cases covering all scenarios
+  - `docs/AZURE_E2E_TEST_EXECUTION.md` - Step-by-step Azure testing instructions
+  - `docs/CODE_REVIEW_FINDINGS.md` - Security and production readiness review
+  - `docs/EMAIL_ARCHIVE_FINAL_REPORT.md` - Final approval package for deployment
+
+### Email Distribution Configuration
+- Uses Microsoft Graph `/users/{sender}/sendMail` endpoint
+- Requires `GRAPH_SENDER_EMAIL` environment variable (must be a licensed mailbox)
+- Requires `Mail.Send` Azure AD application permission with admin consent
+- Sends DOCX and PDF attachments to all meeting attendees
+
+### SharePoint Archive Configuration
+- Uses Microsoft Graph `/drives/{driveId}/root:/{path}:/content` for upload
+- Requires `SHAREPOINT_SITE_URL` and `SHAREPOINT_LIBRARY` environment variables
+- Requires `Sites.ReadWrite.All` or `Sites.Selected` Azure AD permission
+- Creates folder structure: `YYYY/MM-Month/Classification/`
+- Sets custom metadata columns: Classification, MeetingDate, AttendeeCount, MeetingID

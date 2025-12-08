@@ -37,7 +37,7 @@ export class EmailDistributionService {
   }
 
   /**
-   * Send meeting minutes to all attendees
+   * Send meeting minutes to all attendees AND the organizer
    */
   async distributeMinutes(
     meeting: MeetingWithMinutes,
@@ -47,7 +47,15 @@ export class EmailDistributionService {
       throw new Error("Meeting has no minutes to distribute");
     }
 
-    const recipients: EmailRecipient[] = meeting.attendees.map(email => ({
+    // Start with attendees
+    const recipientEmails = new Set<string>(meeting.attendees);
+    
+    // Always include the organizer so they receive a copy
+    if (meeting.organizerEmail) {
+      recipientEmails.add(meeting.organizerEmail);
+    }
+
+    const recipients: EmailRecipient[] = Array.from(recipientEmails).map(email => ({
       email,
       name: email.split("@")[0].replace(".", " ")
     }));

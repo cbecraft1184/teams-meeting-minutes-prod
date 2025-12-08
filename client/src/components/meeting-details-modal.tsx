@@ -62,8 +62,47 @@ import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
 import { ProcessingStatus } from "./processing-status";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { getAuthToken } from "@/lib/authToken";
 import type { MeetingWithMinutes, MeetingEvent } from "@shared/schema";
 import { APP_TOASTER_ID } from "@/App";
+
+/**
+ * Download a meeting document with authentication
+ * Works within Teams desktop/mobile by using fetch with auth headers
+ */
+async function downloadMeetingFile(meetingId: string, format: 'docx' | 'pdf', meetingTitle: string): Promise<void> {
+  const token = getAuthToken();
+  
+  if (!token) {
+    throw new Error('Authentication required. Please refresh the page.');
+  }
+  
+  const response = await fetch(`/api/meetings/${meetingId}/export/${format}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    credentials: 'include',
+  });
+  
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Download failed: ${response.status} ${text}`);
+  }
+  
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  
+  // Create hidden anchor to trigger download
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${meetingTitle.replace(/[^a-z0-9]/gi, '_')}_Minutes.${format}`;
+  document.body.appendChild(a);
+  a.click();
+  
+  // Cleanup
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+}
 
 interface MeetingDetailsModalProps {
   meeting: MeetingWithMinutes | null;
@@ -895,7 +934,26 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                         appearance="outline" 
                         size="medium" 
                         data-testid="button-download-docx"
-                        onClick={() => window.open(`/api/meetings/${meeting.id}/export/docx`, '_blank')}
+                        onClick={async () => {
+                          try {
+                            await downloadMeetingFile(meeting.id, 'docx', meeting.title);
+                            dispatchToast(
+                              <Toast>
+                                <ToastTitle>Download Complete</ToastTitle>
+                                <ToastBody>DOCX file downloaded successfully.</ToastBody>
+                              </Toast>,
+                              { intent: "success" }
+                            );
+                          } catch (error: any) {
+                            dispatchToast(
+                              <Toast>
+                                <ToastTitle>Download Failed</ToastTitle>
+                                <ToastBody>{error.message}</ToastBody>
+                              </Toast>,
+                              { intent: "error" }
+                            );
+                          }
+                        }}
                         disabled={meeting.minutes.processingStatus !== "completed"}
                       >
                         <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
@@ -905,7 +963,26 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                         appearance="outline" 
                         size="medium" 
                         data-testid="button-download-pdf"
-                        onClick={() => window.open(`/api/meetings/${meeting.id}/export/pdf`, '_blank')}
+                        onClick={async () => {
+                          try {
+                            await downloadMeetingFile(meeting.id, 'pdf', meeting.title);
+                            dispatchToast(
+                              <Toast>
+                                <ToastTitle>Download Complete</ToastTitle>
+                                <ToastBody>PDF file downloaded successfully.</ToastBody>
+                              </Toast>,
+                              { intent: "success" }
+                            );
+                          } catch (error: any) {
+                            dispatchToast(
+                              <Toast>
+                                <ToastTitle>Download Failed</ToastTitle>
+                                <ToastBody>{error.message}</ToastBody>
+                              </Toast>,
+                              { intent: "error" }
+                            );
+                          }
+                        }}
                         disabled={meeting.minutes.processingStatus !== "completed"}
                       >
                         <Download className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />

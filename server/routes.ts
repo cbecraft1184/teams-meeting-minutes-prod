@@ -757,6 +757,84 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Resend email distribution for approved minutes (requires approver or admin role)
+  app.post("/api/meetings/:id/resend-email", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Only approvers and admins can resend emails
+      if (!accessControlService.canApproveMinutes(req.user)) {
+        return res.status(403).json({ 
+          error: "Access denied: Only approvers and admins can resend email distribution",
+          requiredRole: "approver or admin",
+          currentRole: req.user.role
+        });
+      }
+
+      const meeting = await storage.getMeeting(req.params.id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Verify meeting has approved minutes
+      if (!meeting.minutes || meeting.minutes.approvalStatus !== "approved") {
+        return res.status(400).json({ error: "Minutes must be approved before resending email" });
+      }
+
+      // Verify user has access to the meeting
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to resend email without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot resend email for meetings you cannot access" });
+      }
+
+      const permissions = accessControlService.getUserPermissions(req.user);
+      const authSource = permissions.azureAdGroupsActive ? "Azure AD groups" : "database fallback";
+      console.log(`[RESEND EMAIL] User ${req.user.email} (${permissions.role}) resending email for meeting: ${meeting.title} [${authSource}]`);
+
+      // Enqueue email job (with automatic retry via durable queue)
+      const { enqueueJob } = await import("./services/durableQueue");
+      const emailJobId = await enqueueJob({
+        jobType: "send_email",
+        idempotencyKey: `resend_email:${meeting.minutes.id}:${Date.now()}`,
+        payload: { meetingId: meeting.id, minutesId: meeting.minutes.id },
+        maxRetries: 3,
+      });
+
+      console.log(`📧 Email resend job enqueued: ${emailJobId}`);
+
+      // Log the resend event
+      await storage.createMeetingEvent({
+        meetingId: meeting.id,
+        tenantId: (req.user as any).tenantId || null,
+        eventType: "email_sent",
+        title: "Email Distribution Resent",
+        description: `Email distribution manually triggered by ${req.user.displayName || req.user.email}`,
+        actorEmail: req.user.email,
+        actorName: req.user.displayName || req.user.email,
+        actorAadId: req.user.id,
+        metadata: { 
+          meetingId: meeting.id,
+          minutesId: meeting.minutes.id,
+          emailJobId,
+          isResend: true,
+          authSource
+        },
+        correlationId: null,
+      });
+
+      res.json({
+        success: true,
+        emailJobId,
+        message: "Email distribution job enqueued successfully"
+      });
+    } catch (error: any) {
+      console.error("Error resending email:", error);
+      res.status(500).json({ error: "Failed to resend email distribution" });
+    }
+  });
+
   // Request revision for minutes (requires approver or admin role)
   app.post("/api/minutes/:id/request-revision", async (req, res) => {
     try {

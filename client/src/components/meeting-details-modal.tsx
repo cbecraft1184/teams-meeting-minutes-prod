@@ -564,6 +564,32 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
     }
   });
 
+  // Resend email mutation for approved meetings
+  const resendEmailMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      return await apiRequest("POST", `/api/meetings/${meetingId}/resend-email`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Email resent</ToastTitle>
+          <ToastBody>Meeting minutes are being sent to all attendees.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to resend email"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    }
+  });
+
   // Fetch meeting events for history tab
   const { data: events = [], isLoading: eventsLoading } = useQuery<MeetingEvent[]>({
     queryKey: ["/api/meetings", meeting?.id, "events"],
@@ -769,11 +795,29 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                     
                     {meeting.minutes.approvalStatus === "approved" && meeting.minutes.approvedBy && (
                       <div className={styles.approvedBanner}>
-                        <Mail className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
-                        <span className={styles.bannerText}>
-                          Approved by {meeting.minutes.approvedBy} on {format(new Date(meeting.minutes.approvedAt!), "PPp")}. 
-                          Minutes distributed to all attendees via email.
-                        </span>
+                        <div className={styles.bannerContent} style={{ flex: 1 }}>
+                          <Mail className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                          <span className={styles.bannerText}>
+                            Approved by {meeting.minutes.approvedBy} on {format(new Date(meeting.minutes.approvedAt!), "PPp")}. 
+                            Minutes distributed to all attendees via email.
+                          </span>
+                        </div>
+                        <Button
+                          appearance="secondary"
+                          size="small"
+                          data-testid="button-resend-email"
+                          disabled={resendEmailMutation.isPending}
+                          onClick={() => resendEmailMutation.mutate(meeting.id)}
+                        >
+                          {resendEmailMutation.isPending ? (
+                            <Spinner size="tiny" />
+                          ) : (
+                            <>
+                              <RefreshCw className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
+                              Resend Email
+                            </>
+                          )}
+                        </Button>
                       </div>
                     )}
                     

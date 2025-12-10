@@ -1,12 +1,8 @@
 /**
  * Processing Validation Service
  * 
- * Compliance: Validates meetings before AI processing
- * to prevent wasted resources on accidental or invalid meeting sessions.
- * 
- * Thresholds:
- * - Minimum duration: 2 minutes (120 seconds)
- * - Minimum transcript words: 25 words
+ * IMPORTANT: All thresholds have been removed per user requirement.
+ * Every meeting is processed, regardless of duration or transcript length.
  * 
  * Audit Trail:
  * - Every processing decision is logged with reason
@@ -17,10 +13,11 @@ import { db } from "../db";
 import { meetings } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
-// Processing thresholds (configurable via environment variables)
+// Processing thresholds - ALL REMOVED per user requirement
+// Every meeting is processed, no exceptions
 export const PROCESSING_THRESHOLDS = {
-  MIN_DURATION_SECONDS: parseInt(process.env.MIN_MEETING_DURATION_SECONDS || "120", 10), // 2 minutes
-  MIN_TRANSCRIPT_WORDS: parseInt(process.env.MIN_TRANSCRIPT_WORDS || "25", 10), // 25 words minimum
+  MIN_DURATION_SECONDS: 0, // No minimum - process all meetings
+  MIN_TRANSCRIPT_WORDS: 0, // No minimum - process all meetings
 };
 
 /**
@@ -91,14 +88,16 @@ export function calculateActualDuration(startTime: Date | string | null, endTime
 
 /**
  * Validate meeting for AI processing
- * Checks duration and transcript content thresholds
+ * 
+ * IMPORTANT: All thresholds removed. Every meeting is processed.
+ * Only requirement: transcript must exist (can't generate minutes from nothing)
  */
 export function validateForProcessing(
   actualDurationSeconds: number | null,
   transcriptWordCount: number | null,
   hasTranscript: boolean
 ): ProcessingDecision {
-  // Check if transcript exists
+  // Only check: transcript must exist (can't generate minutes from nothing)
   if (!hasTranscript) {
     return {
       shouldProcess: false,
@@ -109,42 +108,15 @@ export function validateForProcessing(
     };
   }
 
-  // Safety net: Word count can override duration if Graph API returned incorrect data
-  // Normal speech rate ~120 words/min, so 200+ words indicates at least 1.5+ min of real content
-  const WORD_COUNT_OVERRIDE_THRESHOLD = 200;
-  const hasSubstantialContent = (transcriptWordCount ?? 0) >= WORD_COUNT_OVERRIDE_THRESHOLD;
-
-  // Check duration threshold (skip if word count indicates substantial content)
-  if (!hasSubstantialContent && actualDurationSeconds !== null && actualDurationSeconds < PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS) {
-    const durationMinutes = Math.floor(actualDurationSeconds / 60);
-    const durationSecondsRemainder = actualDurationSeconds % 60;
-    const thresholdMinutes = Math.floor(PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS / 60);
-
-    return {
-      shouldProcess: false,
-      decision: "skipped_duration",
-      reason: `Meeting duration (${durationMinutes}m ${durationSecondsRemainder}s) is below the minimum threshold of ${thresholdMinutes} minutes. This may indicate an accidental meeting open/close.`,
-      actualDurationSeconds,
-      transcriptWordCount: transcriptWordCount ?? 0,
-    };
-  }
-
-  // Check transcript content threshold
-  if (transcriptWordCount !== null && transcriptWordCount < PROCESSING_THRESHOLDS.MIN_TRANSCRIPT_WORDS) {
-    return {
-      shouldProcess: false,
-      decision: "skipped_content",
-      reason: `Transcript content (${transcriptWordCount} words) is below the minimum threshold of ${PROCESSING_THRESHOLDS.MIN_TRANSCRIPT_WORDS} words. Insufficient content for meaningful minutes generation.`,
-      actualDurationSeconds: actualDurationSeconds ?? undefined,
-      transcriptWordCount,
-    };
-  }
-
-  // All checks passed
+  // ALL THRESHOLDS REMOVED - Process every meeting with a transcript
+  // No duration checks, no word count checks
+  const durationMinutes = actualDurationSeconds ? Math.floor(actualDurationSeconds / 60) : 0;
+  const durationSeconds = actualDurationSeconds ? actualDurationSeconds % 60 : 0;
+  
   return {
     shouldProcess: true,
     decision: "processed",
-    reason: `Meeting passed all validation checks. Duration: ${actualDurationSeconds ? Math.floor(actualDurationSeconds / 60) : "unknown"}m, Transcript: ${transcriptWordCount ?? "unknown"} words.`,
+    reason: `Meeting will be processed. Duration: ${durationMinutes}m ${durationSeconds}s, Transcript: ${transcriptWordCount ?? 0} words. (No thresholds applied)`,
     actualDurationSeconds: actualDurationSeconds ?? undefined,
     transcriptWordCount: transcriptWordCount ?? undefined,
   };

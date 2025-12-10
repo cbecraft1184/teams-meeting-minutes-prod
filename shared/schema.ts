@@ -552,6 +552,8 @@ export const appSettings = pgTable("app_settings", {
   
   // Email distribution settings
   enableEmailDistribution: boolean("enable_email_distribution").notNull().default(true),
+  // Email recipient mode: 'attendees_only' = only people who joined, 'all_invitees' = everyone invited
+  emailRecipientMode: text("email_recipient_mode").notNull().default("attendees_only"),
   
   // SharePoint archival settings
   enableSharePointArchival: boolean("enable_sharepoint_archival").notNull().default(true),

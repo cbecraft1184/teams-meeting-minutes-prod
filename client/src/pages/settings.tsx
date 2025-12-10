@@ -76,6 +76,7 @@ interface AppSettings {
   id: string;
   requireApprovalForMinutes: boolean;
   enableEmailDistribution: boolean;
+  emailRecipientMode: 'attendees_only' | 'all_invitees';
   enableSharePointArchival: boolean;
   enableTeamsCardNotifications: boolean;
   updatedAt: string;
@@ -874,6 +875,29 @@ export default function Settings() {
                       data-testid="switch-email-distribution"
                     />
                   </div>
+
+                  {appSettings.enableEmailDistribution && (
+                    <div className={styles.switchRow}>
+                      <div className={styles.switchLabelContainer}>
+                        <Text className={styles.switchLabel}>Email Recipients</Text>
+                        <Text className={styles.switchDescription}>
+                          Choose who receives meeting minutes emails
+                        </Text>
+                      </div>
+                      <Dropdown
+                        value={appSettings.emailRecipientMode === 'all_invitees' ? 'All Invitees' : 'Attendees Only'}
+                        selectedOptions={[appSettings.emailRecipientMode]}
+                        onOptionSelect={(ev, data) => {
+                          updateSettingsMutation.mutate({ emailRecipientMode: data.optionValue as string });
+                        }}
+                        disabled={updateSettingsMutation.isPending}
+                        data-testid="dropdown-email-recipients"
+                      >
+                        <Option value="attendees_only">Attendees Only (joined the call)</Option>
+                        <Option value="all_invitees">All Invitees (everyone invited)</Option>
+                      </Dropdown>
+                    </div>
+                  )}
 
                   <div className={styles.switchRow}>
                     <div className={styles.switchLabelContainer}>

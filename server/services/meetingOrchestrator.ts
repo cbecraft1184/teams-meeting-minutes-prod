@@ -209,12 +209,48 @@ async function processCallRecordJob(job: Job): Promise<void> {
       // Determine the best onlineMeetingId for enrichment
       const enrichmentMeetingId = meeting.onlineMeetingId || onlineMeetingId;
       
+      // CRITICAL: Fetch call record duration to compare with existing
+      // Multiple call records can exist for one meeting (pre-call, main session, etc.)
+      // We only want to keep the longest one (the actual meeting)
+      let newCallRecordDuration = 0;
+      try {
+        const accessToken = await acquireTokenByClientCredentials([
+          'https://graph.microsoft.com/.default'
+        ]);
+        if (accessToken) {
+          const graphClient = await getGraphClient(accessToken);
+          if (graphClient) {
+            const callRecordDetails = await graphClient.get(`/communications/callRecords/${callRecordId}`);
+            if (callRecordDetails?.startDateTime && callRecordDetails?.endDateTime) {
+              const start = new Date(callRecordDetails.startDateTime);
+              const end = new Date(callRecordDetails.endDateTime);
+              newCallRecordDuration = Math.floor((end.getTime() - start.getTime()) / 1000);
+              console.log(`📊 [Orchestrator] New call record duration: ${newCallRecordDuration}s`);
+            }
+          }
+        }
+      } catch (e: any) {
+        console.warn(`⚠️ [Orchestrator] Could not fetch call record duration:`, e.message);
+      }
+      
+      // Only update call record if: no existing record OR new one is longer
+      const existingDuration = meeting.actualDurationSeconds || 0;
+      const shouldUpdateCallRecord = !meeting.callRecordId || newCallRecordDuration > existingDuration;
+      
       // Update call record ID, status, and onlineMeetingId if we extracted one
       const updateData: any = { 
-        callRecordId,
         status: 'completed',
         graphSyncStatus: 'synced'
       };
+      
+      if (shouldUpdateCallRecord) {
+        updateData.callRecordId = callRecordId;
+        updateData.actualDurationSeconds = newCallRecordDuration;
+        console.log(`✅ [Orchestrator] Updating call record (${newCallRecordDuration}s > ${existingDuration}s existing)`);
+      } else {
+        console.log(`⏭️ [Orchestrator] Keeping existing call record (${existingDuration}s >= ${newCallRecordDuration}s new)`);
+      }
+      
       if (!meeting.onlineMeetingId && onlineMeetingId) {
         updateData.onlineMeetingId = onlineMeetingId;
       }

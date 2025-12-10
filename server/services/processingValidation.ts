@@ -109,13 +109,12 @@ export function validateForProcessing(
     };
   }
 
-  // IMPORTANT: Word count is a more reliable indicator of meeting substance than call record duration.
-  // Graph API call records can return incorrect duration data. Normal speech rate is ~120 words/minute.
-  // 200+ words = at least 1.5+ minutes of actual speech content, sufficient for minutes generation.
+  // Safety net: Word count can override duration if Graph API returned incorrect data
+  // Normal speech rate ~120 words/min, so 200+ words indicates at least 1.5+ min of real content
   const WORD_COUNT_OVERRIDE_THRESHOLD = 200;
   const hasSubstantialContent = (transcriptWordCount ?? 0) >= WORD_COUNT_OVERRIDE_THRESHOLD;
 
-  // Check duration threshold - but only if word count doesn't indicate substantial content
+  // Check duration threshold (skip if word count indicates substantial content)
   if (!hasSubstantialContent && actualDurationSeconds !== null && actualDurationSeconds < PROCESSING_THRESHOLDS.MIN_DURATION_SECONDS) {
     const durationMinutes = Math.floor(actualDurationSeconds / 60);
     const durationSecondsRemainder = actualDurationSeconds % 60;

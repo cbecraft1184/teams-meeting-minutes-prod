@@ -633,9 +633,9 @@ export const insertMeetingMinutesSchema = createInsertSchema(meetingMinutes).omi
     .max(5000, "Summary must be 5000 characters or less")
     .trim(),
   
-  // Strict validation for attendees present
+  // Strict validation for attendees present (allow 0 for solo meetings)
   attendeesPresent: z.array(z.string().email("Each attendee must be a valid email address"))
-    .min(1, "At least one attendee must be present")
+    .min(0, "Attendees must be an array")
     .max(500, "Maximum 500 attendees allowed"),
   
   // Strict validation for key discussions

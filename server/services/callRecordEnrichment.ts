@@ -127,24 +127,71 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     const encodedMeetingId = encodeURIComponent(onlineMeetingId);
     console.log(`🔗 [Enrichment] Using encoded meeting ID: ${encodedMeetingId}`);
     
-    // Fetch recordings
-    console.log(`📹 [Enrichment] Fetching recordings for ${onlineMeetingId}`);
-    const recordingsResponse = await graphClient.get(
-      `/communications/onlineMeetings/${encodedMeetingId}/recordings`
-    );
+    // CRITICAL: Get organizer ID from callRecord - required for correct Graph API endpoint
+    // Graph API requires: /users/{organizerId}/onlineMeetings/{meetingId}/transcripts
+    // The old /communications/onlineMeetings path is NOT supported
+    const [meetingRecord] = await db.select()
+      .from(meetings)
+      .where(eq(meetings.id, meetingId))
+      .limit(1);
     
-    const recordings: Recording[] = recordingsResponse?.value || [];
+    let organizerId: string | null = meetingRecord?.organizerAadId || null;
+    
+    // If organizer ID not in database, fetch from callRecord
+    if (!organizerId && meetingRecord?.callRecordId) {
+      console.log(`📊 [Enrichment] Fetching organizer ID from callRecord ${meetingRecord.callRecordId}`);
+      try {
+        const callRecordResponse = await graphClient.get(
+          `/communications/callRecords/${meetingRecord.callRecordId}`
+        );
+        organizerId = callRecordResponse?.organizer?.user?.id || null;
+        
+        // Persist organizer ID to database for future use
+        if (organizerId) {
+          await db.update(meetings)
+            .set({ organizerAadId: organizerId })
+            .where(eq(meetings.id, meetingId));
+          console.log(`✅ [Enrichment] Persisted organizer ID: ${organizerId}`);
+        }
+      } catch (callRecordError) {
+        console.warn(`⚠️ [Enrichment] Could not fetch organizer from callRecord:`, callRecordError);
+      }
+    }
+    
+    if (!organizerId) {
+      throw new Error(`Cannot fetch transcripts: organizer ID not available for meeting ${meetingId}`);
+    }
+    
+    console.log(`👤 [Enrichment] Using organizer ID: ${organizerId}`);
+    
+    // Fetch recordings using correct endpoint: /users/{organizerId}/onlineMeetings/{meetingId}/recordings
+    console.log(`📹 [Enrichment] Fetching recordings for ${onlineMeetingId}`);
+    let recordings: Recording[] = [];
+    try {
+      const recordingsResponse = await graphClient.get(
+        `/users/${organizerId}/onlineMeetings/${encodedMeetingId}/recordings`
+      );
+      recordings = recordingsResponse?.value || [];
+    } catch (recordingsError: any) {
+      console.warn(`⚠️ [Enrichment] Could not fetch recordings:`, recordingsError?.message || recordingsError);
+    }
+    
     const latestRecording = recordings.sort((a, b) => 
       new Date(b.createdDateTime).getTime() - new Date(a.createdDateTime).getTime()
     )[0];
     
-    // Fetch transcripts
+    // Fetch transcripts using correct endpoint: /users/{organizerId}/onlineMeetings/{meetingId}/transcripts
     console.log(`📝 [Enrichment] Fetching transcripts for ${onlineMeetingId}`);
-    const transcriptsResponse = await graphClient.get(
-      `/communications/onlineMeetings/${encodedMeetingId}/transcripts`
-    );
+    let transcripts: Transcript[] = [];
+    try {
+      const transcriptsResponse = await graphClient.get(
+        `/users/${organizerId}/onlineMeetings/${encodedMeetingId}/transcripts`
+      );
+      transcripts = transcriptsResponse?.value || [];
+    } catch (transcriptsError: any) {
+      console.warn(`⚠️ [Enrichment] Could not fetch transcripts:`, transcriptsError?.message || transcriptsError);
+    }
     
-    const transcripts: Transcript[] = transcriptsResponse?.value || [];
     const latestTranscript = transcripts.sort((a, b) => 
       new Date(b.createdDateTime).getTime() - new Date(a.createdDateTime).getTime()
     )[0];
@@ -155,7 +202,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       try {
         console.log(`📥 [Enrichment] Downloading transcript content...`);
         const transcriptResponse = await graphClient.get(
-          `/communications/onlineMeetings/${encodedMeetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`
+          `/users/${organizerId}/onlineMeetings/${encodedMeetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`
         );
         transcriptContent = transcriptResponse;
         console.log(`✅ [Enrichment] Transcript content downloaded (${transcriptContent?.length || 0} chars)`);
@@ -165,16 +212,11 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     }
     
     // Fetch call record for actual duration (compliance)
+    // Note: meetingRecord already fetched above for organizer ID
     let actualDurationSeconds: number | null = null;
-    try {
-      console.log(`📊 [Enrichment] Fetching call record details for duration...`);
-      // Get the meeting's call record for actual start/end times
-      const [meetingRecord] = await db.select()
-        .from(meetings)
-        .where(eq(meetings.id, meetingId))
-        .limit(1);
-      
-      if (meetingRecord?.callRecordId) {
+    if (meetingRecord?.callRecordId) {
+      try {
+        console.log(`📊 [Enrichment] Fetching call record details for duration...`);
         const callRecordResponse = await graphClient.get(
           `/communications/callRecords/${meetingRecord.callRecordId}`
         );
@@ -185,9 +227,9 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
           );
           console.log(`   Duration: ${actualDurationSeconds}s (${Math.floor((actualDurationSeconds || 0) / 60)}m)`);
         }
+      } catch (durationError) {
+        console.warn(`⚠️ [Enrichment] Could not fetch call record duration:`, durationError);
       }
-    } catch (durationError) {
-      console.warn(`⚠️ [Enrichment] Could not fetch call record duration:`, durationError);
     }
     
     // Count transcript words for content validation

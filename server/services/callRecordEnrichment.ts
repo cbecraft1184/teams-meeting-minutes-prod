@@ -40,6 +40,7 @@ interface Transcript {
   id: string;
   transcriptContentUrl?: string;
   createdDateTime: string;
+  meetingId?: string;
 }
 
 /**

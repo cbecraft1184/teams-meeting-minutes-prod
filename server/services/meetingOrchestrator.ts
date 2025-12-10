@@ -209,10 +209,10 @@ async function processCallRecordJob(job: Job): Promise<void> {
       // Determine the best onlineMeetingId for enrichment
       const enrichmentMeetingId = meeting.onlineMeetingId || onlineMeetingId;
       
-      // CRITICAL: Fetch call record duration to compare with existing
-      // Multiple call records can exist for one meeting (pre-call, main session, etc.)
-      // We only want to keep the longest one (the actual meeting)
+      // Fetch call record details for duration and timestamps
       let newCallRecordDuration = 0;
+      let sessionStartTime: Date | null = null;
+      let sessionEndTime: Date | null = null;
       try {
         const accessToken = await acquireTokenByClientCredentials([
           'https://graph.microsoft.com/.default'
@@ -222,9 +222,9 @@ async function processCallRecordJob(job: Job): Promise<void> {
           if (graphClient) {
             const callRecordDetails = await graphClient.get(`/communications/callRecords/${callRecordId}`);
             if (callRecordDetails?.startDateTime && callRecordDetails?.endDateTime) {
-              const start = new Date(callRecordDetails.startDateTime);
-              const end = new Date(callRecordDetails.endDateTime);
-              newCallRecordDuration = Math.floor((end.getTime() - start.getTime()) / 1000);
+              sessionStartTime = new Date(callRecordDetails.startDateTime);
+              sessionEndTime = new Date(callRecordDetails.endDateTime);
+              newCallRecordDuration = Math.floor((sessionEndTime.getTime() - sessionStartTime.getTime()) / 1000);
               console.log(`📊 [Orchestrator] New call record duration: ${newCallRecordDuration}s`);
             }
           }
@@ -233,38 +233,75 @@ async function processCallRecordJob(job: Job): Promise<void> {
         console.warn(`⚠️ [Orchestrator] Could not fetch call record duration:`, e.message);
       }
       
-      // Only update call record if: no existing record OR new one is longer
-      const existingDuration = meeting.actualDurationSeconds || 0;
-      const shouldUpdateCallRecord = !meeting.callRecordId || newCallRecordDuration > existingDuration;
+      // Check if this meeting already has a call record (existing session)
+      // If it does, create a NEW meeting record for this session instead of updating
+      const isNewSession = !!meeting.callRecordId && meeting.callRecordId !== callRecordId;
       
-      // Update call record ID, status, and onlineMeetingId if we extracted one
-      const updateData: any = { 
-        status: 'completed',
-        graphSyncStatus: 'synced'
-      };
+      let targetMeetingId = meeting.id;
       
-      if (shouldUpdateCallRecord) {
-        updateData.callRecordId = callRecordId;
-        updateData.actualDurationSeconds = newCallRecordDuration;
-        console.log(`✅ [Orchestrator] Updating call record (${newCallRecordDuration}s > ${existingDuration}s existing)`);
+      if (isNewSession) {
+        // Create a new meeting record for this session (copy from original)
+        console.log(`🔄 [Orchestrator] Creating new session record (existing session: ${meeting.callRecordId})`);
+        
+        // Count existing sessions to determine session number
+        const existingSessions = await db
+          .select()
+          .from(meetings)
+          .where(sql`${meetings.teamsJoinLink} = ${meeting.teamsJoinLink} OR ${meetings.iCalUid} = ${meeting.iCalUid}`);
+        const sessionNumber = existingSessions.length + 1;
+        
+        // Create new meeting record for this session
+        const [newMeeting] = await db.insert(meetings).values({
+          title: `${meeting.title} (Session ${sessionNumber})`,
+          description: meeting.description,
+          scheduledAt: sessionStartTime || meeting.scheduledAt,
+          duration: meeting.duration,
+          location: meeting.location,
+          organizerEmail: meeting.organizerEmail,
+          organizerAadId: meeting.organizerAadId,
+          attendees: meeting.attendees,
+          invitees: meeting.invitees,
+          classificationLevel: meeting.classificationLevel,
+          isOnlineMeeting: meeting.isOnlineMeeting,
+          teamsJoinLink: meeting.teamsJoinLink,
+          onlineMeetingId: enrichmentMeetingId,
+          graphEventId: meeting.graphEventId,
+          iCalUid: meeting.iCalUid,
+          callRecordId: callRecordId,
+          actualDurationSeconds: newCallRecordDuration,
+          status: 'completed',
+          graphSyncStatus: 'synced',
+          sourceType: 'graph_webhook',
+        }).returning();
+        
+        targetMeetingId = newMeeting.id;
+        console.log(`✅ [Orchestrator] Created new session: ${newMeeting.id} (Session ${sessionNumber})`);
       } else {
-        console.log(`⏭️ [Orchestrator] Keeping existing call record (${existingDuration}s >= ${newCallRecordDuration}s new)`);
+        // First session for this meeting - update the existing record
+        const updateData: any = { 
+          callRecordId,
+          actualDurationSeconds: newCallRecordDuration,
+          status: 'completed',
+          graphSyncStatus: 'synced'
+        };
+        
+        if (!meeting.onlineMeetingId && onlineMeetingId) {
+          updateData.onlineMeetingId = onlineMeetingId;
+        }
+        
+        await db.update(meetings)
+          .set(updateData)
+          .where(eq(meetings.id, meeting.id));
+          
+        console.log(`✅ [Orchestrator] Updated first session: ${meeting.id}`);
       }
-      
-      if (!meeting.onlineMeetingId && onlineMeetingId) {
-        updateData.onlineMeetingId = onlineMeetingId;
-      }
-      
-      await db.update(meetings)
-        .set(updateData)
-        .where(eq(meetings.id, meeting.id));
 
       // Trigger enrichment only if we have a valid onlineMeetingId
       if (enrichmentMeetingId) {
-        console.log(`🎬 [Orchestrator] Triggering enrichment for meeting: ${meeting.id} (onlineMeetingId: ${enrichmentMeetingId})`);
-        await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, enrichmentMeetingId);
+        console.log(`🎬 [Orchestrator] Triggering enrichment for meeting: ${targetMeetingId} (onlineMeetingId: ${enrichmentMeetingId})`);
+        await callRecordEnrichmentService.enqueueMeetingEnrichment(targetMeetingId, enrichmentMeetingId);
       } else {
-        console.log(`⚠️ [Orchestrator] Cannot trigger enrichment - no onlineMeetingId available for meeting: ${meeting.id}`);
+        console.log(`⚠️ [Orchestrator] Cannot trigger enrichment - no onlineMeetingId available for meeting: ${targetMeetingId}`);
       }
       
       return;
@@ -461,8 +498,8 @@ async function processSendEmailJob(job: Job): Promise<void> {
       throw new Error(`Minutes not found: ${minutesId}`);
     }
 
-    // Combine for document generation (meeting with fresh minutes)
-    const meetingWithMinutes = { ...meeting, minutes };
+    // Combine for document generation (meeting with specific minutes record)
+    const meetingWithMinutes = { ...meeting, minutes: [minutes] };
 
     // Generate documents with fresh minutes data
     const { documentExportService } = await import("./documentExport");
@@ -536,8 +573,8 @@ async function processUploadSharePointJob(job: Job): Promise<void> {
       throw new Error(`Minutes not found: ${minutesId}`);
     }
 
-    // Combine for document generation (meeting with fresh minutes)
-    const meetingWithMinutes = { ...meeting, minutes };
+    // Combine for document generation (meeting with specific minutes record)
+    const meetingWithMinutes = { ...meeting, minutes: [minutes] };
 
     // Generate DOCX for SharePoint
     const { documentExportService } = await import("./documentExport");

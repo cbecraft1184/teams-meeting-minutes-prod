@@ -165,9 +165,15 @@ export const meetings = pgTable("meetings", {
 }));
 
 // Meeting Minutes schema
+// Supports multiple minutes per meeting (one per call session)
 export const meetingMinutes = pgTable("meeting_minutes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   meetingId: varchar("meeting_id").notNull().references(() => meetings.id, { onDelete: "cascade" }),
+  callRecordId: text("call_record_id"), // Links to specific call session (allows multiple per meeting)
+  sessionNumber: integer("session_number").default(1), // Session 1, 2, 3... for display
+  sessionStartTime: timestamp("session_start_time"), // When this session started
+  sessionEndTime: timestamp("session_end_time"), // When this session ended
+  sessionDurationSeconds: integer("session_duration_seconds"), // Duration of this session
   summary: text("summary").notNull(),
   keyDiscussions: jsonb("key_discussions").notNull().$type<string[]>(),
   decisions: jsonb("decisions").notNull().$type<string[]>(),
@@ -779,10 +785,7 @@ export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({
-  minutes: one(meetingMinutes, {
-    fields: [meetings.id],
-    references: [meetingMinutes.meetingId],
-  }),
+  minutes: many(meetingMinutes), // One meeting can have multiple minutes (one per session)
   actionItems: many(actionItems),
   events: many(meetingEvents),
 }));
@@ -815,6 +818,6 @@ export const actionItemsRelations = relations(actionItems, ({ one }) => ({
 
 // Extended types for frontend
 export type MeetingWithMinutes = Meeting & {
-  minutes?: MeetingMinutes;
+  minutes?: MeetingMinutes[]; // Array of minutes (one per session)
   actionItems?: ActionItem[];
 };

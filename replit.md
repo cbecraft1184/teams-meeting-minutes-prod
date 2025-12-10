@@ -104,8 +104,10 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - Every meeting with a transcript is processed, regardless of how short
 - `MIN_DURATION_SECONDS` set to 0 (was 120 seconds)
 - `MIN_TRANSCRIPT_WORDS` set to 0 (was 25 words)
+- No minimum transcript length in minutesGenerator (removed 50-char check)
 - Only requirement: transcript must exist (can't generate minutes from nothing)
 - Fixed TypeScript type errors in meetingOrchestrator.ts (minutes property was array, should be single object)
+- **Admin Reprocess Endpoint**: `POST /api/admin/meetings/:id/reprocess` - Deletes existing minutes and regenerates them for any meeting with a transcript. Requires admin role.
 
 ### Multi-Session Meeting Support
 - When a call record comes in for a meeting that already has a callRecordId, the system creates a NEW meeting record

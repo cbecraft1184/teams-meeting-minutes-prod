@@ -653,6 +653,12 @@ export async function getGraphClient(accessToken?: string): Promise<{
         return null;
       }
 
+      // Check content type - transcript/recording content returns text/vtt, not JSON
+      const contentType = response.headers.get('Content-Type') || '';
+      if (contentType.includes('text/vtt') || contentType.includes('text/plain') || url.includes('/content')) {
+        return response.text();
+      }
+
       return response.json();
     },
 

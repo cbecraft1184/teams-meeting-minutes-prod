@@ -1606,6 +1606,77 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin: Force reprocess a meeting (regenerate minutes)
+  app.post("/api/admin/meetings/:id/reprocess", requireRole("admin"), async (req, res) => {
+    try {
+      const meetingId = req.params.id;
+      console.log(`[Admin] Reprocess meeting ${meetingId} requested by ${req.user?.email}`);
+      
+      // Get meeting to verify it exists
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      // Reset meeting status for reprocessing
+      const { meetings: meetingsTable, meetingMinutes } = await import("@shared/schema");
+      
+      // Check if meeting has transcript content (required for processing)
+      // No minimum length - just needs to exist
+      if (!meeting.transcriptContent || meeting.transcriptContent.trim().length === 0) {
+        return res.status(400).json({ 
+          error: "Cannot reprocess: Meeting has no transcript content",
+          hint: "Transcript is required for AI minutes generation" 
+        });
+      }
+      
+      // Delete existing minutes if any (so we can regenerate)
+      await db.delete(meetingMinutes).where(eq(meetingMinutes.meetingId, meetingId));
+      
+      // Set status to in_progress during regeneration
+      await db.update(meetingsTable)
+        .set({
+          enrichmentStatus: "enriched",
+          processingDecision: null,
+          processingDecisionReason: null,
+          processingDecisionAt: null,
+          status: "in_progress"
+        })
+        .where(eq(meetingsTable.id, meetingId));
+      
+      // Trigger minutes generation directly
+      const { minutesGeneratorService } = await import("./services/minutesGenerator");
+      
+      try {
+        await minutesGeneratorService.autoGenerateMinutes(meetingId);
+        
+        // Update status to completed after successful generation
+        await db.update(meetingsTable)
+          .set({ status: "completed" })
+          .where(eq(meetingsTable.id, meetingId));
+        
+        res.json({
+          success: true,
+          message: `Meeting ${meetingId} has been reprocessed and minutes regenerated`,
+          meetingId
+        });
+      } catch (genError: any) {
+        // Update status to indicate failure
+        await db.update(meetingsTable)
+          .set({ status: "completed" }) // Keep as completed since enrichment worked
+          .where(eq(meetingsTable.id, meetingId));
+        
+        throw genError;
+      }
+    } catch (error: any) {
+      console.error("[Admin] Reprocess meeting failed:", error);
+      res.status(500).json({ 
+        error: "Failed to reprocess meeting",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // ========== DEMO/TESTING ENDPOINTS (Mock Mode) ==========
 
   // Get list of available mock users (development only)

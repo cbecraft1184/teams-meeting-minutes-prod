@@ -99,6 +99,20 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - Created `meeting_event_type` enum with proper values
 - All 16 database tables verified with correct schema alignment
 
+### Processing Thresholds Removed (December 10, 2025)
+- **ALL THRESHOLDS REMOVED**: No longer skip meetings based on duration or word count
+- Every meeting with a transcript is processed, regardless of how short
+- `MIN_DURATION_SECONDS` set to 0 (was 120 seconds)
+- `MIN_TRANSCRIPT_WORDS` set to 0 (was 25 words)
+- Only requirement: transcript must exist (can't generate minutes from nothing)
+- Fixed TypeScript type errors in meetingOrchestrator.ts (minutes property was array, should be single object)
+
+### Multi-Session Meeting Support
+- When a call record comes in for a meeting that already has a callRecordId, the system creates a NEW meeting record
+- Each session gets a unique ID with title like "Meeting Name (Session 2)"
+- Session number is calculated based on existing sessions with same teamsJoinLink or iCalUid
+- One-to-one relationship: each meeting record has exactly one minutes record
+
 ### Graph API Transcript Access Fix (December 10, 2025)
 - **CRITICAL FIX**: Changed transcript/recording endpoints from unsupported `/communications/onlineMeetings/{id}/transcripts` to correct `/users/{organizerId}/onlineMeetings/{meetingId}/transcripts`
 - **Organizer ID**: Now fetches organizer ID from callRecord and persists to `organizer_aad_id` column for reuse

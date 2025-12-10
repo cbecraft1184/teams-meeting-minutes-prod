@@ -53,7 +53,8 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Use persisted transcript content from enrichment
     const transcript = meeting.transcriptContent;
     
-    if (!transcript || transcript.length < 50) {
+    // Only check if transcript exists - no minimum length requirement
+    if (!transcript || transcript.trim().length === 0) {
       console.error(`❌ [MinutesGenerator] No transcript content available for meeting ${meetingId}`);
       throw new Error(`No transcript available for meeting ${meetingId}. Meetings require a recorded transcript for AI minutes generation.`);
     }

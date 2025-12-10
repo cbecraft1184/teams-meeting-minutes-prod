@@ -221,12 +221,31 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     
     // Download transcript content if available
     let transcriptContent: string | null = null;
-    if (latestTranscript?.transcriptContentUrl) {
+    if (latestTranscript) {
       try {
         console.log(`📥 [Enrichment] Downloading transcript content...`);
-        const transcriptResponse = await graphClient.get(
-          `/users/${organizerId}/onlineMeetings/${encodedMeetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`
-        );
+        console.log(`   Transcript ID: ${latestTranscript.id}`);
+        console.log(`   Content URL: ${latestTranscript.transcriptContentUrl || 'not provided'}`);
+        
+        // Use the transcriptContentUrl directly if available (it has the correct meetingId embedded)
+        // Otherwise construct the URL using the transcript's meetingId property
+        let contentUrl: string;
+        if (latestTranscript.transcriptContentUrl) {
+          // Extract relative path from full URL (remove https://graph.microsoft.com/v1.0 prefix)
+          const fullUrl = latestTranscript.transcriptContentUrl;
+          contentUrl = fullUrl.replace('https://graph.microsoft.com/v1.0', '') + '?$format=text/vtt';
+          console.log(`   Using transcriptContentUrl: ${contentUrl}`);
+        } else if (latestTranscript.meetingId) {
+          // The transcript has its own meetingId in the correct format
+          contentUrl = `/users/${organizerId}/onlineMeetings/${latestTranscript.meetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`;
+          console.log(`   Using transcript.meetingId: ${latestTranscript.meetingId}`);
+        } else {
+          // Fallback to encoded meeting ID
+          contentUrl = `/users/${organizerId}/onlineMeetings/${encodedMeetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`;
+          console.log(`   Using encoded meetingId fallback`);
+        }
+        
+        const transcriptResponse = await graphClient.get(contentUrl);
         transcriptContent = transcriptResponse;
         console.log(`✅ [Enrichment] Transcript content downloaded (${transcriptContent?.length || 0} chars)`);
       } catch (transcriptError) {

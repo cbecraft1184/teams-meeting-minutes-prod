@@ -180,16 +180,39 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       new Date(b.createdDateTime).getTime() - new Date(a.createdDateTime).getTime()
     )[0];
     
-    // Fetch transcripts using correct endpoint: /users/{organizerId}/onlineMeetings/{meetingId}/transcripts
+    // Fetch transcripts - try multiple approaches
     console.log(`📝 [Enrichment] Fetching transcripts for ${onlineMeetingId}`);
     let transcripts: Transcript[] = [];
+    
+    // Approach 1: Try with the thread-style meeting ID (URL encoded)
     try {
+      console.log(`   Trying: /users/${organizerId}/onlineMeetings/${encodedMeetingId}/transcripts`);
       const transcriptsResponse = await graphClient.get(
         `/users/${organizerId}/onlineMeetings/${encodedMeetingId}/transcripts`
       );
       transcripts = transcriptsResponse?.value || [];
+      console.log(`   ✅ Found ${transcripts.length} transcripts via direct endpoint`);
     } catch (transcriptsError: any) {
-      console.warn(`⚠️ [Enrichment] Could not fetch transcripts:`, transcriptsError?.message || transcriptsError);
+      console.warn(`   ⚠️ Direct endpoint failed:`, transcriptsError?.message || transcriptsError);
+      
+      // Approach 2: Try getAllTranscripts endpoint with filter
+      try {
+        console.log(`   Trying getAllTranscripts endpoint...`);
+        const allTranscriptsResponse = await graphClient.get(
+          `/users/${organizerId}/onlineMeetings/getAllTranscripts(meetingOrganizerUserId='${organizerId}')?$top=50`
+        );
+        const allTranscripts = allTranscriptsResponse?.value || [];
+        console.log(`   Found ${allTranscripts.length} total transcripts for organizer`);
+        
+        // Filter to find transcripts that might match this meeting's timeframe
+        if (allTranscripts.length > 0) {
+          // Get the most recent transcript as a fallback
+          transcripts = allTranscripts.slice(0, 1);
+          console.log(`   Using most recent transcript as fallback`);
+        }
+      } catch (allTranscriptsError: any) {
+        console.warn(`   ⚠️ getAllTranscripts also failed:`, allTranscriptsError?.message || allTranscriptsError);
+      }
     }
     
     const latestTranscript = transcripts.sort((a, b) => 

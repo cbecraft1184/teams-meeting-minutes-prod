@@ -76,17 +76,23 @@ export async function generateMeetingMinutes(transcript: string): Promise<{
               content: `You are an AI assistant helping to generate professional meeting minutes. 
 Analyze the provided meeting transcript and generate a concise, professional summary.
 
+IMPORTANT DISTINCTIONS:
+- "decisions": Final conclusions, agreements, or choices made during the meeting. Example: "Approved the new branding colors", "Agreed to postpone launch to Q2"
+- "keyDiscussions": Topics discussed, debates, or information shared. NOT action items.
+
+DO NOT include action items (tasks assigned to people) in the decisions field. Action items are extracted separately.
+
 Requirements:
 - Use formal, professional language
-- Focus on key decisions and action items
+- Decisions are ONLY final conclusions/agreements reached, not tasks to be done
 - Maintain security classification awareness
 - Structure output as JSON with these fields: summary, keyDiscussions, decisions
 
 Output JSON format:
 {
-  "summary": "Brief overall summary",
-  "keyDiscussions": ["Discussion point 1", "Discussion point 2"],
-  "decisions": ["Decision 1", "Decision 2"]
+  "summary": "Brief overall summary of the meeting purpose and outcome",
+  "keyDiscussions": ["Topic discussed 1", "Topic discussed 2"],
+  "decisions": ["Final agreement or conclusion 1", "Final agreement or conclusion 2"]
 }`
             },
             {

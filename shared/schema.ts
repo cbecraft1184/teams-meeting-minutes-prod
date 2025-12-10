@@ -659,12 +659,11 @@ export const insertActionItemSchema = createInsertSchema(actionItems).omit({
     .max(1000, "Task description must be 1000 characters or less")
     .trim(),
   
-  // Strict validation for assignee (email or "Unassigned")
+  // Validation for assignee (name, email, or "Unassigned")
   assignee: z.string()
-    .refine(
-      (val) => val === "Unassigned" || z.string().email().safeParse(val).success,
-      "Assignee must be a valid email address or 'Unassigned'"
-    ),
+    .min(1, "Assignee is required")
+    .max(200, "Assignee must be 200 characters or less")
+    .trim(),
   
   // Strict validation for due date (must be in future if provided)
   // Use union to handle null/undefined, then coerce and validate only when present

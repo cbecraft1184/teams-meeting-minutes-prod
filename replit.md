@@ -99,10 +99,19 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - Created `meeting_event_type` enum with proper values
 - All 16 database tables verified with correct schema alignment
 
-### Graph API Endpoint Fix (December 10, 2025)
+### Graph API Transcript Access Fix (December 10, 2025)
 - **CRITICAL FIX**: Changed transcript/recording endpoints from unsupported `/communications/onlineMeetings/{id}/transcripts` to correct `/users/{organizerId}/onlineMeetings/{meetingId}/transcripts`
 - **Organizer ID**: Now fetches organizer ID from callRecord and persists to `organizer_aad_id` column for reuse
 - **Error Handling**: Graceful handling of missing recordings/transcripts with proper logging
+- **Application Access Policy**: Created Teams Application Access Policy (`MeetingMinutesPolicy`) to grant app access to meeting transcripts/recordings
+  - PowerShell commands used:
+    ```powershell
+    New-CsApplicationAccessPolicy -Identity "MeetingMinutesPolicy" -AppIds "71383692-c5c6-40cc-94cf-96c97fed146c" -Description "Allow Meeting Minutes app to access transcripts"
+    Grant-CsApplicationAccessPolicy -PolicyName "MeetingMinutesPolicy" -Global
+    ```
+- **Meeting ID Format**: Direct endpoint uses URL-encoded thread ID (`19:meeting_xxx@thread.v2`), but Graph API requires base64-encoded format for some endpoints
+- **getAllTranscripts Fallback**: Implemented fallback using `/users/{organizerId}/onlineMeetings/getAllTranscripts(meetingOrganizerUserId='{organizerId}')` endpoint when direct endpoint fails with Bad Request
+- **VTT Text Response Handling**: Fixed Graph client to return text (not JSON) for transcript content URLs - detects `text/vtt` content type or `/content` URL pattern
 
 ### Production Status (December 6, 2025)
 - **Authentication**: Multi-tenant JWT validation working correctly

@@ -10,9 +10,12 @@
  */
 
 import type { MeetingWithMinutes } from "@shared/schema";
+import { appSettings } from "@shared/schema";
 import { format } from "date-fns";
 import { acquireTokenByClientCredentials } from "./microsoftIdentity";
 import { getConfig } from "./configValidator";
+import { db } from "../db";
+import { eq } from "drizzle-orm";
 
 interface EmailRecipient {
   email: string;
@@ -37,7 +40,10 @@ export class EmailDistributionService {
   }
 
   /**
-   * Send meeting minutes to all attendees AND the organizer
+   * Send meeting minutes to recipients based on admin setting:
+   * - 'attendees_only': Only people who joined the call
+   * - 'all_invitees': Everyone invited to the meeting
+   * Always includes the organizer.
    */
   async distributeMinutes(
     meeting: MeetingWithMinutes,
@@ -47,8 +53,23 @@ export class EmailDistributionService {
       throw new Error("Meeting has no minutes to distribute");
     }
 
-    // Start with attendees
-    const recipientEmails = new Set<string>(meeting.attendees);
+    // Get app settings to determine recipient mode
+    const [settings] = await db.select().from(appSettings).where(eq(appSettings.id, 'default')).limit(1);
+    const recipientMode = settings?.emailRecipientMode || 'attendees_only';
+    
+    // Determine recipient list based on setting
+    let baseRecipients: string[];
+    if (recipientMode === 'all_invitees' && meeting.invitees && meeting.invitees.length > 0) {
+      // Use invitees (everyone invited to the meeting)
+      baseRecipients = meeting.invitees;
+      console.log(`📧 [Email] Using all invitees (${baseRecipients.length} recipients)`);
+    } else {
+      // Use attendees (people who actually joined)
+      baseRecipients = meeting.attendees;
+      console.log(`📧 [Email] Using attendees only (${baseRecipients.length} recipients)`);
+    }
+    
+    const recipientEmails = new Set<string>(baseRecipients);
     
     // Always include the organizer so they receive a copy
     if (meeting.organizerEmail) {

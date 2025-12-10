@@ -1,5 +1,5 @@
 import { Card, Button, makeStyles, tokens, shorthands, mergeClasses, Tooltip } from "@fluentui/react-components";
-import { Calendar, Clock, Users, FileText, Download, Share2, EyeOff, Eye } from "lucide-react";
+import { Calendar, Clock, Users, FileText, Download, Share2, EyeOff, Eye, Hash } from "lucide-react";
 import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
 import { format } from "date-fns";
@@ -154,6 +154,10 @@ export function MeetingCard({ meeting, onViewDetails, onDismiss, onRestore, show
       
       <div className={styles.content}>
         <div className={styles.metadataGrid}>
+          <div className={styles.metadataItem}>
+            <Hash className={styles.metadataIcon} style={{ width: "16px", height: "16px" }} />
+            <span data-testid={`text-meeting-id-${meeting.id}`}>ID: {meeting.id}</span>
+          </div>
           <div className={styles.metadataItem}>
             <Calendar className={styles.metadataIcon} style={{ width: "16px", height: "16px" }} />
             <span>{format(new Date(meeting.scheduledAt), "PPP")}</span>

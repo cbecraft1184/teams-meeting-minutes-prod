@@ -55,7 +55,8 @@ import {
   RefreshCw,
   ChevronDown,
   Play,
-  Circle
+  Circle,
+  Hash
 } from "lucide-react";
 import { format } from "date-fns";
 import { ClassificationBadge } from "./classification-badge";
@@ -688,6 +689,11 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
               <div>
                 <div className={styles.overviewGrid}>
                   <div className={styles.metadataContainer}>
+                    <div className={styles.metadataItem}>
+                      <Hash className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
+                      <span className={styles.metadataLabel}>Meeting ID:</span>
+                      <span className={styles.metadataValue} data-testid="text-meeting-id">{meeting.id}</span>
+                    </div>
                     <div className={styles.metadataItem}>
                       <Calendar className={mergeClasses(styles.metadataIcon, styles.iconMedium)} />
                       <span className={styles.metadataLabel}>Date:</span>

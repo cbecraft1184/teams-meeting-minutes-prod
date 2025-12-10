@@ -1120,7 +1120,7 @@ export function registerRoutes(app: Express): Server {
           tenantId: null,
           eventType,
           title: eventTitle,
-          description: `Action item "${existingItem.description.substring(0, 50)}${existingItem.description.length > 50 ? '...' : ''}" status changed from ${existingItem.status} to ${validatedData.status}`,
+          description: `Action item "${existingItem.task.substring(0, 50)}${existingItem.task.length > 50 ? '...' : ''}" status changed from ${existingItem.status} to ${validatedData.status}`,
           actorEmail: req.user?.email || "system",
           actorName: req.user?.displayName || req.user?.email || "System",
           actorAadId: req.user?.id || null,

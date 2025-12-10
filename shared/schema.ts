@@ -785,7 +785,7 @@ export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 
 // Relations
 export const meetingsRelations = relations(meetings, ({ one, many }) => ({
-  minutes: many(meetingMinutes), // One meeting can have multiple minutes (one per session)
+  minutes: one(meetingMinutes), // One meeting has one minutes record (sessions create separate meetings)
   actionItems: many(actionItems),
   events: many(meetingEvents),
 }));
@@ -818,6 +818,6 @@ export const actionItemsRelations = relations(actionItems, ({ one }) => ({
 
 // Extended types for frontend
 export type MeetingWithMinutes = Meeting & {
-  minutes?: MeetingMinutes[]; // Array of minutes (one per session)
+  minutes?: MeetingMinutes | null; // One minutes record per meeting (sessions create separate meetings)
   actionItems?: ActionItem[];
 };

@@ -97,6 +97,8 @@ async function processCallRecordJob(job: Job): Promise<void> {
   let organizer = resourceData?.organizer?.user?.id;
 
   // CRITICAL: If joinWebUrl is missing, fetch full callRecord from Graph API
+  let onlineMeetingId: string | null = null;
+  
   if (!joinWebUrl) {
     console.log(`📥 [Orchestrator] JoinWebUrl missing from webhook, fetching from Graph API...`);
     try {
@@ -109,9 +111,25 @@ async function processCallRecordJob(job: Job): Promise<void> {
         if (graphClient) {
           const callRecord = await graphClient.get(`/communications/callRecords/${callRecordId}`);
           
-          joinWebUrl = callRecord?.joinWebUrl;
+          // Try joinWebUrl first, fall back to onlineMeetingUrl
+          joinWebUrl = callRecord?.joinWebUrl || callRecord?.onlineMeetingUrl;
           organizer = callRecord?.organizer?.user?.id;
-          console.log(`✅ [Orchestrator] Fetched callRecord from Graph. JoinWebUrl: ${joinWebUrl ? 'found' : 'N/A'}`);
+          
+          // Extract onlineMeetingId from the URL if present (used for enrichment)
+          // The join URL contains the meeting thread ID in format: 19:meeting_XXXXX@thread.v2
+          // It may be URL-encoded (19%3ameeting_...) or decoded (19:meeting_...)
+          if (joinWebUrl) {
+            // Decode URL first to normalize
+            const decodedUrl = decodeURIComponent(joinWebUrl);
+            // Match pattern: 19:meeting_{base64-like-id}@thread.v2
+            const meetingIdMatch = decodedUrl.match(/19:(meeting_[A-Za-z0-9_-]+)@thread\.v2/i);
+            if (meetingIdMatch) {
+              onlineMeetingId = `19:${meetingIdMatch[1]}@thread.v2`;
+              console.log(`✅ [Orchestrator] Extracted onlineMeetingId: ${onlineMeetingId}`);
+            }
+          }
+          
+          console.log(`✅ [Orchestrator] Fetched callRecord from Graph. JoinWebUrl: ${joinWebUrl ? 'found' : 'N/A'}, OnlineMeetingId: ${onlineMeetingId || 'N/A'}`);
         }
       }
     } catch (error: any) {
@@ -119,50 +137,99 @@ async function processCallRecordJob(job: Job): Promise<void> {
     }
   }
 
-  // Try to find meeting by Teams join link (exact match first)
+  // Extract onlineMeetingId from joinWebUrl (regardless of source - webhook or Graph API)
+  // The join URL contains the meeting thread ID in format: 19:meeting_XXXXX@thread.v2
+  if (joinWebUrl && !onlineMeetingId) {
+    try {
+      const decodedUrl = decodeURIComponent(joinWebUrl);
+      const meetingIdMatch = decodedUrl.match(/19:(meeting_[A-Za-z0-9_-]+)@thread\.v2/i);
+      if (meetingIdMatch) {
+        onlineMeetingId = `19:${meetingIdMatch[1]}@thread.v2`;
+        console.log(`✅ [Orchestrator] Extracted onlineMeetingId from URL: ${onlineMeetingId}`);
+      }
+    } catch (e) {
+      console.warn(`⚠️ [Orchestrator] Failed to decode joinWebUrl for onlineMeetingId extraction`);
+    }
+  }
+
+  // Try to find meeting by Teams join link
   if (joinWebUrl) {
-    let [meeting] = await db
+    // Normalize URL for matching - handle both encoded and decoded formats
+    const normalizedUrl = decodeURIComponent(joinWebUrl);
+    
+    // Extract the meeting thread ID for pattern matching (handles both encoded and decoded)
+    // Matches: 19:meeting_XXXXX or 19%3ameeting_XXXXX
+    const meetingThreadMatch = normalizedUrl.match(/19:(meeting_[^@\/]+)/i) || 
+                               joinWebUrl.match(/19%3[aA](meeting_[^@%\/]+)/i);
+    
+    let meeting = null;
+    
+    // Try exact match first
+    const [exactMatch] = await db
       .select()
       .from(meetings)
       .where(eq(meetings.teamsJoinLink, joinWebUrl))
       .limit(1);
+    
+    if (exactMatch) {
+      meeting = exactMatch;
+    }
+    
+    // Try normalized exact match
+    if (!meeting && normalizedUrl !== joinWebUrl) {
+      const [normalizedMatch] = await db
+        .select()
+        .from(meetings)
+        .where(eq(meetings.teamsJoinLink, normalizedUrl))
+        .limit(1);
+      if (normalizedMatch) {
+        meeting = normalizedMatch;
+      }
+    }
 
-    // If no exact match, try matching by the meeting ID in the URL (more robust)
-    if (!meeting) {
-      // Extract meeting ID from join URL (e.g., 19:meeting_XXXXX@thread.v2)
-      const meetingIdMatch = joinWebUrl.match(/19%3a(meeting_[^@%]+)/i);
-      if (meetingIdMatch) {
-        const meetingIdPattern = `%${meetingIdMatch[1]}%`;
-        console.log(`🔍 [Orchestrator] Trying pattern match with: ${meetingIdPattern}`);
-        
-        const matchedMeetings = await db
-          .select()
-          .from(meetings)
-          .where(sql`${meetings.teamsJoinLink} LIKE ${meetingIdPattern}`)
-          .limit(1);
-        
-        if (matchedMeetings.length > 0) {
-          meeting = matchedMeetings[0];
-        }
+    // If no exact match, try pattern matching by meeting thread ID
+    if (!meeting && meetingThreadMatch) {
+      const meetingIdPattern = `%${meetingThreadMatch[1]}%`;
+      console.log(`🔍 [Orchestrator] Trying pattern match with: ${meetingIdPattern}`);
+      
+      const matchedMeetings = await db
+        .select()
+        .from(meetings)
+        .where(sql`${meetings.teamsJoinLink} LIKE ${meetingIdPattern}`)
+        .limit(1);
+      
+      if (matchedMeetings.length > 0) {
+        meeting = matchedMeetings[0];
       }
     }
 
     if (meeting) {
       console.log(`✅ [Orchestrator] Found meeting: ${meeting.id} (${meeting.title})`);
       
-      // Update call record ID and status
+      // Determine the best onlineMeetingId for enrichment
+      const enrichmentMeetingId = meeting.onlineMeetingId || onlineMeetingId;
+      
+      // Update call record ID, status, and onlineMeetingId if we extracted one
+      const updateData: any = { 
+        callRecordId,
+        status: 'completed',
+        graphSyncStatus: 'synced'
+      };
+      if (!meeting.onlineMeetingId && onlineMeetingId) {
+        updateData.onlineMeetingId = onlineMeetingId;
+      }
+      
       await db.update(meetings)
-        .set({ 
-          callRecordId,
-          status: 'completed',
-          graphSyncStatus: 'synced'
-        })
+        .set(updateData)
         .where(eq(meetings.id, meeting.id));
 
-      // Trigger enrichment - use callRecordId if onlineMeetingId is missing
-      const enrichmentId = meeting.onlineMeetingId || callRecordId;
-      console.log(`🎬 [Orchestrator] Triggering enrichment for meeting: ${meeting.id} (enrichmentId: ${enrichmentId})`);
-      await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, enrichmentId);
+      // Trigger enrichment only if we have a valid onlineMeetingId
+      if (enrichmentMeetingId) {
+        console.log(`🎬 [Orchestrator] Triggering enrichment for meeting: ${meeting.id} (onlineMeetingId: ${enrichmentMeetingId})`);
+        await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, enrichmentMeetingId);
+      } else {
+        console.log(`⚠️ [Orchestrator] Cannot trigger enrichment - no onlineMeetingId available for meeting: ${meeting.id}`);
+      }
       
       return;
     }

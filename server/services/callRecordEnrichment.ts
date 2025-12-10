@@ -137,24 +137,48 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     
     let organizerId: string | null = meetingRecord?.organizerAadId || null;
     
-    // If organizer ID not in database, fetch from callRecord
-    if (!organizerId && meetingRecord?.callRecordId) {
-      console.log(`📊 [Enrichment] Fetching organizer ID from callRecord ${meetingRecord.callRecordId}`);
+    // Fetch call record details including participants
+    let callRecordData: any = null;
+    if (meetingRecord?.callRecordId) {
+      console.log(`📊 [Enrichment] Fetching callRecord ${meetingRecord.callRecordId}`);
       try {
-        const callRecordResponse = await graphClient.get(
-          `/communications/callRecords/${meetingRecord.callRecordId}`
+        callRecordData = await graphClient.get(
+          `/communications/callRecords/${meetingRecord.callRecordId}?$expand=participants`
         );
-        organizerId = callRecordResponse?.organizer?.user?.id || null;
+        
+        // Extract organizer ID if not already set
+        if (!organizerId) {
+          organizerId = callRecordData?.organizer?.user?.id || null;
+        }
         
         // Persist organizer ID to database for future use
-        if (organizerId) {
+        if (organizerId && !meetingRecord.organizerAadId) {
           await db.update(meetings)
             .set({ organizerAadId: organizerId })
             .where(eq(meetings.id, meetingId));
           console.log(`✅ [Enrichment] Persisted organizer ID: ${organizerId}`);
         }
+        
+        // Extract participants and update attendees
+        if (callRecordData?.participants && callRecordData.participants.length > 0) {
+          const attendees = callRecordData.participants
+            .filter((p: any) => p.user?.id || p.user?.displayName)
+            .map((p: any) => ({
+              name: p.user?.displayName || 'Unknown',
+              email: p.user?.userPrincipalName || null,
+              aadId: p.user?.id || null,
+              role: p.user?.id === organizerId ? 'Organizer' : 'Attendee'
+            }));
+          
+          if (attendees.length > 0) {
+            await db.update(meetings)
+              .set({ attendees: attendees })
+              .where(eq(meetings.id, meetingId));
+            console.log(`✅ [Enrichment] Synced ${attendees.length} attendees from callRecord`);
+          }
+        }
       } catch (callRecordError) {
-        console.warn(`⚠️ [Enrichment] Could not fetch organizer from callRecord:`, callRecordError);
+        console.warn(`⚠️ [Enrichment] Could not fetch callRecord:`, callRecordError);
       }
     }
     

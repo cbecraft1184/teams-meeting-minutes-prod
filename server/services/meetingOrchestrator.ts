@@ -1,10 +1,11 @@
 import { db } from "../db";
 import { meetings, meetingMinutes, meetingEvents } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { enqueueJob, completeJob, failJob } from "./durableQueue";
 import type { Job, InsertMeetingEvent } from "@shared/schema";
 import { teamsProactiveMessaging } from "./teamsProactiveMessaging";
 import { callRecordEnrichmentService } from "./callRecordEnrichment";
+import { acquireTokenByClientCredentials, getGraphClient } from "./microsoftIdentity";
 
 /**
  * Helper to log meeting events in the audit trail
@@ -75,6 +76,9 @@ export async function processJob(job: Job): Promise<void> {
  * This job is enqueued when a callRecords webhook is received.
  * Matches the call record to a meeting and triggers enrichment.
  * 
+ * CRITICAL FIX: Webhook payload does NOT include joinWebUrl - we must fetch
+ * the full callRecord from Graph API to get it.
+ * 
  * CRASH RECOVERY: If container crashes after receiving webhook but before
  * processing, this job will be picked up on restart from the durable queue.
  */
@@ -88,20 +92,63 @@ async function processCallRecordJob(job: Job): Promise<void> {
   console.log(`📞 [Orchestrator] Processing call record: ${callRecordId}`);
   console.log(`   Resource: ${resource}`);
 
-  // Extract join URL and organizer from resource data
-  const joinWebUrl = resourceData?.joinWebUrl;
-  const organizer = resourceData?.organizer?.user?.id;
+  // Extract join URL from resource data (might be missing in webhook payload)
+  let joinWebUrl = resourceData?.joinWebUrl;
+  let organizer = resourceData?.organizer?.user?.id;
 
-  // Try to find meeting by Teams join link
+  // CRITICAL: If joinWebUrl is missing, fetch full callRecord from Graph API
+  if (!joinWebUrl) {
+    console.log(`📥 [Orchestrator] JoinWebUrl missing from webhook, fetching from Graph API...`);
+    try {
+      const accessToken = await acquireTokenByClientCredentials([
+        'https://graph.microsoft.com/.default'
+      ]);
+      
+      if (accessToken) {
+        const graphClient = await getGraphClient(accessToken);
+        if (graphClient) {
+          const callRecord = await graphClient.get(`/communications/callRecords/${callRecordId}`);
+          
+          joinWebUrl = callRecord?.joinWebUrl;
+          organizer = callRecord?.organizer?.user?.id;
+          console.log(`✅ [Orchestrator] Fetched callRecord from Graph. JoinWebUrl: ${joinWebUrl ? 'found' : 'N/A'}`);
+        }
+      }
+    } catch (error: any) {
+      console.error(`⚠️ [Orchestrator] Failed to fetch callRecord from Graph:`, error.message);
+    }
+  }
+
+  // Try to find meeting by Teams join link (exact match first)
   if (joinWebUrl) {
-    const [meeting] = await db
+    let [meeting] = await db
       .select()
       .from(meetings)
       .where(eq(meetings.teamsJoinLink, joinWebUrl))
       .limit(1);
 
+    // If no exact match, try matching by the meeting ID in the URL (more robust)
+    if (!meeting) {
+      // Extract meeting ID from join URL (e.g., 19:meeting_XXXXX@thread.v2)
+      const meetingIdMatch = joinWebUrl.match(/19%3a(meeting_[^@%]+)/i);
+      if (meetingIdMatch) {
+        const meetingIdPattern = `%${meetingIdMatch[1]}%`;
+        console.log(`🔍 [Orchestrator] Trying pattern match with: ${meetingIdPattern}`);
+        
+        const matchedMeetings = await db
+          .select()
+          .from(meetings)
+          .where(sql`${meetings.teamsJoinLink} LIKE ${meetingIdPattern}`)
+          .limit(1);
+        
+        if (matchedMeetings.length > 0) {
+          meeting = matchedMeetings[0];
+        }
+      }
+    }
+
     if (meeting) {
-      console.log(`✅ [Orchestrator] Found meeting by join URL: ${meeting.id} (${meeting.title})`);
+      console.log(`✅ [Orchestrator] Found meeting: ${meeting.id} (${meeting.title})`);
       
       // Update call record ID and status
       await db.update(meetings)
@@ -112,11 +159,10 @@ async function processCallRecordJob(job: Job): Promise<void> {
         })
         .where(eq(meetings.id, meeting.id));
 
-      // Trigger enrichment if we have the online meeting ID
-      if (meeting.onlineMeetingId) {
-        console.log(`🎬 [Orchestrator] Triggering enrichment for meeting: ${meeting.id}`);
-        await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, meeting.onlineMeetingId);
-      }
+      // Trigger enrichment - use callRecordId if onlineMeetingId is missing
+      const enrichmentId = meeting.onlineMeetingId || callRecordId;
+      console.log(`🎬 [Orchestrator] Triggering enrichment for meeting: ${meeting.id} (enrichmentId: ${enrichmentId})`);
+      await callRecordEnrichmentService.enqueueMeetingEnrichment(meeting.id, enrichmentId);
       
       return;
     }

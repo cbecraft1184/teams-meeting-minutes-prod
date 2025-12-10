@@ -499,7 +499,7 @@ async function processSendEmailJob(job: Job): Promise<void> {
     }
 
     // Combine for document generation (meeting with specific minutes record)
-    const meetingWithMinutes = { ...meeting, minutes: [minutes] };
+    const meetingWithMinutes = { ...meeting, minutes };
 
     // Generate documents with fresh minutes data
     const { documentExportService } = await import("./documentExport");
@@ -574,7 +574,7 @@ async function processUploadSharePointJob(job: Job): Promise<void> {
     }
 
     // Combine for document generation (meeting with specific minutes record)
-    const meetingWithMinutes = { ...meeting, minutes: [minutes] };
+    const meetingWithMinutes = { ...meeting, minutes };
 
     // Generate DOCX for SharePoint
     const { documentExportService } = await import("./documentExport");

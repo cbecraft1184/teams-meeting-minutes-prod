@@ -99,6 +99,11 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - Created `meeting_event_type` enum with proper values
 - All 16 database tables verified with correct schema alignment
 
+### Graph API Endpoint Fix (December 10, 2025)
+- **CRITICAL FIX**: Changed transcript/recording endpoints from unsupported `/communications/onlineMeetings/{id}/transcripts` to correct `/users/{organizerId}/onlineMeetings/{meetingId}/transcripts`
+- **Organizer ID**: Now fetches organizer ID from callRecord and persists to `organizer_aad_id` column for reuse
+- **Error Handling**: Graceful handling of missing recordings/transcripts with proper logging
+
 ### Production Status (December 6, 2025)
 - **Authentication**: Multi-tenant JWT validation working correctly
 - **Calendar Sync**: OBO flow and Graph API integration functional

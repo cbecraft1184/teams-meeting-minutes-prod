@@ -243,10 +243,12 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     await recordProcessingDecision(meetingId, decision);
     
     // Update meeting record (clear retry timestamp on success)
+    // CRITICAL: Persist transcript content for AI minutes generation
     await db.update(meetings)
       .set({
         recordingUrl: latestRecording?.recordingContentUrl || null,
         transcriptUrl: latestTranscript?.transcriptContentUrl || null,
+        transcriptContent: transcriptContent || null, // Persist full transcript for AI processing
         enrichmentStatus: "enriched",
         enrichmentAttempts: attempt,
         lastEnrichmentAt: new Date(),

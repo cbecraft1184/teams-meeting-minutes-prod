@@ -50,18 +50,23 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       return;
     }
     
-    // Generate mock transcript (in production, this would be fetched from Graph API)
-    const mockTranscript = generateMockTranscript(meeting);
+    // Use persisted transcript content from enrichment
+    const transcript = meeting.transcriptContent;
     
-    console.log(`🔄 [MinutesGenerator] Calling AI to generate minutes...`);
+    if (!transcript || transcript.length < 50) {
+      console.error(`❌ [MinutesGenerator] No transcript content available for meeting ${meetingId}`);
+      throw new Error(`No transcript available for meeting ${meetingId}. Meetings require a recorded transcript for AI minutes generation.`);
+    }
     
-    // Generate minutes using AI
-    const minutesData = await generateMeetingMinutes(mockTranscript);
+    console.log(`🔄 [MinutesGenerator] Using transcript (${transcript.length} characters) to generate minutes...`);
+    
+    // Generate minutes using AI with real transcript
+    const minutesData = await generateMeetingMinutes(transcript);
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // Extract action items
-    const actionItemsData = await extractActionItems(mockTranscript);
+    // Extract action items from real transcript
+    const actionItemsData = await extractActionItems(transcript);
     
     // Check approval settings
     const settings = await storage.getSettings();
@@ -205,60 +210,7 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
   }
 }
 
-/**
- * Generate a realistic mock transcript for testing
- */
-function generateMockTranscript(meeting: any): string {
-  const meetingTitle = meeting.title || "Team Meeting";
-  const attendeeNames = meeting.attendees.map((email: string) => {
-    const name = email.split('@')[0].replace('.', ' ');
-    return name.charAt(0).toUpperCase() + name.slice(1);
-  });
-  
-  // Generate realistic meeting transcript
-  return `
-MEETING TRANSCRIPT
-==================
-Meeting: ${meetingTitle}
-Date: ${meeting.scheduledAt ? new Date(meeting.scheduledAt).toLocaleDateString() : 'Today'}
-Duration: ${meeting.duration || 30} minutes
-Attendees: ${attendeeNames.join(', ')}
-
-[00:00] ${attendeeNames[0]}: Good morning everyone, thank you for joining. Let's get started with today's ${meetingTitle}.
-
-[00:30] ${attendeeNames[0]}: The main objective of this meeting is to review our project status and discuss next steps. I'd like to cover three key areas today.
-
-[01:00] ${attendeeNames[1]}: Thanks for organizing this. I've reviewed the latest reports and have some updates to share.
-
-[02:00] ${attendeeNames[1]}: First, regarding the security compliance review - we've completed the initial assessment. All systems are meeting compliance standards. We identified a few minor areas for improvement, which we'll address this quarter.
-
-[03:30] ${attendeeNames[0]}: That's excellent progress. Can you provide more details on the timeline for those improvements?
-
-[04:00] ${attendeeNames[1]}: Absolutely. I'll send a detailed timeline by end of week. We're targeting completion by the 15th of next month.
-
-[04:30] ${attendeeNames.length > 2 ? attendeeNames[2] : attendeeNames[0]}: I have an update on the technical integration. The Microsoft Teams integration is now functional and we've successfully tested the webhook system.
-
-[05:30] ${attendeeNames.length > 2 ? attendeeNames[2] : attendeeNames[0]}: We need to coordinate with the infrastructure team for the production deployment. I'll schedule a follow-up meeting with them this week.
-
-[06:30] ${attendeeNames[0]}: Great work everyone. Let's make sure we document all action items. ${attendeeNames[1]}, can you take the lead on the security compliance improvements?
-
-[07:00] ${attendeeNames[1]}: Yes, I'll handle that and provide weekly status updates.
-
-[07:30] ${attendeeNames[0]}: And ${attendeeNames.length > 2 ? attendeeNames[2] : attendeeNames[1]}, you'll coordinate the production deployment meeting?
-
-[08:00] ${attendeeNames.length > 2 ? attendeeNames[2] : attendeeNames[1]}: Confirmed. I'll send out invites today.
-
-[08:30] ${attendeeNames[0]}: Perfect. Before we wrap up, does anyone have additional items to discuss?
-
-[09:00] ${attendeeNames[1]}: Just a quick note - we should consider scheduling a demo for stakeholders once the production deployment is complete.
-
-[09:30] ${attendeeNames[0]}: Good point. Let's plan for that in the next sprint. I'll add it to our roadmap.
-
-[10:00] ${attendeeNames[0]}: Alright, I think we've covered everything. Thanks everyone for your time and great work. Meeting adjourned.
-
-END OF TRANSCRIPT
-  `.trim();
-}
+// REMOVED: generateMockTranscript function - now uses real transcript from meeting.transcriptContent
 
 export const minutesGeneratorService = {
   autoGenerateMinutes

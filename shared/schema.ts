@@ -122,6 +122,7 @@ export const meetings = pgTable("meetings", {
   classificationLevel: classificationLevelEnum("classification_level").notNull().default("UNCLASSIFIED"),
   recordingUrl: text("recording_url"),
   transcriptUrl: text("transcript_url"),
+  transcriptContent: text("transcript_content"), // Full transcript text for AI processing
   
   // Microsoft Graph Calendar Integration
   graphEventId: text("graph_event_id").unique(), // Graph calendar event ID (for idempotent upserts)

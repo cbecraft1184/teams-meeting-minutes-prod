@@ -212,7 +212,7 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
   }
 
   try {
-    // Get meeting to access transcript data
+    // Get meeting to access transcript data (persisted by callRecordEnrichment)
     const meeting = await db.query.meetings.findFirst({
       where: (m, { eq }) => eq(m.id, meetingId),
     });
@@ -221,33 +221,22 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
       throw new Error(`Meeting not found: ${meetingId}`);
     }
 
+    // Use persisted transcript content from enrichment
+    const transcript = meeting.transcriptContent;
+    
+    if (!transcript || transcript.length < 50) {
+      throw new Error(`No transcript available for meeting ${meetingId}. Meetings require a recorded transcript for AI minutes generation.`);
+    }
+
+    console.log(`[Orchestrator] Using persisted transcript (${transcript.length} chars) for meeting: ${meetingId}`);
+
     // Import AI services
     const { generateMeetingMinutes, extractActionItems } = await import("./azureOpenAI");
     
-    // Get transcript - use real transcript if available, otherwise generate from meeting context
-    let transcript = "";
-    if (meeting.transcriptUrl) {
-      // In production, fetch real transcript from Graph API
-      console.log(`[Orchestrator] Fetching transcript from: ${meeting.transcriptUrl}`);
-      try {
-        const { graphService } = await import("./graphService");
-        transcript = await graphService.getTranscriptContent(meeting.transcriptUrl);
-      } catch (error) {
-        console.warn(`[Orchestrator] Failed to fetch transcript, using meeting context:`, error);
-        transcript = generateTranscriptFromMeeting(meeting);
-      }
-    } else {
-      // Generate contextual transcript from meeting data
-      console.log(`[Orchestrator] No transcript URL, generating from meeting context`);
-      transcript = generateTranscriptFromMeeting(meeting);
-    }
-
-    console.log(`[Orchestrator] Calling AI to generate minutes for meeting: ${meetingId}`);
-    
-    // Generate minutes using AI
+    // Generate minutes using AI with real transcript
     const minutesData = await generateMeetingMinutes(transcript);
     
-    // Extract action items
+    // Extract action items from real transcript
     const actionItemsData = await extractActionItems(transcript);
 
     // Update minutes with AI-generated content

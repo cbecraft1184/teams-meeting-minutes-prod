@@ -189,7 +189,8 @@ class CalendarSyncService {
       classificationLevel: 'UNCLASSIFIED',
       organizerEmail: event.organizer?.emailAddress?.address || null,
       organizerAadId: userId,
-      attendees: attendeeEmails,
+      attendees: attendeeEmails, // Initially same as invitees, updated by enrichment with actual participants
+      invitees: attendeeEmails, // Store original invitees for email distribution option
       onlineMeetingId,
       teamsJoinLink: event.onlineMeeting?.joinUrl || null,
       isOnlineMeeting: true,
@@ -233,7 +234,8 @@ class CalendarSyncService {
       classificationLevel: 'UNCLASSIFIED',
       organizerEmail: meeting.participants?.organizer?.upn || null,
       organizerAadId: meeting.participants?.organizer?.identity?.user?.id || null,
-      attendees: attendeeEmails,
+      attendees: attendeeEmails, // Initially same as invitees, updated by enrichment with actual participants
+      invitees: attendeeEmails, // Store original invitees for email distribution option
       onlineMeetingId,
       teamsJoinLink: meeting.joinWebUrl || null,
       isOnlineMeeting: true,

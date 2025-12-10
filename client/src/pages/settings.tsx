@@ -886,9 +886,9 @@ export default function Settings() {
                       </div>
                       <Dropdown
                         value={appSettings.emailRecipientMode === 'all_invitees' ? 'All Invitees' : 'Attendees Only'}
-                        selectedOptions={[appSettings.emailRecipientMode]}
+                        selectedOptions={[appSettings.emailRecipientMode || 'attendees_only']}
                         onOptionSelect={(ev, data) => {
-                          updateSettingsMutation.mutate({ emailRecipientMode: data.optionValue as string });
+                          updateSettingsMutation.mutate({ emailRecipientMode: data.optionValue as 'attendees_only' | 'all_invitees' });
                         }}
                         disabled={updateSettingsMutation.isPending}
                         data-testid="dropdown-email-recipients"

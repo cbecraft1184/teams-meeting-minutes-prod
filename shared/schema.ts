@@ -117,7 +117,8 @@ export const meetings = pgTable("meetings", {
   scheduledAt: timestamp("scheduled_at").notNull(),
   endTime: timestamp("end_time"), // End time from Graph calendar event
   duration: text("duration").notNull(), // e.g., "1h 30m"
-  attendees: jsonb("attendees").notNull().$type<string[]>(),
+  attendees: jsonb("attendees").notNull().$type<string[]>(), // People who actually joined the call
+  invitees: jsonb("invitees").$type<string[]>(), // People invited to the meeting (from calendar)
   status: meetingStatusEnum("status").notNull().default("scheduled"),
   classificationLevel: classificationLevelEnum("classification_level").notNull().default("UNCLASSIFIED"),
   recordingUrl: text("recording_url"),

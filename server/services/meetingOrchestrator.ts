@@ -133,50 +133,25 @@ async function processCallRecordJob(job: Job): Promise<void> {
 
 /**
  * Step 1: Enrich meeting with data from Microsoft Graph API
+ * PRODUCTION: Calls callRecordEnrichmentService.enrichMeeting which:
+ * 1. Fetches recordings/transcripts from Microsoft Graph API
+ * 2. Persists transcript content to database
+ * 3. Triggers AI minutes generation upon successful enrichment
  */
 async function processEnrichmentJob(job: Job): Promise<void> {
-  const { meetingId } = job.payload;
+  const { meetingId, onlineMeetingId } = job.payload;
   if (!meetingId) throw new Error("meetingId required");
+  if (!onlineMeetingId) throw new Error("onlineMeetingId required for enrichment");
 
-  // Update meeting status to enriching
-  await db.update(meetings)
-    .set({
-      enrichmentStatus: "enriching",
-      enrichmentAttempts: job.attemptCount,
-      lastEnrichmentAt: new Date(),
-    })
-    .where(eq(meetings.id, meetingId));
+  console.log(`[Orchestrator] Starting enrichment for meeting: ${meetingId}`);
 
-  try {
-    // TODO: Call enrichment service to fetch meeting data from Graph API
-    // const enrichedData = await enrichmentService.enrichMeeting(meetingId);
-
-    // For now, mark as enriched (placeholder)
-    await db.update(meetings)
-      .set({
-        enrichmentStatus: "enriched",
-        graphSyncStatus: "enriched",
-      })
-      .where(eq(meetings.id, meetingId));
-
-    // Enqueue next step: AI minutes generation
-    await enqueueJob({
-      jobType: "generate_minutes",
-      idempotencyKey: `generate_minutes:${meetingId}`,
-      payload: { meetingId },
-    });
-
-    console.log(`[Orchestrator] Enrichment complete for meeting: ${meetingId}`);
-  } catch (error: any) {
-    // Rollback: Mark enrichment as failed
-    await db.update(meetings)
-      .set({
-        enrichmentStatus: "failed",
-      })
-      .where(eq(meetings.id, meetingId));
-
-    throw error;
-  }
+  // Call enrichMeeting directly - this does the actual work:
+  // - Fetches recordings/transcripts from Graph API
+  // - Persists transcript content to database
+  // - Triggers AI minutes generation upon successful enrichment
+  await callRecordEnrichmentService.enrichMeeting(meetingId, onlineMeetingId, job.attemptCount);
+  
+  console.log(`[Orchestrator] Enrichment completed for meeting: ${meetingId}`);
 }
 
 /**

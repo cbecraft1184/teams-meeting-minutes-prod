@@ -102,55 +102,8 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     })
     .where(eq(meetings.id, meetingId));
   
-  // Get Graph API client - CRITICAL: default to real services in production
-  const isProduction = process.env.NODE_ENV === 'production';
-  const useMockServices = process.env.USE_MOCK_SERVICES === 'true' || 
-                          (process.env.USE_MOCK_SERVICES === undefined && !isProduction);
-  
-  if (useMockServices) {
-    // Mock mode: Simulate enrichment with fake data
-    console.log(`🧪 [Enrichment] Mock mode: Simulating enrichment for meeting ${meetingId}`);
-    
-    // Mock: Simulate a 30-minute meeting with 200-word transcript
-    const mockDurationSeconds = 30 * 60; // 30 minutes
-    const mockTranscriptWordCount = 200; // 200 words
-    
-    // Validate processing thresholds (compliance)
-    const decision = validateForProcessing(mockDurationSeconds, mockTranscriptWordCount, true);
-    await recordProcessingDecision(meetingId, decision);
-    
-    await db.update(meetings)
-      .set({
-        callRecordId: `mock-callrecord-${onlineMeetingId}`,
-        recordingUrl: `https://mock-storage.example.com/recordings/${onlineMeetingId}.mp4`,
-        transcriptUrl: `https://mock-storage.example.com/transcripts/${onlineMeetingId}.vtt`,
-        enrichmentStatus: "enriched",
-        enrichmentAttempts: attempt,
-        lastEnrichmentAt: new Date(),
-        callRecordRetryAt: null, // Clear retry timestamp
-        graphSyncStatus: "enriched"
-      })
-      .where(eq(meetings.id, meetingId));
-    
-    console.log(`✅ [Enrichment] Mock enrichment complete for meeting ${meetingId}`);
-    
-    // Only trigger AI processing if validation passed
-    if (decision.shouldProcess) {
-      try {
-        console.log(`🤖 [Enrichment] Triggering auto-generation of minutes...`);
-        await minutesGeneratorService.autoGenerateMinutes(meetingId);
-      } catch (error) {
-        console.error(`❌ [Enrichment] Failed to auto-generate minutes:`, error);
-        // Don't fail enrichment if minutes generation fails
-      }
-    } else {
-      console.log(`⏭️ [Enrichment] Skipping AI processing: ${decision.reason}`);
-    }
-    
-    return;
-  }
-  
-  // Real mode: Fetch from Microsoft Graph API
+  // PRODUCTION ONLY: No mock services - always use real Microsoft Graph API
+  // Mock data paths have been removed per production requirements
   try {
     // Import token acquisition for Graph API access
     const { acquireTokenByClientCredentials } = await import('./microsoftIdentity');
@@ -435,6 +388,7 @@ export async function forceProcessMeeting(
 
 export const callRecordEnrichmentService = {
   enqueueMeetingEnrichment,
+  enrichMeeting,  // Export for direct calls from job worker
   processStuckEnrichments,
   manuallyEnrichMeeting,
   forceProcessMeeting,

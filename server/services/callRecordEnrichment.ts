@@ -123,10 +123,14 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       throw new Error('Failed to get Graph API client');
     }
     
+    // URL-encode the onlineMeetingId for Graph API (contains : and @ which must be encoded)
+    const encodedMeetingId = encodeURIComponent(onlineMeetingId);
+    console.log(`🔗 [Enrichment] Using encoded meeting ID: ${encodedMeetingId}`);
+    
     // Fetch recordings
     console.log(`📹 [Enrichment] Fetching recordings for ${onlineMeetingId}`);
     const recordingsResponse = await graphClient.get(
-      `/communications/onlineMeetings/${onlineMeetingId}/recordings`
+      `/communications/onlineMeetings/${encodedMeetingId}/recordings`
     );
     
     const recordings: Recording[] = recordingsResponse?.value || [];
@@ -137,7 +141,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
     // Fetch transcripts
     console.log(`📝 [Enrichment] Fetching transcripts for ${onlineMeetingId}`);
     const transcriptsResponse = await graphClient.get(
-      `/communications/onlineMeetings/${onlineMeetingId}/transcripts`
+      `/communications/onlineMeetings/${encodedMeetingId}/transcripts`
     );
     
     const transcripts: Transcript[] = transcriptsResponse?.value || [];
@@ -151,7 +155,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       try {
         console.log(`📥 [Enrichment] Downloading transcript content...`);
         const transcriptResponse = await graphClient.get(
-          `/communications/onlineMeetings/${onlineMeetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`
+          `/communications/onlineMeetings/${encodedMeetingId}/transcripts/${latestTranscript.id}/content?$format=text/vtt`
         );
         transcriptContent = transcriptResponse;
         console.log(`✅ [Enrichment] Transcript content downloaded (${transcriptContent?.length || 0} chars)`);

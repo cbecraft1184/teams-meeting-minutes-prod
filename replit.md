@@ -127,3 +127,30 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - Requires `Sites.ReadWrite.All` or `Sites.Selected` Azure AD permission
 - Creates folder structure: `YYYY/MM-Month/Classification/`
 - Sets custom metadata columns: Classification, MeetingDate, AttendeeCount, MeetingID
+
+## Azure CLI Access from Replit
+
+**IMPORTANT**: To use Azure CLI from Replit, use device code authentication:
+
+1. Run: `az login --use-device-code`
+2. A code will be displayed (e.g., `EHML6JR5G`)
+3. Go to https://microsoft.com/devicelogin
+4. Enter the code and authenticate with Azure credentials
+5. Return to Replit - the CLI will be authenticated
+
+**Production Resources**:
+- **Container App**: `teams-minutes-app` in `rg-teams-minutes`
+- **Database**: `teams-minutes-db.postgres.database.azure.com`
+- **Container Registry**: `crteamsminutes.azurecr.io`
+- **Subscription ID**: `17f080ac-db85-4c7d-a12e-fc88bf22b2bc`
+
+**Deployment Commands**:
+```bash
+# Build and push container
+az acr build --registry crteamsminutes --image teams-minutes:latest .
+
+# Update Container App
+az containerapp update --name teams-minutes-app --resource-group rg-teams-minutes --image crteamsminutes.azurecr.io/teams-minutes:latest
+```
+
+**Alternative**: Trigger deployment via GitHub Actions with `workflow_dispatch` to `azure-deploy.yml`.

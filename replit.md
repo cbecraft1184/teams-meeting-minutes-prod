@@ -109,10 +109,24 @@ The system is a full-stack application featuring a React-based frontend, a Node.
 - Fixed TypeScript type errors in meetingOrchestrator.ts (minutes property was array, should be single object)
 - **Admin Reprocess Endpoint**: `POST /api/admin/meetings/:id/reprocess` - Deletes existing minutes and regenerates them for any meeting with a transcript. Requires admin role.
 
-### Multi-Session Meeting Support
-- When a call record comes in for a meeting that already has a callRecordId, the system creates a NEW meeting record
-- Each session gets a unique ID with title like "Meeting Name (Session 2)"
-- Session number is calculated based on existing sessions with same teamsJoinLink or iCalUid
+### Multi-Session Meeting Support (December 11, 2025)
+**Parent/Child Architecture:**
+- **Database Schema**: Added `parent_meeting_id` (varchar, nullable FK to meetings.id) and `session_number` (integer, default 1)
+- **Canonical Meetings**: Calendar-synced meetings have `parent_meeting_id IS NULL` (they are canonical parents)
+- **Child Sessions**: When a new call record arrives for a meeting that already has a callRecordId, system creates a child record with:
+  - `parent_meeting_id` = canonical parent's ID
+  - `session_number` = next available session number
+  - Inherits Graph IDs (graphEventId, iCalUid, onlineMeetingId) from parent
+  - Gets its own unique callRecordId
+  - Title suffixed with "(Session N)"
+- **Partial Unique Indexes**: Replaced unique constraints with partial unique indexes scoped to canonical meetings:
+  - `meetings_graph_event_canonical_idx` - unique graphEventId WHERE parentMeetingId IS NULL
+  - `meetings_ical_uid_canonical_idx` - unique iCalUid WHERE parentMeetingId IS NULL
+  - `meetings_online_meeting_id_canonical_idx` - unique onlineMeetingId WHERE parentMeetingId IS NULL
+  - `meetings_parent_session_unique_idx` - unique (parentMeetingId, sessionNumber) WHERE parentMeetingId IS NOT NULL
+- **Calendar Sync Scoping**: All calendar sync queries filtered to canonical meetings only (isNull(parentMeetingId))
+- **Pipeline Integrity**: Child session IDs correctly propagate through enrichment → minutes → email → SharePoint pipeline
+- **Migration Applied**: `migrations/add_multi_session_support.sql` executed on production (December 11, 2025)
 - One-to-one relationship: each meeting record has exactly one minutes record
 
 ### Graph API Transcript Access Fix (December 10, 2025)

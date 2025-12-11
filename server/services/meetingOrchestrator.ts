@@ -251,6 +251,8 @@ async function processCallRecordJob(job: Job): Promise<void> {
         const sessionNumber = existingSessions.length + 1;
         
         // Create new meeting record for this session
+        // Note: graphEventId and iCalUid are set to null to avoid unique constraint violations
+        // (these are unique per calendar event, not per session)
         const [newMeeting] = await db.insert(meetings).values({
           title: `${meeting.title} (Session ${sessionNumber})`,
           description: meeting.description,
@@ -264,9 +266,9 @@ async function processCallRecordJob(job: Job): Promise<void> {
           classificationLevel: meeting.classificationLevel,
           isOnlineMeeting: meeting.isOnlineMeeting,
           teamsJoinLink: meeting.teamsJoinLink,
-          onlineMeetingId: enrichmentMeetingId,
-          graphEventId: meeting.graphEventId,
-          iCalUid: meeting.iCalUid,
+          onlineMeetingId: null, // Each session gets a unique onlineMeetingId
+          graphEventId: null, // Null to avoid unique constraint (parent has original)
+          iCalUid: null, // Null to avoid unique constraint (parent has original)
           callRecordId: callRecordId,
           actualDurationSeconds: newCallRecordDuration,
           status: 'completed',

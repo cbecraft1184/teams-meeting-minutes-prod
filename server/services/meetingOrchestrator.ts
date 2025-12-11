@@ -505,8 +505,13 @@ async function processSendEmailJob(job: Job): Promise<void> {
       throw new Error(`Minutes not found: ${minutesId}`);
     }
 
-    // Combine for document generation (meeting with specific minutes record)
-    const meetingWithMinutes = { ...meeting, minutes };
+    // Get action items for this meeting
+    const meetingActionItems = await db.query.actionItems.findMany({
+      where: (actionItems, { eq }) => eq(actionItems.meetingId, meetingId)
+    });
+
+    // Combine for document generation (meeting with minutes AND action items)
+    const meetingWithMinutes = { ...meeting, minutes, actionItems: meetingActionItems };
 
     // Generate documents with fresh minutes data
     const { documentExportService } = await import("./documentExport");
@@ -580,8 +585,13 @@ async function processUploadSharePointJob(job: Job): Promise<void> {
       throw new Error(`Minutes not found: ${minutesId}`);
     }
 
-    // Combine for document generation (meeting with specific minutes record)
-    const meetingWithMinutes = { ...meeting, minutes };
+    // Get action items for this meeting
+    const meetingActionItems = await db.query.actionItems.findMany({
+      where: (actionItems, { eq }) => eq(actionItems.meetingId, meetingId)
+    });
+
+    // Combine for document generation (meeting with minutes AND action items)
+    const meetingWithMinutes = { ...meeting, minutes, actionItems: meetingActionItems };
 
     // Generate DOCX for SharePoint
     const { documentExportService } = await import("./documentExport");

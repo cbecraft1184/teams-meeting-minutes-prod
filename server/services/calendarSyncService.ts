@@ -8,7 +8,7 @@
 
 import { db } from '../db';
 import { meetings } from '@shared/schema';
-import { eq, and, gte, lte } from 'drizzle-orm';
+import { eq, and, gte, lte, isNull } from 'drizzle-orm';
 import { acquireTokenByClientCredentials, getGraphClient } from './microsoftIdentity';
 import { getConfig } from './configValidator';
 
@@ -162,10 +162,15 @@ class CalendarSyncService {
   private async upsertMeetingFromEvent(event: GraphEvent, userId: string): Promise<void> {
     const onlineMeetingId = event.onlineMeetingId || event.id;
     
+    // Find canonical meeting (parent_meeting_id IS NULL) by onlineMeetingId
+    // Child sessions inherit this ID but should not be matched for calendar sync
     const [existing] = await db
       .select()
       .from(meetings)
-      .where(eq(meetings.onlineMeetingId, onlineMeetingId))
+      .where(and(
+        eq(meetings.onlineMeetingId, onlineMeetingId),
+        isNull(meetings.parentMeetingId)
+      ))
       .limit(1);
 
     if (existing) {
@@ -206,10 +211,15 @@ class CalendarSyncService {
   private async upsertMeetingFromOnlineMeeting(meeting: any): Promise<void> {
     const onlineMeetingId = meeting.id;
     
+    // Find canonical meeting (parent_meeting_id IS NULL) by onlineMeetingId
+    // Child sessions inherit this ID but should not be matched for calendar sync
     const [existing] = await db
       .select()
       .from(meetings)
-      .where(eq(meetings.onlineMeetingId, onlineMeetingId))
+      .where(and(
+        eq(meetings.onlineMeetingId, onlineMeetingId),
+        isNull(meetings.parentMeetingId)
+      ))
       .limit(1);
 
     if (existing) {

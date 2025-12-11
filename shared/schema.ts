@@ -126,8 +126,9 @@ export const meetings = pgTable("meetings", {
   transcriptContent: text("transcript_content"), // Full transcript text for AI processing
   
   // Microsoft Graph Calendar Integration
-  graphEventId: text("graph_event_id").unique(), // Graph calendar event ID (for idempotent upserts)
-  iCalUid: text("ical_uid").unique(), // iCalendar UID for cross-calendar tracking
+  // Note: Uniqueness enforced via partial indexes (only for canonical meetings where parent_meeting_id IS NULL)
+  graphEventId: text("graph_event_id"), // Graph calendar event ID (for idempotent upserts)
+  iCalUid: text("ical_uid"), // iCalendar UID for cross-calendar tracking
   location: text("location"), // Meeting location from Graph event
   isOnlineMeeting: boolean("is_online_meeting").default(false), // Whether it's a Teams meeting
   organizerEmail: text("organizer_email"), // Organizer email from Graph event
@@ -138,7 +139,8 @@ export const meetings = pgTable("meetings", {
   graphChangeKey: text("graph_change_key"), // ETag/changeKey for incremental sync
   
   // Microsoft Graph Online Meeting Integration
-  onlineMeetingId: text("online_meeting_id").unique(), // Teams online meeting ID from Graph API
+  // Note: Uniqueness enforced via partial indexes (only for canonical meetings where parent_meeting_id IS NULL)
+  onlineMeetingId: text("online_meeting_id"), // Teams online meeting ID from Graph API
   organizerAadId: text("organizer_aad_id"), // Azure AD object ID of meeting organizer
   teamsJoinLink: text("teams_join_link"), // Teams meeting join URL
   callRecordId: text("call_record_id"), // Call record ID for post-meeting enrichment
@@ -157,11 +159,18 @@ export const meetings = pgTable("meetings", {
   processingDecisionReason: text("processing_decision_reason"), // Human-readable explanation for audit trail
   processingDecisionAt: timestamp("processing_decision_at"), // When processing decision was made
   
+  // Multi-session support: parent/child relationship for meetings with multiple call sessions
+  // Parent meetings (session 1) have parentMeetingId = null
+  // Child sessions reference the parent and inherit Graph identifiers
+  parentMeetingId: varchar("parent_meeting_id").references((): any => meetings.id, { onDelete: "cascade" }), // Null for canonical/first session, references parent for subsequent sessions
+  sessionNumber: integer("session_number").notNull().default(1), // Session 1, 2, 3... for display
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   graphEventIdx: index("meeting_graph_event_idx").on(table.graphEventId),
   iCalUidIdx: index("meeting_ical_uid_idx").on(table.iCalUid),
   organizerIdx: index("meeting_organizer_idx").on(table.organizerEmail),
+  parentMeetingIdx: index("meeting_parent_idx").on(table.parentMeetingId),
 }));
 
 // Meeting Minutes schema

@@ -234,25 +234,30 @@ async function processCallRecordJob(job: Job): Promise<void> {
       }
       
       // Check if this meeting already has a call record (existing session)
-      // If it does, create a NEW meeting record for this session instead of updating
+      // If it does, create a NEW child meeting record for this session
       const isNewSession = !!meeting.callRecordId && meeting.callRecordId !== callRecordId;
       
       let targetMeetingId = meeting.id;
       
       if (isNewSession) {
-        // Create a new meeting record for this session (copy from original)
-        console.log(`🔄 [Orchestrator] Creating new session record (existing session: ${meeting.callRecordId})`);
+        // Multi-session support: Create child meeting record linked to canonical parent
+        // The canonical parent is the meeting with parentMeetingId IS NULL
+        const canonicalParentId = meeting.parentMeetingId || meeting.id;
         
-        // Count existing sessions to determine session number
-        const existingSessions = await db
+        console.log(`🔄 [Orchestrator] Creating child session record (parent: ${canonicalParentId})`);
+        
+        // Count existing sessions for this parent to determine session number
+        // Include the parent (session 1) plus any existing children
+        const existingChildren = await db
           .select()
           .from(meetings)
-          .where(sql`${meetings.teamsJoinLink} = ${meeting.teamsJoinLink} OR ${meetings.iCalUid} = ${meeting.iCalUid}`);
-        const sessionNumber = existingSessions.length + 1;
+          .where(eq(meetings.parentMeetingId, canonicalParentId));
+        const sessionNumber = existingChildren.length + 2; // +2 because parent is session 1
         
-        // Create new meeting record for this session
+        // Create child meeting record linked to parent
+        // Child inherits Graph identifiers from parent - partial unique indexes allow this
         const [newMeeting] = await db.insert(meetings).values({
-          title: `${meeting.title} (Session ${sessionNumber})`,
+          title: `${meeting.title.replace(/ \(Session \d+\)$/, '')} (Session ${sessionNumber})`,
           description: meeting.description,
           scheduledAt: sessionStartTime || meeting.scheduledAt,
           duration: meeting.duration,
@@ -272,10 +277,12 @@ async function processCallRecordJob(job: Job): Promise<void> {
           status: 'completed',
           graphSyncStatus: 'synced',
           sourceType: 'graph_webhook',
+          parentMeetingId: canonicalParentId, // Link to canonical parent
+          sessionNumber: sessionNumber,
         }).returning();
         
         targetMeetingId = newMeeting.id;
-        console.log(`✅ [Orchestrator] Created new session: ${newMeeting.id} (Session ${sessionNumber})`);
+        console.log(`✅ [Orchestrator] Created child session: ${newMeeting.id} (Session ${sessionNumber}, parent: ${canonicalParentId})`);
       } else {
         // First session for this meeting - update the existing record
         const updateData: any = { 

@@ -7,7 +7,7 @@
 
 import { db } from '../db';
 import { meetings, users } from '@shared/schema';
-import { eq, and, or, isNotNull, sql } from 'drizzle-orm';
+import { eq, and, or, isNotNull, isNull, sql } from 'drizzle-orm';
 import { acquireTokenByClientCredentials, acquireTokenOnBehalfOf, getGraphClient } from './microsoftIdentity';
 import { getConfig } from './configValidator';
 
@@ -268,10 +268,15 @@ export class GraphCalendarSyncService {
     event: GraphCalendarEvent,
     organizerEmail: string
   ): Promise<'created' | 'updated' | 'unchanged'> {
+    // Find canonical meeting (parent_meeting_id IS NULL) by Graph identifiers
+    // Child sessions inherit these IDs but should not be matched for calendar sync updates
     const existingMeeting = await db.query.meetings.findFirst({
-      where: or(
-        eq(meetings.graphEventId, event.id),
-        event.iCalUId ? eq(meetings.iCalUid, event.iCalUId) : undefined
+      where: and(
+        isNull(meetings.parentMeetingId),
+        or(
+          eq(meetings.graphEventId, event.id),
+          event.iCalUId ? eq(meetings.iCalUid, event.iCalUId) : undefined
+        )
       ),
     });
 

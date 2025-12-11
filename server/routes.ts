@@ -11,6 +11,7 @@ import { documentExportService } from "./services/documentExport";
 import { templateService } from "./services/templateService";
 import { emailDistributionService } from "./services/emailDistribution";
 import { accessControlService } from "./services/accessControl";
+import { canManageActionItem } from "./services/accessControlService";
 import { registerWebhookRoutes, registerAdminWebhookRoutes } from "./routes/webhooks";
 import { uploadToSharePoint } from "./services/sharepointClient";
 import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
@@ -1100,11 +1101,32 @@ export function registerRoutes(app: Express): Server {
       // STRICT VALIDATION: Validate partial updates against schema
       const validatedData = insertActionItemSchema.partial().parse(req.body);
       
-      // Get the current item to detect status changes
+      // First check if item exists (return 404 before permission check)
       const existingItem = await storage.getActionItem(req.params.id);
       if (!existingItem) {
         return res.status(404).json({ error: "Action item not found" });
       }
+      
+      // Permission check: Only assignee, organizer, or admin can update
+      const permissionResult = await canManageActionItem(
+        {
+          id: req.user?.id || "",
+          email: req.user?.email || "",
+          displayName: req.user?.displayName || "",
+          role: req.user?.role || "user",
+        },
+        req.params.id
+      );
+      
+      if (!permissionResult.allowed) {
+        console.log(`🚫 [ActionItem] Access denied for user ${req.user?.email}: ${permissionResult.reason}`);
+        return res.status(403).json({ 
+          error: "You don't have permission to update this action item",
+          reason: permissionResult.reason 
+        });
+      }
+      
+      console.log(`✅ [ActionItem] Access granted for user ${req.user?.email}: ${permissionResult.reason}`);
       
       const item = await storage.updateActionItem(req.params.id, validatedData);
       

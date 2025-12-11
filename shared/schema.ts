@@ -205,7 +205,8 @@ export const actionItems = pgTable("action_items", {
   meetingId: varchar("meeting_id").notNull().references(() => meetings.id, { onDelete: "cascade" }),
   minutesId: varchar("minutes_id").notNull().references(() => meetingMinutes.id, { onDelete: "cascade" }),
   task: text("task").notNull(),
-  assignee: text("assignee").notNull(),
+  assignee: text("assignee").notNull(), // Display name for UI
+  assigneeEmail: text("assignee_email"), // Email for permission checks (nullable for legacy/unassigned)
   dueDate: timestamp("due_date"),
   priority: priorityEnum("priority").notNull().default("medium"),
   status: actionItemStatusEnum("status").notNull().default("pending"),

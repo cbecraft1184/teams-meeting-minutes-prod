@@ -215,3 +215,29 @@ Testing must be done in the actual Teams desktop or web client after deployment.
 | Rate limiting | Graph API throttling | Use sparingly |
 
 **Status**: Deferred - revisit when integration testing is needed.
+
+## Action Item Permissions (December 2025)
+
+### Permission Model: Option C
+Action items can only be updated by:
+1. **Assigned Person** - User whose email matches `assigneeEmail` on the action item
+2. **Meeting Organizer** - User whose email matches `organizerEmail` on the meeting
+3. **Admin Users** - Users with `role === 'admin'` bypass all checks
+
+### Schema Change
+Added `assignee_email` column to `action_items` table:
+- Stores email address for permission matching
+- Nullable for legacy items and "Unassigned" tasks
+- Indexed for fast permission lookups
+
+### API Behavior
+- `PATCH /api/action-items/:id` now enforces permissions
+- Returns `403 Forbidden` with reason if user lacks permission
+- Logs access grants/denials for audit trail
+
+### Migration
+```sql
+-- migrations/add_assignee_email.sql
+ALTER TABLE action_items ADD COLUMN IF NOT EXISTS assignee_email TEXT;
+CREATE INDEX IF NOT EXISTS idx_action_items_assignee_email ON action_items(assignee_email) WHERE assignee_email IS NOT NULL;
+```

@@ -591,6 +591,32 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
     }
   });
 
+  // Reprocess mutation to regenerate minutes
+  const reprocessMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      return await apiRequest("POST", `/api/admin/meetings/${meetingId}/reprocess`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Reprocessing started</ToastTitle>
+          <ToastBody>Meeting minutes are being generated. This may take a moment.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to reprocess meeting"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    }
+  });
+
   // Fetch meeting events for history tab
   const { data: events = [], isLoading: eventsLoading } = useQuery<MeetingEvent[]>({
     queryKey: ["/api/meetings", meeting?.id, "events"],
@@ -875,6 +901,23 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                   <div className={styles.emptyState}>
                     <FileText className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
                     <p className={styles.emptyText}>No minutes available for this meeting yet.</p>
+                    {meeting.status === "completed" && (
+                      <Button
+                        appearance="primary"
+                        size="medium"
+                        style={{ marginTop: "16px" }}
+                        data-testid="button-reprocess"
+                        disabled={reprocessMutation.isPending}
+                        onClick={() => reprocessMutation.mutate(meeting.id)}
+                      >
+                        {reprocessMutation.isPending ? (
+                          <Spinner size="tiny" style={{ marginRight: "8px" }} />
+                        ) : (
+                          <RefreshCw className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                        )}
+                        {reprocessMutation.isPending ? "Processing..." : "Generate Minutes"}
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

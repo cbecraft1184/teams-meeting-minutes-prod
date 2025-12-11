@@ -180,3 +180,38 @@ ON CONFLICT (idempotency_key) DO NOTHING;
 - **Replit Web Preview**: Limited functionality, Teams SDK will timeout (expected)
 
 Testing must be done in the actual Teams desktop or web client after deployment.
+
+## Development Mode: Mock vs Real Microsoft Services
+
+### Current Configuration
+- **Development (Replit)**: `USE_MOCK_SERVICES=true` - Uses simulated data
+- **Production (Azure)**: `USE_MOCK_SERVICES=false` - Uses real Microsoft services
+
+### Decision Table: When to Use Real Services
+
+| Scenario | Recommendation | Rationale |
+|----------|----------------|-----------|
+| Routine UI development | Mock | No costs, faster iteration |
+| Testing integration fixes | Real | Validates actual API behavior |
+| Pre-deployment validation | Real | Confirms end-to-end flow works |
+| Debugging production issues | Real | Reproduces real conditions |
+| Demo/presentation prep | Mock | Predictable, no external dependencies |
+
+### Switching to Real Services
+
+**Requirements:**
+- `AZURE_TENANT_ID` - Azure AD tenant ID
+- `AZURE_CLIENT_ID` - App registration client ID
+- `AZURE_CLIENT_SECRET` - App registration secret
+- Set `USE_MOCK_SERVICES=false` in development environment
+
+**Costs & Considerations:**
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Azure OpenAI costs | ~$0.01-0.10 per meeting | Process only test meetings |
+| Real email sends | Emails to attendees | Use test meetings with your email only |
+| SharePoint uploads | Documents in real library | Use dedicated test library |
+| Rate limiting | Graph API throttling | Use sparingly |
+
+**Status**: Deferred - revisit when integration testing is needed.

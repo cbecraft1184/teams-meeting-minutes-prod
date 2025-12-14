@@ -50,3 +50,18 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 - **Backend**: Express, Drizzle ORM, MSAL, Microsoft Graph Client.
 - **AI**: OpenAI SDK.
 - **Documents**: `docx`, `pdf-lib`.
+
+## Future Roadmap Documentation
+
+### SaaS Deployment Models
+Three deployment models to meet diverse customer requirements:
+- **Managed SaaS**: We host everything, customer data in our infrastructure
+- **BYOI (Bring Your Own Infrastructure)**: We run the app, customer owns data
+- **Licensed/Self-Hosted**: Customer runs everything in their environment
+
+**Full Documentation**: See [docs/SAAS_ROADMAP.md](docs/SAAS_ROADMAP.md)
+
+### Meeting Attachment Capture
+Comprehensive system for capturing calendar files, chat files, whiteboards, and screen share content.
+
+**Full Documentation**: See [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)

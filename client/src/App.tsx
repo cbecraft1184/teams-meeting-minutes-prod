@@ -212,11 +212,6 @@ function AppContent() {
     return (
       <div className={styles.appContainerColumn}>
         <header className={styles.header}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <h1 className={styles.headerTitle} data-testid="text-app-title" style={{ cursor: 'pointer' }}>
-              Meeting Minutes
-            </h1>
-          </Link>
           <div className={styles.headerSpacer} />
           <div className={styles.headerActions}>
             <div className={styles.classificationBadge} data-testid="badge-classification-header">

@@ -31,6 +31,7 @@ import {
   MenuList,
   MenuItem,
   Spinner,
+  Input,
 } from "@fluentui/react-components";
 import { 
   Calendar, 
@@ -56,7 +57,10 @@ import {
   ChevronDown,
   Play,
   Circle,
-  Hash
+  Hash,
+  Share2,
+  Copy,
+  Check
 } from "lucide-react";
 import { format } from "date-fns";
 import { ClassificationBadge } from "./classification-badge";
@@ -475,7 +479,46 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
+  
+  // Share link mutation
+  const createShareLink = useMutation({
+    mutationFn: async () => {
+      if (!meeting) throw new Error("No meeting selected");
+      const response = await apiRequest("POST", `/api/meetings/${meeting.id}/share`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      const baseUrl = window.location.origin;
+      setShareUrl(`${baseUrl}${data.shareLink.url}`);
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to create share link"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    }
+  });
+
+  const handleShare = () => {
+    setShareDialogOpen(true);
+    setCopied(false);
+    createShareLink.mutate();
+  };
+
+  const handleCopyShareUrl = async () => {
+    if (shareUrl) {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
   
   const handleTabSelect = (_event: SelectTabEvent, data: SelectTabData) => {
     setSelectedTab(data.value as string);
@@ -694,6 +737,17 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
               <div className={styles.badgeContainer}>
                 <StatusBadge status={meeting.status} />
                 <ClassificationBadge level={meeting.classificationLevel} />
+                {meeting.status === "archived" && (
+                  <Button
+                    appearance="outline"
+                    size="small"
+                    icon={<Share2 style={{ width: "16px", height: "16px" }} />}
+                    onClick={handleShare}
+                    data-testid="button-share-modal"
+                  >
+                    Share
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -1212,6 +1266,62 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
               data-testid="button-confirm-reject"
             >
               {rejectMutation.isPending ? "Rejecting..." : "Reject Minutes"}
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+
+    <Dialog open={shareDialogOpen} onOpenChange={(_, data) => setShareDialogOpen(data.open)}>
+      <DialogSurface className={styles.nestedDialogSurface}>
+        <DialogBody>
+          <DialogTitle>Share Meeting</DialogTitle>
+          <DialogContent>
+            <div style={{ 
+              backgroundColor: tokens.colorPaletteYellowBackground2,
+              padding: "12px",
+              borderRadius: tokens.borderRadiusMedium,
+              marginBottom: "16px",
+              fontSize: tokens.fontSizeBase200
+            }}>
+              This link can only be accessed by members of your organization.
+            </div>
+            
+            {createShareLink.isPending ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Spinner size="tiny" />
+                <span>Creating share link...</span>
+              </div>
+            ) : createShareLink.isError ? (
+              <div style={{ color: tokens.colorPaletteRedForeground1 }}>
+                Failed to create share link. Please try again.
+              </div>
+            ) : shareUrl ? (
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <Input
+                  value={shareUrl}
+                  readOnly
+                  style={{ flex: 1 }}
+                  data-testid="input-share-url"
+                />
+                <Button
+                  appearance="primary"
+                  icon={copied ? <Check style={{ width: "16px", height: "16px" }} /> : <Copy style={{ width: "16px", height: "16px" }} />}
+                  onClick={handleCopyShareUrl}
+                  data-testid="button-copy-share-link"
+                >
+                  {copied ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              appearance="secondary" 
+              onClick={() => setShareDialogOpen(false)}
+              data-testid="button-close-share"
+            >
+              Close
             </Button>
           </DialogActions>
         </DialogBody>

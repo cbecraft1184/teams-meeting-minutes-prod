@@ -58,7 +58,7 @@ export async function generateMeetingMinutes(transcript: string): Promise<{
   summary: string;
   keyDiscussions: string[];
   decisions: string[];
-  attendees: string[];
+  simulatedSpeakers: string[];
 }> {
   const client = getAIClient();
   const usingAzure = isUsingAzure();
@@ -80,9 +80,10 @@ Analyze the provided meeting transcript and generate a concise, professional sum
 IMPORTANT DISTINCTIONS:
 - "decisions": Final conclusions, agreements, or choices made during the meeting. Example: "Approved the new branding colors", "Agreed to postpone launch to Q2"
 - "keyDiscussions": Topics discussed, debates, or information shared. NOT action items.
-- "attendees": Extract ONLY the names of people who are ACTIVELY SPEAKING in the transcript. Look for speaker labels like "Speaker: Name", "Name:", "[Name]" followed by dialogue. 
-  CRITICAL: Do NOT include people who are merely MENTIONED in conversation. Only include those who have spoken.
-  Example: If "Alex: I worked with Jeff and Abdul on AWS" - only "Alex" is an attendee (the speaker). Jeff and Abdul were just mentioned, they did not speak.
+- "simulatedSpeakers": For SOLO TEST meetings only - extract names when someone says "[Name] speaking" (e.g., "Alex speaking", "Alice speaking"). 
+  This is used when one person is role-playing multiple participants in a test scenario.
+  Only include names that appear with the pattern "[Name] speaking" - NOT regular speaker labels or mentions.
+  If no "[Name] speaking" patterns are found, return an empty array.
 
 DO NOT include action items (tasks assigned to people) in the decisions field. Action items are extracted separately.
 
@@ -90,15 +91,15 @@ Requirements:
 - Use formal, professional language
 - Decisions are ONLY final conclusions/agreements reached, not tasks to be done
 - Maintain security classification awareness
-- For attendees: ONLY include people who have spoken/have dialogue in the transcript, NOT people mentioned in conversation
-- Structure output as JSON with these fields: summary, keyDiscussions, decisions, attendees
+- For simulatedSpeakers: ONLY extract names from "[Name] speaking" patterns used in solo test scenarios
+- Structure output as JSON with these fields: summary, keyDiscussions, decisions, simulatedSpeakers
 
 Output JSON format:
 {
   "summary": "Brief overall summary of the meeting purpose and outcome",
   "keyDiscussions": ["Topic discussed 1", "Topic discussed 2"],
   "decisions": ["Final agreement or conclusion 1", "Final agreement or conclusion 2"],
-  "attendees": ["Speaker 1", "Speaker 2"]
+  "simulatedSpeakers": ["Alex", "Alice"]
 }`
             },
             {
@@ -120,10 +121,10 @@ Output JSON format:
         const response = await client.chat.completions.create(createParams);
         const content = response.choices[0]?.message?.content || "{}";
         const parsed = JSON.parse(content);
-        // Ensure attendees is always an array
+        // Ensure simulatedSpeakers is always an array
         return {
           ...parsed,
-          attendees: parsed.attendees || []
+          simulatedSpeakers: parsed.simulatedSpeakers || []
         };
       } catch (error: any) {
         console.error("Azure OpenAI error:", error);

@@ -69,21 +69,31 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Extract action items from real transcript
     const actionItemsData = await extractActionItems(transcript);
     
-    // Merge all attendee sources: invitees (from Graph) + attendees (actual participants) + AI-extracted speakers
-    // This handles solo tests where one person speaks as multiple people
+    // Get invitees from Graph calendar sync (the authoritative list)
     const invitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
-    const aiExtractedSpeakers = minutesData.attendees || [];
     
-    // Combine all sources and deduplicate (case-insensitive)
-    const allSources = [...invitees, ...existingAttendees, ...aiExtractedSpeakers];
-    const uniqueAttendees = Array.from(new Set(allSources.map(a => a.toLowerCase())));
+    // Check for simulated speakers (solo test mode: "[Name] speaking" patterns)
+    const simulatedSpeakers = minutesData.simulatedSpeakers || [];
+    const isSoloTest = simulatedSpeakers.length > 0;
     
-    console.log(`👥 [MinutesGenerator] Attendees merged: ${uniqueAttendees.length} total (invitees: ${invitees.length}, existing: ${existingAttendees.length}, AI speakers: ${aiExtractedSpeakers.length})`);
+    // Determine final attendees list:
+    // - Solo test: invitees + simulated speakers (merged)
+    // - Normal meeting: invitees only (from Graph calendar)
+    let uniqueAttendees: string[];
+    if (isSoloTest) {
+      const allSources = [...invitees, ...existingAttendees, ...simulatedSpeakers];
+      uniqueAttendees = Array.from(new Set(allSources.map(a => a.toLowerCase())));
+      console.log(`👥 [MinutesGenerator] SOLO TEST detected - Attendees merged: ${uniqueAttendees.length} (invitees: ${invitees.length}, simulated speakers: ${simulatedSpeakers.join(', ')})`);
+    } else {
+      // Normal meeting: use invitees from Graph, fall back to existing attendees
+      uniqueAttendees = invitees.length > 0 ? invitees : existingAttendees;
+      console.log(`👥 [MinutesGenerator] Normal meeting - Using invitees: ${uniqueAttendees.length}`);
+    }
     
-    // Update the meeting record with merged attendees if we found new ones
-    if (uniqueAttendees.length > existingAttendees.length) {
-      console.log(`📝 [MinutesGenerator] Updating meeting record with merged attendees`);
+    // Update the meeting record with attendees if needed
+    if (uniqueAttendees.length > 0 && uniqueAttendees.length !== existingAttendees.length) {
+      console.log(`📝 [MinutesGenerator] Updating meeting record with attendees`);
       await db.update(meetings)
         .set({ attendees: uniqueAttendees })
         .where(eq(meetings.id, meetingId));
@@ -102,7 +112,7 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       summary: minutesData.summary,
       keyDiscussions: minutesData.keyDiscussions,
       decisions: minutesData.decisions,
-      attendeesPresent: attendeesToUse,
+      attendeesPresent: uniqueAttendees,
       processingStatus: "completed" as const,
       approvalStatus: initialApprovalStatus
     };

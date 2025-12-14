@@ -210,6 +210,17 @@ const useStyles = makeStyles({
     fontSize: tokens.fontSizeBase200,
     color: tokens.colorNeutralForeground2,
   },
+  readOnlyNotice: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+    ...shorthands.padding(tokens.spacingVerticalM, tokens.spacingHorizontalM),
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    backgroundColor: tokens.colorNeutralBackground4,
+    color: tokens.colorNeutralForeground2,
+    fontSize: tokens.fontSizeBase200,
+    marginBottom: tokens.spacingVerticalM,
+  },
   infoBox: {
     ...shorthands.borderRadius(tokens.borderRadiusMedium),
     ...shorthands.border(tokens.strokeWidthThin, "solid", tokens.colorNeutralStroke1),
@@ -842,6 +853,12 @@ export default function Settings() {
               <Text className={styles.fieldDescription}>Loading settings...</Text>
             ) : appSettings ? (
               <>
+                {!isAdmin && (
+                  <div className={styles.readOnlyNotice}>
+                    <Info20Regular />
+                    <Text>Only administrators can modify these settings.</Text>
+                  </div>
+                )}
                 <div className={styles.switchRow}>
                   <div className={styles.switchLabelContainer}>
                     <Text className={styles.switchLabel}>Require Approval for Minutes</Text>

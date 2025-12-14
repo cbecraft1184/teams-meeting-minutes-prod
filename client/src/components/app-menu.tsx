@@ -14,7 +14,6 @@ import {
   MoreHorizontal24Regular,
   QuestionCircle20Regular,
   Settings20Regular,
-  Info20Regular,
 } from "@fluentui/react-icons";
 import { useLocation } from "wouter";
 
@@ -66,16 +65,6 @@ export function AppMenu() {
             <div className={styles.menuItem}>
               <Settings20Regular className={styles.icon} />
               <span>Settings</span>
-            </div>
-          </MenuItem>
-          <MenuDivider />
-          <MenuItem
-            onClick={() => setLocation("/about")}
-            data-testid="menu-item-about"
-          >
-            <div className={styles.menuItem}>
-              <Info20Regular className={styles.icon} />
-              <span>About</span>
             </div>
           </MenuItem>
         </MenuList>

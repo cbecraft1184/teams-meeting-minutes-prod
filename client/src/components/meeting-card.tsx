@@ -1,8 +1,11 @@
-import { Card, Button, makeStyles, tokens, shorthands, mergeClasses, Tooltip } from "@fluentui/react-components";
-import { Calendar, Clock, Users, FileText, Download, Share2, EyeOff, Eye, Hash } from "lucide-react";
+import { Card, Button, makeStyles, tokens, shorthands, mergeClasses, Tooltip, Dialog, DialogSurface, DialogBody, DialogTitle, DialogContent, DialogActions, Input, Spinner } from "@fluentui/react-components";
+import { Calendar, Clock, Users, FileText, Download, Share2, EyeOff, Eye, Hash, Copy, Check } from "lucide-react";
 import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
 import { format } from "date-fns";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { MeetingWithMinutes } from "@shared/schema";
 
 interface MeetingWithDismissed extends MeetingWithMinutes {
@@ -111,12 +114,63 @@ const useStyles = makeStyles({
     color: tokens.colorNeutralForeground3,
     fontStyle: "italic",
   },
+  shareDialogContent: {
+    display: "flex",
+    flexDirection: "column",
+    ...shorthands.gap("16px"),
+  },
+  shareUrlContainer: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap("8px"),
+  },
+  shareUrlInput: {
+    flex: 1,
+  },
+  shareNotice: {
+    fontSize: tokens.fontSizeBase200,
+    color: tokens.colorNeutralForeground3,
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.padding("8px", "12px"),
+    ...shorthands.borderRadius("4px"),
+  },
 });
 
 export function MeetingCard({ meeting, onViewDetails, onDismiss, onRestore, showDismissButton = true }: MeetingCardProps) {
   const styles = useStyles();
   const isDismissed = meeting.isDismissed || false;
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [copied, setCopied] = useState(false);
   
+  const createShareLink = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/meetings/${meeting.id}/share`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      const baseUrl = window.location.origin;
+      setShareUrl(`${baseUrl}${data.shareLink.url}`);
+    }
+  });
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShareDialogOpen(true);
+    setCopied(false);
+    createShareLink.mutate();
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDismiss?.(meeting.id);
@@ -205,6 +259,7 @@ export function MeetingCard({ meeting, onViewDetails, onDismiss, onRestore, show
               appearance="outline"
               size="small"
               icon={<Share2 style={{ width: "16px", height: "16px" }} />}
+              onClick={handleShare}
               data-testid={`button-share-${meeting.id}`}
             >
               Share
@@ -239,6 +294,56 @@ export function MeetingCard({ meeting, onViewDetails, onDismiss, onRestore, show
           )}
         </div>
       </div>
+
+      <Dialog open={shareDialogOpen} onOpenChange={(_, data) => setShareDialogOpen(data.open)}>
+        <DialogSurface onClick={(e) => e.stopPropagation()}>
+          <DialogBody>
+            <DialogTitle>Share Meeting</DialogTitle>
+            <DialogContent className={styles.shareDialogContent}>
+              <div className={styles.shareNotice}>
+                This link can only be accessed by members of your organization.
+              </div>
+              
+              {createShareLink.isPending ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Spinner size="tiny" />
+                  <span>Creating share link...</span>
+                </div>
+              ) : createShareLink.isError ? (
+                <div style={{ color: tokens.colorPaletteRedForeground1 }}>
+                  Failed to create share link. Please try again.
+                </div>
+              ) : shareUrl ? (
+                <div className={styles.shareUrlContainer}>
+                  <Input
+                    className={styles.shareUrlInput}
+                    value={shareUrl}
+                    readOnly
+                    data-testid="input-share-url"
+                  />
+                  <Button
+                    appearance="primary"
+                    icon={copied ? <Check style={{ width: "16px", height: "16px" }} /> : <Copy style={{ width: "16px", height: "16px" }} />}
+                    onClick={handleCopyLink}
+                    data-testid="button-copy-share-link"
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+              ) : null}
+            </DialogContent>
+            <DialogActions>
+              <Button 
+                appearance="secondary" 
+                onClick={() => setShareDialogOpen(false)}
+                data-testid="button-close-share-dialog"
+              >
+                Close
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </Card>
   );
 }

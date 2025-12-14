@@ -2209,6 +2209,149 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ========== SHARE LINKS (ORG-INTERNAL SHARING) ==========
+  
+  // Create share link for a meeting
+  app.post("/api/meetings/:id/share", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const meeting = await storage.getMeeting(req.params.id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Verify user has access to this meeting
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        return res.status(403).json({ error: "Access denied: Cannot share meetings you cannot access" });
+      }
+
+      // Generate unique token for share link
+      const { nanoid } = await import("nanoid");
+      const token = nanoid(21); // URL-safe unique ID
+
+      const tenantId = (req.user as any).tenantId || 'default';
+      const shareLink = await storage.createShareLink({
+        token,
+        meetingId: meeting.id,
+        tenantId,
+        createdByEmail: req.user.email,
+        createdByName: req.user.displayName || req.user.email,
+        isActive: true,
+        accessCount: 0
+      });
+
+      // Log the share event
+      await storage.createMeetingEvent({
+        meetingId: meeting.id,
+        tenantId,
+        eventType: "meeting_updated",
+        title: "Share Link Created",
+        description: `Share link created by ${req.user.displayName || req.user.email}`,
+        actorEmail: req.user.email,
+        actorName: req.user.displayName || req.user.email,
+        actorAadId: req.user.id,
+        metadata: { shareLinkId: shareLink.id, token },
+        correlationId: null,
+      });
+
+      res.json({
+        success: true,
+        shareLink: {
+          id: shareLink.id,
+          token: shareLink.token,
+          url: `/share/${shareLink.token}`,
+          createdAt: shareLink.createdAt
+        }
+      });
+    } catch (error: any) {
+      console.error("Error creating share link:", error);
+      res.status(500).json({ error: "Failed to create share link" });
+    }
+  });
+
+  // Get meeting by share token (org-internal access only)
+  app.get("/api/share/:token", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const shareLink = await storage.getShareLinkByToken(req.params.token);
+      if (!shareLink) {
+        return res.status(404).json({ error: "Share link not found" });
+      }
+
+      // Check if link is active
+      if (!shareLink.isActive) {
+        return res.status(410).json({ error: "This share link has been deactivated" });
+      }
+
+      // Check expiry
+      if (shareLink.expiresAt && new Date() > shareLink.expiresAt) {
+        return res.status(410).json({ error: "This share link has expired" });
+      }
+
+      // ORG-INTERNAL SECURITY: Verify user is from same tenant
+      const userTenantId = (req.user as any).tenantId || 'default';
+      if (shareLink.tenantId !== userTenantId) {
+        return res.status(403).json({ 
+          error: "Access denied: This link is only accessible to users in the same organization" 
+        });
+      }
+
+      const meeting = await storage.getMeeting(shareLink.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting no longer exists" });
+      }
+
+      // Increment access count
+      await storage.incrementShareLinkAccess(shareLink.id);
+
+      res.json({
+        meeting,
+        sharedBy: {
+          email: shareLink.createdByEmail,
+          name: shareLink.createdByName
+        }
+      });
+    } catch (error: any) {
+      console.error("Error accessing share link:", error);
+      res.status(500).json({ error: "Failed to access shared meeting" });
+    }
+  });
+
+  // Deactivate share link
+  app.delete("/api/share/:token", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const shareLink = await storage.getShareLinkByToken(req.params.token);
+      if (!shareLink) {
+        return res.status(404).json({ error: "Share link not found" });
+      }
+
+      // Only creator or admin can deactivate
+      const isCreator = shareLink.createdByEmail.toLowerCase() === req.user.email.toLowerCase();
+      const isAdmin = accessControlService.isAdmin(req.user);
+      
+      if (!isCreator && !isAdmin) {
+        return res.status(403).json({ error: "Access denied: Only the creator or admin can deactivate this link" });
+      }
+
+      await storage.deactivateShareLink(shareLink.id);
+
+      res.json({ success: true, message: "Share link deactivated" });
+    } catch (error: any) {
+      console.error("Error deactivating share link:", error);
+      res.status(500).json({ error: "Failed to deactivate share link" });
+    }
+  });
+
   // CRITICAL: Set up static file serving for production AFTER all API/webhook routes
   // This ensures webhook routes are matched before the catch-all SPA middleware
   // In development, Vite handles this via setupVite in index.ts

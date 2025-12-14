@@ -7,6 +7,7 @@ import {
   appSettings,
   meetingEvents,
   dismissedMeetings,
+  shareLinks,
   type Meeting,
   type InsertMeeting,
   type MeetingMinutes,
@@ -20,7 +21,9 @@ import {
   type InsertAppSettings,
   type MeetingEvent,
   type InsertMeetingEvent,
-  type DismissedMeeting
+  type DismissedMeeting,
+  type ShareLink,
+  type InsertShareLink
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, isNull, sql } from "drizzle-orm";
@@ -70,6 +73,14 @@ export interface IStorage {
   restoreMeeting(tenantId: string, meetingId: string, userEmail: string): Promise<void>;
   getDismissedMeetingIds(tenantId: string, userEmail: string): Promise<string[]>;
   isMeetingDismissed(tenantId: string, meetingId: string, userEmail: string): Promise<boolean>;
+
+  // Share Links
+  createShareLink(link: Omit<InsertShareLink, 'id' | 'createdAt'>): Promise<ShareLink>;
+  getShareLinkByToken(token: string): Promise<ShareLink | undefined>;
+  getShareLinksByMeetingId(meetingId: string): Promise<ShareLink[]>;
+  updateShareLink(id: string, updates: Partial<ShareLink>): Promise<ShareLink>;
+  deactivateShareLink(id: string): Promise<void>;
+  incrementShareLinkAccess(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -369,6 +380,49 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return !!dismissed;
+  }
+
+  // Share Links
+  async createShareLink(link: Omit<InsertShareLink, 'id' | 'createdAt'>): Promise<ShareLink> {
+    const [created] = await db.insert(shareLinks).values(link).returning();
+    return created;
+  }
+
+  async getShareLinkByToken(token: string): Promise<ShareLink | undefined> {
+    const [link] = await db.select()
+      .from(shareLinks)
+      .where(eq(shareLinks.token, token));
+    return link;
+  }
+
+  async getShareLinksByMeetingId(meetingId: string): Promise<ShareLink[]> {
+    return db.select()
+      .from(shareLinks)
+      .where(eq(shareLinks.meetingId, meetingId))
+      .orderBy(desc(shareLinks.createdAt));
+  }
+
+  async updateShareLink(id: string, updates: Partial<ShareLink>): Promise<ShareLink> {
+    const [updated] = await db.update(shareLinks)
+      .set(updates)
+      .where(eq(shareLinks.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deactivateShareLink(id: string): Promise<void> {
+    await db.update(shareLinks)
+      .set({ isActive: false })
+      .where(eq(shareLinks.id, id));
+  }
+
+  async incrementShareLinkAccess(id: string): Promise<void> {
+    await db.update(shareLinks)
+      .set({
+        accessCount: sql`${shareLinks.accessCount} + 1`,
+        lastAccessedAt: new Date()
+      })
+      .where(eq(shareLinks.id, id));
   }
 }
 

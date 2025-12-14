@@ -9,6 +9,30 @@ This project delivers an AI-powered Microsoft Teams meeting minutes management s
 - Clear documentation for demo and production environments
 - Iterative development with small updates
 
+## Azure CLI Authentication (Replit Environment)
+
+To authenticate with Azure CLI in Replit for deployment or API calls:
+
+1. **Run device code login:**
+   ```bash
+   az login --use-device-code
+   ```
+
+2. **User authenticates:** The command outputs a URL (https://microsoft.com/devicelogin) and a code. User opens the URL in browser and enters the code to complete MFA authentication.
+
+3. **Get access token for API calls:**
+   ```bash
+   az account get-access-token --resource https://graph.microsoft.com --query accessToken -o tsv
+   ```
+
+4. **Call production API (example - reprocess meeting):**
+   ```bash
+   curl -X POST "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/api/admin/meetings/{meetingId}/reprocess" \
+     -H "Authorization: Bearer $TOKEN"
+   ```
+
+**Important:** The `az login` command may timeout or exit before completion - that's OK as long as the device code is displayed. The authentication happens in the browser.
+
 ## System Architecture
 The system is a full-stack application featuring a React-based frontend, a Node.js Express backend, and PostgreSQL for data persistence, designed for scalability and integration within the Microsoft ecosystem.
 

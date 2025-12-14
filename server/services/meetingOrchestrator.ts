@@ -407,13 +407,44 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
     // Extract action items from real transcript
     const actionItemsData = await extractActionItems(transcript);
 
-    // Update minutes with AI-generated content
+    // Get invitees from Graph calendar sync (the authoritative list)
+    const invitees = (meeting as any).invitees || [];
+    const existingAttendees = meeting.attendees || [];
+    
+    // Check for simulated speakers (solo test mode: "[Name] speaking" patterns)
+    const simulatedSpeakers = minutesData.simulatedSpeakers || [];
+    const isSoloTest = simulatedSpeakers.length > 0;
+    
+    // Determine final attendees list:
+    // - Solo test: invitees + simulated speakers (merged)
+    // - Normal meeting: invitees only (from Graph calendar)
+    let uniqueAttendees: string[];
+    if (isSoloTest) {
+      const allSources = [...invitees, ...existingAttendees, ...simulatedSpeakers];
+      uniqueAttendees = Array.from(new Set(allSources.map((a: string) => a.toLowerCase())));
+      console.log(`👥 [Orchestrator] SOLO TEST detected - Attendees merged: ${uniqueAttendees.length} (invitees: ${invitees.length}, simulated speakers: ${simulatedSpeakers.join(', ')})`);
+    } else {
+      // Normal meeting: use invitees from Graph, fall back to existing attendees
+      uniqueAttendees = invitees.length > 0 ? invitees : existingAttendees;
+      console.log(`👥 [Orchestrator] Normal meeting - Using attendees: ${uniqueAttendees.length}`);
+    }
+    
+    // Update the meeting record with attendees if needed
+    if (uniqueAttendees.length > 0 && uniqueAttendees.length !== existingAttendees.length) {
+      console.log(`📝 [Orchestrator] Updating meeting record with ${uniqueAttendees.length} attendees`);
+      await db.update(meetings)
+        .set({ attendees: uniqueAttendees })
+        .where(eq(meetings.id, meetingId));
+    }
+
+    // Update minutes with AI-generated content and attendees
     await db.update(meetingMinutes)
       .set({
         processingStatus: "completed",
         summary: minutesData.summary,
         keyDiscussions: minutesData.keyDiscussions,
         decisions: minutesData.decisions,
+        attendeesPresent: uniqueAttendees,
       })
       .where(eq(meetingMinutes.id, minutes.id));
 

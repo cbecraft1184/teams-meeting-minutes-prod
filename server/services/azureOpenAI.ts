@@ -80,7 +80,9 @@ Analyze the provided meeting transcript and generate a concise, professional sum
 IMPORTANT DISTINCTIONS:
 - "decisions": Final conclusions, agreements, or choices made during the meeting. Example: "Approved the new branding colors", "Agreed to postpone launch to Q2"
 - "keyDiscussions": Topics discussed, debates, or information shared. NOT action items.
-- "attendees": Extract ALL speaker/participant names mentioned in the transcript. Look for patterns like "Speaker: Name", "Name:", "[Name]", or names mentioned as speaking/participating.
+- "attendees": Extract ONLY the names of people who are ACTIVELY SPEAKING in the transcript. Look for speaker labels like "Speaker: Name", "Name:", "[Name]" followed by dialogue. 
+  CRITICAL: Do NOT include people who are merely MENTIONED in conversation. Only include those who have spoken.
+  Example: If "Alex: I worked with Jeff and Abdul on AWS" - only "Alex" is an attendee (the speaker). Jeff and Abdul were just mentioned, they did not speak.
 
 DO NOT include action items (tasks assigned to people) in the decisions field. Action items are extracted separately.
 
@@ -88,7 +90,7 @@ Requirements:
 - Use formal, professional language
 - Decisions are ONLY final conclusions/agreements reached, not tasks to be done
 - Maintain security classification awareness
-- Extract ALL attendee/speaker names from the transcript - this is critical
+- For attendees: ONLY include people who have spoken/have dialogue in the transcript, NOT people mentioned in conversation
 - Structure output as JSON with these fields: summary, keyDiscussions, decisions, attendees
 
 Output JSON format:
@@ -96,7 +98,7 @@ Output JSON format:
   "summary": "Brief overall summary of the meeting purpose and outcome",
   "keyDiscussions": ["Topic discussed 1", "Topic discussed 2"],
   "decisions": ["Final agreement or conclusion 1", "Final agreement or conclusion 2"],
-  "attendees": ["Name 1", "Name 2", "Name 3"]
+  "attendees": ["Speaker 1", "Speaker 2"]
 }`
             },
             {

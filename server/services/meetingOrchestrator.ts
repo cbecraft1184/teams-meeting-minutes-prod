@@ -411,15 +411,32 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
     const invitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
     
+    // Extract speakers from WEBVTT transcript format: <v Speaker Name>...</v>
+    const webvttSpeakers: string[] = [];
+    const webvttPattern = /<v ([^>]+)>/gi;
+    let match;
+    while ((match = webvttPattern.exec(transcript)) !== null) {
+      const speakerName = match[1].trim();
+      if (speakerName && !webvttSpeakers.some(s => s.toLowerCase() === speakerName.toLowerCase())) {
+        webvttSpeakers.push(speakerName);
+      }
+    }
+    console.log(`🎤 [Orchestrator] Extracted ${webvttSpeakers.length} speakers from WEBVTT: ${webvttSpeakers.join(', ')}`);
+    
     // Check for simulated speakers (solo test mode: "[Name] speaking" patterns)
     const simulatedSpeakers = minutesData.simulatedSpeakers || [];
     const isSoloTest = simulatedSpeakers.length > 0;
     
     // Determine final attendees list:
-    // - Solo test: invitees + simulated speakers (merged)
-    // - Normal meeting: invitees only (from Graph calendar)
+    // Priority: WEBVTT speakers > simulated speakers > invitees > existing attendees
     let uniqueAttendees: string[];
-    if (isSoloTest) {
+    if (webvttSpeakers.length > 0) {
+      // Real transcript with WEBVTT speaker tags - use those as attendees
+      const allSources = [...webvttSpeakers, ...invitees, ...existingAttendees];
+      uniqueAttendees = Array.from(new Set(allSources.filter(Boolean)));
+      console.log(`👥 [Orchestrator] Using WEBVTT speakers as attendees: ${uniqueAttendees.length}`);
+    } else if (isSoloTest) {
+      // Solo test: invitees + simulated speakers (merged)
       const allSources = [...invitees, ...existingAttendees, ...simulatedSpeakers];
       uniqueAttendees = Array.from(new Set(allSources.map((a: string) => a.toLowerCase())));
       console.log(`👥 [Orchestrator] SOLO TEST detected - Attendees merged: ${uniqueAttendees.length} (invitees: ${invitees.length}, simulated speakers: ${simulatedSpeakers.join(', ')})`);

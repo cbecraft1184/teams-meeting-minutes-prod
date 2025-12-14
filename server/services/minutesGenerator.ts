@@ -69,17 +69,23 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Extract action items from real transcript
     const actionItemsData = await extractActionItems(transcript);
     
-    // Use AI-extracted attendees if available, otherwise fall back to meeting.attendees
-    const extractedAttendees = minutesData.attendees || [];
-    const attendeesToUse = extractedAttendees.length > 0 ? extractedAttendees : (meeting.attendees || []);
+    // Merge all attendee sources: invitees (from Graph) + attendees (actual participants) + AI-extracted speakers
+    // This handles solo tests where one person speaks as multiple people
+    const invitees = (meeting as any).invitees || [];
+    const existingAttendees = meeting.attendees || [];
+    const aiExtractedSpeakers = minutesData.attendees || [];
     
-    console.log(`👥 [MinutesGenerator] Attendees: ${attendeesToUse.length} found (AI extracted: ${extractedAttendees.length}, meeting record: ${(meeting.attendees || []).length})`);
+    // Combine all sources and deduplicate (case-insensitive)
+    const allSources = [...invitees, ...existingAttendees, ...aiExtractedSpeakers];
+    const uniqueAttendees = Array.from(new Set(allSources.map(a => a.toLowerCase())));
     
-    // If AI extracted attendees and meeting has none, update the meeting record
-    if (extractedAttendees.length > 0 && (!meeting.attendees || meeting.attendees.length === 0)) {
-      console.log(`📝 [MinutesGenerator] Updating meeting record with extracted attendees: ${extractedAttendees.join(', ')}`);
+    console.log(`👥 [MinutesGenerator] Attendees merged: ${uniqueAttendees.length} total (invitees: ${invitees.length}, existing: ${existingAttendees.length}, AI speakers: ${aiExtractedSpeakers.length})`);
+    
+    // Update the meeting record with merged attendees if we found new ones
+    if (uniqueAttendees.length > existingAttendees.length) {
+      console.log(`📝 [MinutesGenerator] Updating meeting record with merged attendees`);
       await db.update(meetings)
-        .set({ attendees: extractedAttendees })
+        .set({ attendees: uniqueAttendees })
         .where(eq(meetings.id, meetingId));
     }
     

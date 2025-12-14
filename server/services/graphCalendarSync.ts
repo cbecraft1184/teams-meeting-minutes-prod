@@ -280,9 +280,19 @@ export class GraphCalendarSyncService {
       ),
     });
 
-    const attendeeEmails = (event.attendees || [])
+    // Get all invitee emails from the event
+    const inviteeEmails = (event.attendees || [])
       .map(a => a.emailAddress.address)
       .filter(Boolean);
+    
+    // Get organizer email
+    const organizerEmailAddr = event.organizer?.emailAddress.address || organizerEmail;
+    
+    // Create full attendees list: organizer + all invitees (deduplicated)
+    const allAttendees = [organizerEmailAddr, ...inviteeEmails].filter(Boolean);
+    const uniqueAttendees = Array.from(new Set(allAttendees.map(e => e.toLowerCase())));
+    
+    console.log(`[CalendarSync] Meeting "${event.subject}" - Attendees: ${uniqueAttendees.length} (organizer + ${inviteeEmails.length} invitees)`);
 
     const startTime = new Date(event.start.dateTime + 'Z');
     const endTime = new Date(event.end.dateTime + 'Z');
@@ -294,7 +304,8 @@ export class GraphCalendarSyncService {
       scheduledAt: startTime,
       endTime: endTime,
       duration,
-      attendees: attendeeEmails,
+      attendees: uniqueAttendees,
+      invitees: uniqueAttendees, // Also populate invitees field
       location: event.location?.displayName || null,
       isOnlineMeeting: event.isOnlineMeeting || !!event.onlineMeetingUrl,
       teamsJoinLink: event.onlineMeeting?.joinUrl || event.onlineMeetingUrl || null,

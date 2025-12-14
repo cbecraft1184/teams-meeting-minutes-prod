@@ -73,18 +73,31 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     const invitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
     
-    // Check for simulated speakers (solo test mode: "[Name] speaking" patterns)
-    const simulatedSpeakers = minutesData.simulatedSpeakers || [];
+    // Extract simulated speakers from transcript text: "[Name] speaking" patterns
+    // This is for solo test mode where one person role-plays multiple participants
+    const speakingPattern = /\b([A-Z][a-z]+)\s+speaking[.,!]?/gi;
+    const transcriptSimulatedSpeakers: string[] = [];
+    let match;
+    while ((match = speakingPattern.exec(transcript)) !== null) {
+      const speakerName = match[1].trim();
+      if (speakerName && !transcriptSimulatedSpeakers.some(s => s.toLowerCase() === speakerName.toLowerCase())) {
+        transcriptSimulatedSpeakers.push(speakerName);
+      }
+    }
+    console.log(`🎭 [MinutesGenerator] Extracted ${transcriptSimulatedSpeakers.length} simulated speakers from transcript: ${transcriptSimulatedSpeakers.join(', ')}`);
+    
+    // Check for simulated speakers (from transcript parsing or AI response)
+    const aiSimulatedSpeakers = minutesData.simulatedSpeakers || [];
+    const simulatedSpeakers = transcriptSimulatedSpeakers.length > 0 ? transcriptSimulatedSpeakers : aiSimulatedSpeakers;
     const isSoloTest = simulatedSpeakers.length > 0;
     
     // Determine final attendees list:
-    // - Solo test: invitees + simulated speakers (merged)
-    // - Normal meeting: invitees only (from Graph calendar)
+    // Priority: simulated speakers (solo test) > invitees > existing attendees
     let uniqueAttendees: string[];
     if (isSoloTest) {
-      const allSources = [...invitees, ...existingAttendees, ...simulatedSpeakers];
-      uniqueAttendees = Array.from(new Set(allSources.map(a => a.toLowerCase())));
-      console.log(`👥 [MinutesGenerator] SOLO TEST detected - Attendees merged: ${uniqueAttendees.length} (invitees: ${invitees.length}, simulated speakers: ${simulatedSpeakers.join(', ')})`);
+      // Solo test: use simulated speakers as attendees (the roles being played)
+      uniqueAttendees = [...simulatedSpeakers];
+      console.log(`👥 [MinutesGenerator] SOLO TEST detected - Using simulated speakers as attendees: ${uniqueAttendees.join(', ')}`);
     } else {
       // Normal meeting: use invitees from Graph, fall back to existing attendees
       uniqueAttendees = invitees.length > 0 ? invitees : existingAttendees;

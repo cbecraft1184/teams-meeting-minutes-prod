@@ -612,6 +612,48 @@ export const dismissedMeetings = pgTable("dismissed_meetings", {
 export type DismissedMeeting = typeof dismissedMeetings.$inferSelect;
 export type InsertDismissedMeeting = typeof dismissedMeetings.$inferInsert;
 
+// ==================================================
+// Share Links schema (org-internal meeting sharing)
+// ==================================================
+
+export const shareLinks = pgTable("share_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Unique share token for URL
+  token: text("token").notNull().unique(), // URL-safe token (nanoid)
+  
+  // Meeting reference
+  meetingId: varchar("meeting_id").notNull().references(() => meetings.id, { onDelete: "cascade" }),
+  
+  // Org-internal security: only users from same tenant can access
+  tenantId: text("tenant_id").notNull(),
+  
+  // Creator info
+  createdByEmail: text("created_by_email").notNull(),
+  createdByName: text("created_by_name"),
+  
+  // Link settings
+  expiresAt: timestamp("expires_at"), // null = never expires
+  isActive: boolean("is_active").notNull().default(true),
+  
+  // Usage tracking
+  accessCount: integer("access_count").notNull().default(0),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  // Index for token lookups (most common operation)
+  tokenIdx: index("share_links_token_idx").on(table.token),
+  // Index for meeting lookups
+  meetingIdx: index("share_links_meeting_idx").on(table.meetingId),
+  // Index for tenant-scoped queries
+  tenantIdx: index("share_links_tenant_idx").on(table.tenantId),
+}));
+
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type InsertShareLink = typeof shareLinks.$inferInsert;
+
 // Insert schemas with strict validation
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,

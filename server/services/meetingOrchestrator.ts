@@ -412,8 +412,9 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
     const existingAttendees = meeting.attendees || [];
     
     // Extract speakers from WEBVTT transcript format: <v Speaker Name>...</v>
+    // Also handles class qualifiers like <v.identifier Name>
     const webvttSpeakers: string[] = [];
-    const webvttPattern = /<v ([^>]+)>/gi;
+    const webvttPattern = /<v(?:\.[^ >]+)?\s*([^>]+)>/gi;
     let match;
     while ((match = webvttPattern.exec(transcript)) !== null) {
       const speakerName = match[1].trim();
@@ -423,23 +424,36 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
     }
     console.log(`🎤 [Orchestrator] Extracted ${webvttSpeakers.length} speakers from WEBVTT: ${webvttSpeakers.join(', ')}`);
     
-    // Check for simulated speakers (solo test mode: "[Name] speaking" patterns)
-    const simulatedSpeakers = minutesData.simulatedSpeakers || [];
+    // Extract simulated speakers from transcript text: "[Name] speaking" patterns
+    // This is for solo test mode where one person role-plays multiple participants
+    const speakingPattern = /\b([A-Z][a-z]+)\s+speaking[.,!]?/gi;
+    const transcriptSimulatedSpeakers: string[] = [];
+    while ((match = speakingPattern.exec(transcript)) !== null) {
+      const speakerName = match[1].trim();
+      if (speakerName && !transcriptSimulatedSpeakers.some(s => s.toLowerCase() === speakerName.toLowerCase())) {
+        transcriptSimulatedSpeakers.push(speakerName);
+      }
+    }
+    console.log(`🎭 [Orchestrator] Extracted ${transcriptSimulatedSpeakers.length} simulated speakers from transcript: ${transcriptSimulatedSpeakers.join(', ')}`);
+    
+    // Check for simulated speakers (from AI response or transcript parsing)
+    const aiSimulatedSpeakers = minutesData.simulatedSpeakers || [];
+    const simulatedSpeakers = transcriptSimulatedSpeakers.length > 0 ? transcriptSimulatedSpeakers : aiSimulatedSpeakers;
     const isSoloTest = simulatedSpeakers.length > 0;
     
     // Determine final attendees list:
-    // Priority: WEBVTT speakers > simulated speakers > invitees > existing attendees
+    // Priority: simulated speakers (solo test) > WEBVTT speakers > invitees > existing attendees
+    // Solo test: one person role-plays multiple participants using "[Name] speaking" patterns
     let uniqueAttendees: string[];
-    if (webvttSpeakers.length > 0) {
+    if (isSoloTest) {
+      // Solo test: use simulated speakers as attendees (the roles being played)
+      uniqueAttendees = [...simulatedSpeakers];
+      console.log(`👥 [Orchestrator] SOLO TEST detected - Using simulated speakers as attendees: ${uniqueAttendees.join(', ')}`);
+    } else if (webvttSpeakers.length > 0) {
       // Real transcript with WEBVTT speaker tags - use those as attendees
       const allSources = [...webvttSpeakers, ...invitees, ...existingAttendees];
       uniqueAttendees = Array.from(new Set(allSources.filter(Boolean)));
       console.log(`👥 [Orchestrator] Using WEBVTT speakers as attendees: ${uniqueAttendees.length}`);
-    } else if (isSoloTest) {
-      // Solo test: invitees + simulated speakers (merged)
-      const allSources = [...invitees, ...existingAttendees, ...simulatedSpeakers];
-      uniqueAttendees = Array.from(new Set(allSources.map((a: string) => a.toLowerCase())));
-      console.log(`👥 [Orchestrator] SOLO TEST detected - Attendees merged: ${uniqueAttendees.length} (invitees: ${invitees.length}, simulated speakers: ${simulatedSpeakers.join(', ')})`);
     } else {
       // Normal meeting: use invitees from Graph, fall back to existing attendees
       uniqueAttendees = invitees.length > 0 ? invitees : existingAttendees;

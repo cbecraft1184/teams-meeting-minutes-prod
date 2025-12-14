@@ -69,6 +69,20 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Extract action items from real transcript
     const actionItemsData = await extractActionItems(transcript);
     
+    // Use AI-extracted attendees if available, otherwise fall back to meeting.attendees
+    const extractedAttendees = minutesData.attendees || [];
+    const attendeesToUse = extractedAttendees.length > 0 ? extractedAttendees : (meeting.attendees || []);
+    
+    console.log(`👥 [MinutesGenerator] Attendees: ${attendeesToUse.length} found (AI extracted: ${extractedAttendees.length}, meeting record: ${(meeting.attendees || []).length})`);
+    
+    // If AI extracted attendees and meeting has none, update the meeting record
+    if (extractedAttendees.length > 0 && (!meeting.attendees || meeting.attendees.length === 0)) {
+      console.log(`📝 [MinutesGenerator] Updating meeting record with extracted attendees: ${extractedAttendees.join(', ')}`);
+      await db.update(meetings)
+        .set({ attendees: extractedAttendees })
+        .where(eq(meetings.id, meetingId));
+    }
+    
     // Check approval settings
     const settings = await storage.getSettings();
     const requiresApproval = settings.requireApprovalForMinutes;
@@ -82,7 +96,7 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       summary: minutesData.summary,
       keyDiscussions: minutesData.keyDiscussions,
       decisions: minutesData.decisions,
-      attendeesPresent: meeting.attendees,
+      attendeesPresent: attendeesToUse,
       processingStatus: "completed" as const,
       approvalStatus: initialApprovalStatus
     };

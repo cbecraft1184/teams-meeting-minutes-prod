@@ -58,6 +58,7 @@ export async function generateMeetingMinutes(transcript: string): Promise<{
   summary: string;
   keyDiscussions: string[];
   decisions: string[];
+  attendees: string[];
 }> {
   const client = getAIClient();
   const usingAzure = isUsingAzure();
@@ -79,6 +80,7 @@ Analyze the provided meeting transcript and generate a concise, professional sum
 IMPORTANT DISTINCTIONS:
 - "decisions": Final conclusions, agreements, or choices made during the meeting. Example: "Approved the new branding colors", "Agreed to postpone launch to Q2"
 - "keyDiscussions": Topics discussed, debates, or information shared. NOT action items.
+- "attendees": Extract ALL speaker/participant names mentioned in the transcript. Look for patterns like "Speaker: Name", "Name:", "[Name]", or names mentioned as speaking/participating.
 
 DO NOT include action items (tasks assigned to people) in the decisions field. Action items are extracted separately.
 
@@ -86,13 +88,15 @@ Requirements:
 - Use formal, professional language
 - Decisions are ONLY final conclusions/agreements reached, not tasks to be done
 - Maintain security classification awareness
-- Structure output as JSON with these fields: summary, keyDiscussions, decisions
+- Extract ALL attendee/speaker names from the transcript - this is critical
+- Structure output as JSON with these fields: summary, keyDiscussions, decisions, attendees
 
 Output JSON format:
 {
   "summary": "Brief overall summary of the meeting purpose and outcome",
   "keyDiscussions": ["Topic discussed 1", "Topic discussed 2"],
-  "decisions": ["Final agreement or conclusion 1", "Final agreement or conclusion 2"]
+  "decisions": ["Final agreement or conclusion 1", "Final agreement or conclusion 2"],
+  "attendees": ["Name 1", "Name 2", "Name 3"]
 }`
             },
             {
@@ -113,7 +117,12 @@ Output JSON format:
 
         const response = await client.chat.completions.create(createParams);
         const content = response.choices[0]?.message?.content || "{}";
-        return JSON.parse(content);
+        const parsed = JSON.parse(content);
+        // Ensure attendees is always an array
+        return {
+          ...parsed,
+          attendees: parsed.attendees || []
+        };
       } catch (error: any) {
         console.error("Azure OpenAI error:", error);
         if (isRateLimitError(error)) {

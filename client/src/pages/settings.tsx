@@ -448,11 +448,12 @@ export default function Settings() {
     queryKey: ["/api/user/me"],
   });
 
-  // Fetch application settings
+  // Fetch application settings (all users can view, only admin can edit)
   const { data: appSettings, isLoading: isLoadingSettings } = useQuery<AppSettings>({
     queryKey: ["/api/settings"],
-    enabled: userInfo?.user.role === "admin", // Only fetch if admin
   });
+  
+  const isAdmin = userInfo?.user.role === "admin";
 
   // Fetch document templates
   const { data: documentTemplates, isLoading: isLoadingTemplates } = useQuery<DocumentTemplate[]>({
@@ -824,149 +825,149 @@ export default function Settings() {
           </div>
         </Card>
 
-        {userInfo?.user.role === "admin" && (
-          <Card>
-            <div className={styles.cardHeader}>
-              <div className={styles.iconContainer}>
-                <Settings20Regular className={styles.iconContainerIcon} />
-              </div>
-              <div className={styles.headerText}>
-                <Text className={styles.cardTitle}>Workflow Settings</Text>
-                <Text className={styles.cardDescription}>Configure approval and distribution workflows</Text>
-              </div>
+        <Card>
+          <div className={styles.cardHeader}>
+            <div className={styles.iconContainer}>
+              <Settings20Regular className={styles.iconContainerIcon} />
             </div>
-            <div className={styles.cardContent}>
-              {isLoadingSettings ? (
-                <Text className={styles.fieldDescription}>Loading settings...</Text>
-              ) : appSettings ? (
-                <>
-                  <div className={styles.switchRow}>
-                    <div className={styles.switchLabelContainer}>
-                      <Text className={styles.switchLabel}>Require Approval for Minutes</Text>
-                      <Text className={styles.switchDescription}>
-                        When enabled, minutes must be manually approved before distribution. When disabled, minutes are automatically approved and distributed after AI generation.
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={appSettings.requireApprovalForMinutes}
-                      onChange={(ev, data) => {
-                        updateSettingsMutation.mutate({ requireApprovalForMinutes: data.checked });
-                      }}
-                      disabled={updateSettingsMutation.isPending}
-                      data-testid="switch-require-approval"
-                    />
-                  </div>
-
-                  <Divider />
-
-                  <div className={styles.switchRow}>
-                    <div className={styles.switchLabelContainer}>
-                      <Text className={styles.switchLabel}>Email Distribution</Text>
-                      <Text className={styles.switchDescription}>
-                        Automatically send meeting minutes via email to attendees
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={appSettings.enableEmailDistribution}
-                      onChange={(ev, data) => {
-                        updateSettingsMutation.mutate({ enableEmailDistribution: data.checked });
-                      }}
-                      disabled={updateSettingsMutation.isPending}
-                      data-testid="switch-email-distribution"
-                    />
-                  </div>
-
-                  {appSettings.enableEmailDistribution && (
-                    <div className={styles.switchRow}>
-                      <div className={styles.switchLabelContainer}>
-                        <Text className={styles.switchLabel}>Email Recipients</Text>
-                        <Text className={styles.switchDescription}>
-                          Choose who receives meeting minutes emails
-                        </Text>
-                      </div>
-                      <Dropdown
-                        value={appSettings.emailRecipientMode === 'all_invitees' ? 'All Invitees' : 'Attendees Only'}
-                        selectedOptions={[appSettings.emailRecipientMode || 'attendees_only']}
-                        onOptionSelect={(ev, data) => {
-                          updateSettingsMutation.mutate({ emailRecipientMode: data.optionValue as 'attendees_only' | 'all_invitees' });
-                        }}
-                        disabled={updateSettingsMutation.isPending}
-                        data-testid="dropdown-email-recipients"
-                      >
-                        <Option value="attendees_only">Attendees Only (joined the call)</Option>
-                        <Option value="all_invitees">All Invitees (everyone invited)</Option>
-                      </Dropdown>
-                    </div>
-                  )}
-
-                  <div className={styles.switchRow}>
-                    <div className={styles.switchLabelContainer}>
-                      <Text className={styles.switchLabel}>SharePoint Archival</Text>
-                      <Text className={styles.switchDescription}>
-                        Automatically upload approved minutes to SharePoint
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={appSettings.enableSharePointArchival}
-                      onChange={(ev, data) => {
-                        updateSettingsMutation.mutate({ enableSharePointArchival: data.checked });
-                      }}
-                      disabled={updateSettingsMutation.isPending}
-                      data-testid="switch-sharepoint-archival"
-                    />
-                  </div>
-
-                  <div className={styles.switchRow}>
-                    <div className={styles.switchLabelContainer}>
-                      <Text className={styles.switchLabel}>Teams Card Notifications</Text>
-                      <Text className={styles.switchDescription}>
-                        Post Adaptive Cards to Teams meeting chats with minutes summary
-                      </Text>
-                    </div>
-                    <Switch
-                      checked={appSettings.enableTeamsCardNotifications}
-                      onChange={(ev, data) => {
-                        updateSettingsMutation.mutate({ enableTeamsCardNotifications: data.checked });
-                      }}
-                      disabled={updateSettingsMutation.isPending}
-                      data-testid="switch-teams-notifications"
-                    />
-                  </div>
-
-                  <Divider />
-
-                  <div className={styles.infoBox}>
-                    <div className={styles.infoBoxContent}>
-                      <Info20Regular className={styles.infoBoxIcon} />
-                      <div className={styles.infoBoxText}>
-                        <Text className={styles.infoBoxTitle}>
-                          {appSettings.requireApprovalForMinutes ? "Manual Approval Workflow" : "Fully Autonomous Workflow"}
-                        </Text>
-                        <Text className={styles.infoBoxDescription}>
-                          {appSettings.requireApprovalForMinutes ? (
-                            <>
-                              <strong>Current Mode:</strong> Minutes require manual approval before distribution
-                              <br /><br />
-                              <strong>Flow:</strong> Meeting ends → AI generates minutes → Status: "Pending Review" → Approver clicks "Approve" → Email + SharePoint + Teams card sent automatically
-                            </>
-                          ) : (
-                            <>
-                              <strong>Current Mode:</strong> Fully autonomous - minutes automatically approved and distributed
-                              <br /><br />
-                              <strong>Flow:</strong> Meeting ends → AI generates minutes → Status: "Approved" (automatic) → Email + SharePoint + Teams card sent automatically
-                            </>
-                          )}
-                        </Text>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <Text className={styles.fieldDescription}>Failed to load settings</Text>
-              )}
+            <div className={styles.headerText}>
+              <Text className={styles.cardTitle}>Workflow Settings</Text>
+              <Text className={styles.cardDescription}>
+                {isAdmin ? "Configure approval and distribution workflows" : "View approval and distribution workflow settings (admin only to edit)"}
+              </Text>
             </div>
-          </Card>
-        )}
+          </div>
+          <div className={styles.cardContent}>
+            {isLoadingSettings ? (
+              <Text className={styles.fieldDescription}>Loading settings...</Text>
+            ) : appSettings ? (
+              <>
+                <div className={styles.switchRow}>
+                  <div className={styles.switchLabelContainer}>
+                    <Text className={styles.switchLabel}>Require Approval for Minutes</Text>
+                    <Text className={styles.switchDescription}>
+                      When enabled, minutes must be manually approved before distribution. When disabled, minutes are automatically approved and distributed after AI generation.
+                    </Text>
+                  </div>
+                  <Switch
+                    checked={appSettings.requireApprovalForMinutes}
+                    onChange={(ev, data) => {
+                      updateSettingsMutation.mutate({ requireApprovalForMinutes: data.checked });
+                    }}
+                    disabled={!isAdmin || updateSettingsMutation.isPending}
+                    data-testid="switch-require-approval"
+                  />
+                </div>
+
+                <Divider />
+
+                <div className={styles.switchRow}>
+                  <div className={styles.switchLabelContainer}>
+                    <Text className={styles.switchLabel}>Email Distribution</Text>
+                    <Text className={styles.switchDescription}>
+                      Automatically send meeting minutes via email to attendees
+                    </Text>
+                  </div>
+                  <Switch
+                    checked={appSettings.enableEmailDistribution}
+                    onChange={(ev, data) => {
+                      updateSettingsMutation.mutate({ enableEmailDistribution: data.checked });
+                    }}
+                    disabled={!isAdmin || updateSettingsMutation.isPending}
+                    data-testid="switch-email-distribution"
+                  />
+                </div>
+
+                {appSettings.enableEmailDistribution && (
+                  <div className={styles.switchRow}>
+                    <div className={styles.switchLabelContainer}>
+                      <Text className={styles.switchLabel}>Email Recipients</Text>
+                      <Text className={styles.switchDescription}>
+                        Choose who receives meeting minutes emails
+                      </Text>
+                    </div>
+                    <Dropdown
+                      value={appSettings.emailRecipientMode === 'all_invitees' ? 'All Invitees' : 'Attendees Only'}
+                      selectedOptions={[appSettings.emailRecipientMode || 'attendees_only']}
+                      onOptionSelect={(ev, data) => {
+                        updateSettingsMutation.mutate({ emailRecipientMode: data.optionValue as 'attendees_only' | 'all_invitees' });
+                      }}
+                      disabled={!isAdmin || updateSettingsMutation.isPending}
+                      data-testid="dropdown-email-recipients"
+                    >
+                      <Option value="attendees_only">Attendees Only (joined the call)</Option>
+                      <Option value="all_invitees">All Invitees (everyone invited)</Option>
+                    </Dropdown>
+                  </div>
+                )}
+
+                <div className={styles.switchRow}>
+                  <div className={styles.switchLabelContainer}>
+                    <Text className={styles.switchLabel}>SharePoint Archival</Text>
+                    <Text className={styles.switchDescription}>
+                      Automatically upload approved minutes to SharePoint
+                    </Text>
+                  </div>
+                  <Switch
+                    checked={appSettings.enableSharePointArchival}
+                    onChange={(ev, data) => {
+                      updateSettingsMutation.mutate({ enableSharePointArchival: data.checked });
+                    }}
+                    disabled={!isAdmin || updateSettingsMutation.isPending}
+                    data-testid="switch-sharepoint-archival"
+                  />
+                </div>
+
+                <div className={styles.switchRow}>
+                  <div className={styles.switchLabelContainer}>
+                    <Text className={styles.switchLabel}>Teams Card Notifications</Text>
+                    <Text className={styles.switchDescription}>
+                      Post Adaptive Cards to Teams meeting chats with minutes summary
+                    </Text>
+                  </div>
+                  <Switch
+                    checked={appSettings.enableTeamsCardNotifications}
+                    onChange={(ev, data) => {
+                      updateSettingsMutation.mutate({ enableTeamsCardNotifications: data.checked });
+                    }}
+                    disabled={!isAdmin || updateSettingsMutation.isPending}
+                    data-testid="switch-teams-notifications"
+                  />
+                </div>
+
+                <Divider />
+
+                <div className={styles.infoBox}>
+                  <div className={styles.infoBoxContent}>
+                    <Info20Regular className={styles.infoBoxIcon} />
+                    <div className={styles.infoBoxText}>
+                      <Text className={styles.infoBoxTitle}>
+                        {appSettings.requireApprovalForMinutes ? "Manual Approval Workflow" : "Fully Autonomous Workflow"}
+                      </Text>
+                      <Text className={styles.infoBoxDescription}>
+                        {appSettings.requireApprovalForMinutes ? (
+                          <>
+                            <strong>Current Mode:</strong> Minutes require manual approval before distribution
+                            <br /><br />
+                            <strong>Flow:</strong> Meeting ends → AI generates minutes → Status: "Pending Review" → Approver clicks "Approve" → Email + SharePoint + Teams card sent automatically
+                          </>
+                        ) : (
+                          <>
+                            <strong>Current Mode:</strong> Fully autonomous - minutes automatically approved and distributed
+                            <br /><br />
+                            <strong>Flow:</strong> Meeting ends → AI generates minutes → Status: "Approved" (automatic) → Email + SharePoint + Teams card sent automatically
+                          </>
+                        )}
+                      </Text>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <Text className={styles.fieldDescription}>Failed to load settings</Text>
+            )}
+          </div>
+        </Card>
 
         <Card>
           <div className={styles.cardHeader}>

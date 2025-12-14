@@ -1518,9 +1518,12 @@ export function registerRoutes(app: Express): Server {
 
   // ========== APPLICATION SETTINGS API ==========
 
-  // Get application settings
-  app.get("/api/settings", requireRole("admin"), async (req, res) => {
+  // Get application settings (all authenticated users can view)
+  app.get("/api/settings", async (req, res) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
       const settings = await storage.getSettings();
       res.json(settings);
     } catch (error: any) {

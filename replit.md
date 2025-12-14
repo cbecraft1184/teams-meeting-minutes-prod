@@ -30,6 +30,29 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 - **Transcript Access**: Correctly accesses transcripts using `/users/{organizerId}/onlineMeetings/{meetingId}/transcripts` with a fallback mechanism and requires application access policies.
 - **Processing Thresholds**: All meeting duration or word count thresholds have been removed to ensure all meetings with transcripts are processed. An admin reprocess endpoint (`POST /api/admin/meetings/:id/reprocess`) allows regeneration of minutes.
 - **Action Item Permissions**: Action items can only be updated by the assigned person, meeting organizer, or admin users. A schema change added `assignee_email` to the `action_items` table to support this model.
+- **Share Links (Org-Internal)**: Users can create share links for archived meetings that are restricted to their organization (Azure AD tenant). Links include tenant isolation, expiration (7 days default), and access tracking.
+
+### Share Link Feature (Org-Internal Sharing)
+The system supports secure sharing of archived meeting minutes within an organization:
+
+**Security Model**:
+- Share links are scoped to the creator's Azure AD tenant (tenantId)
+- When accessing a shared link, the server verifies the user's tenantId matches the link's tenantId
+- Links expire after 7 days by default and can be manually deactivated
+- Only the link creator or admins can deactivate a share link
+
+**API Endpoints**:
+- `POST /api/meetings/:id/share` - Creates a share link for an archived meeting
+- `GET /api/share/:token` - Retrieves meeting data via share token (tenant-verified)
+- `DELETE /api/share/:token` - Deactivates a share link
+
+**Database Schema**:
+- `share_links` table stores: token, meetingId, tenantId, createdByEmail, createdByName, expiresAt, isActive, accessCount, lastAccessedAt
+
+**Frontend**:
+- Share button appears on archived meeting cards
+- ShareDialog shows org-internal notice and copy-to-clipboard functionality
+- `/share/:token` route displays shared meeting details
 
 ## External Dependencies
 

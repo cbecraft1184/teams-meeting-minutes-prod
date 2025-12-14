@@ -17,7 +17,8 @@ import {
 import { DatePicker } from "@fluentui/react-datepicker-compat";
 import { 
   Search20Regular, 
-  Dismiss20Regular 
+  Dismiss20Regular,
+  Info20Regular
 } from "@fluentui/react-icons";
 import { Archive, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
@@ -88,6 +89,16 @@ const useStyles = makeStyles({
   resultsCount: {
     fontSize: tokens.fontSizeBase300,
     color: tokens.colorNeutralForeground3,
+  },
+  scopeNotice: {
+    display: "flex",
+    alignItems: "center",
+    ...shorthands.gap(tokens.spacingHorizontalS),
+    ...shorthands.padding(tokens.spacingVerticalS, tokens.spacingHorizontalM),
+    ...shorthands.borderRadius(tokens.borderRadiusMedium),
+    backgroundColor: tokens.colorNeutralBackground4,
+    color: tokens.colorNeutralForeground2,
+    fontSize: tokens.fontSizeBase200,
   },
   gridContainer: {
     display: "grid",
@@ -211,6 +222,10 @@ export default function Search() {
         <p className={styles.subtitle}>
           Search through archived meeting minutes and documentation
         </p>
+        <div className={styles.scopeNotice} data-testid="notice-search-scope">
+          <Info20Regular />
+          <span>Showing meetings you organized or attended. Contact your administrator for access to other meetings.</span>
+        </div>
       </div>
 
       <Card>

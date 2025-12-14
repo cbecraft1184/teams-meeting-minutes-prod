@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
+import { Pagination } from "@/components/Pagination";
 import { 
   Input, 
   Label, 
@@ -21,6 +22,8 @@ import {
 import { Archive, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { MeetingWithMinutes } from "@shared/schema";
+
+const PAGE_SIZE = 5;
 
 interface MeetingsResponse {
   meetings: MeetingWithMinutes[];
@@ -153,6 +156,7 @@ export default function Search() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classificationFilter, setClassificationFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data, isLoading, isError } = useQuery<MeetingsResponse>({
     queryKey: ["/api/meetings"],
@@ -177,12 +181,23 @@ export default function Search() {
     return matchesSearch && matchesStatus && matchesClassification && matchesDateFrom && matchesDateTo;
   });
 
+  const totalPages = Math.ceil(filteredMeetings.length / PAGE_SIZE);
+  const paginatedMeetings = filteredMeetings.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
   const clearFilters = () => {
     setSearchQuery("");
     setDateFrom(undefined);
     setDateTo(undefined);
     setStatusFilter("all");
     setClassificationFilter("all");
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = searchQuery || dateFrom || dateTo || statusFilter !== "all" || classificationFilter !== "all";
@@ -303,15 +318,22 @@ export default function Search() {
           <p className={styles.emptyDescription}>Please try refreshing the page.</p>
         </div>
       ) : filteredMeetings.length > 0 ? (
-        <div className={styles.gridContainer}>
-          {filteredMeetings.map((meeting) => (
-            <MeetingCard
-              key={meeting.id}
-              meeting={meeting}
-              onViewDetails={setSelectedMeeting}
-            />
-          ))}
-        </div>
+        <>
+          <div className={styles.gridContainer}>
+            {paginatedMeetings.map((meeting) => (
+              <MeetingCard
+                key={meeting.id}
+                meeting={meeting}
+                onViewDetails={setSelectedMeeting}
+              />
+            ))}
+          </div>
+          <Pagination 
+            currentPage={currentPage} 
+            totalPages={totalPages} 
+            onPageChange={handlePageChange} 
+          />
+        </>
       ) : (
         <div className={styles.emptyState} data-testid="empty-search-results">
           <Archive className={styles.emptyIcon} />

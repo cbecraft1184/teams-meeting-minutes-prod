@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { FluentProvider, webLightTheme, webDarkTheme, teamsHighContrastTheme, teamsDarkTheme, teamsLightTheme, makeStyles, tokens, shorthands, Button, Toaster } from "@fluentui/react-components";
@@ -212,9 +212,11 @@ function AppContent() {
     return (
       <div className={styles.appContainerColumn}>
         <header className={styles.header}>
-          <h1 className={styles.headerTitle} data-testid="text-app-title">
-            Meeting Minutes
-          </h1>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <h1 className={styles.headerTitle} data-testid="text-app-title" style={{ cursor: 'pointer' }}>
+              Meeting Minutes
+            </h1>
+          </Link>
           <div className={styles.headerSpacer} />
           <div className={styles.headerActions}>
             <div className={styles.classificationBadge} data-testid="badge-classification-header">

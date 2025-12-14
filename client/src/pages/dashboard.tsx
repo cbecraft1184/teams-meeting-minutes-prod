@@ -5,7 +5,8 @@ import { StatsCard } from "@/components/stats-card";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
 import { Button, SearchBox, makeStyles, tokens, shorthands, Switch, Badge, useToastController, Toast, ToastTitle, ToastBody } from "@fluentui/react-components";
-import { Settings24Regular, Search24Regular, ChevronLeft24Regular, ChevronRight24Regular } from "@fluentui/react-icons";
+import { Settings24Regular, Search24Regular } from "@fluentui/react-icons";
+import { Pagination } from "@/components/Pagination";
 import { FileText, Calendar, Archive, CheckCircle2, AlertCircle, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/authToken";
@@ -141,21 +142,6 @@ const useStyles = makeStyles({
     display: "grid",
     gridTemplateColumns: "repeat(1, 1fr)",
     ...shorthands.gap("16px"),
-  },
-  paginationRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shorthands.gap("8px"),
-    marginTop: "16px",
-  },
-  pageButton: {
-    minWidth: "32px",
-  },
-  pageInfo: {
-    fontSize: tokens.fontSizeBase300,
-    color: tokens.colorNeutralForeground3,
-    ...shorthands.padding("0", "8px"),
   },
   controlsRow: {
     display: "flex",
@@ -432,29 +418,11 @@ export default function Dashboard() {
                 />
               ))}
             </div>
-            {totalPages > 1 && (
-              <div className={styles.paginationRow}>
-                <Button
-                  appearance="subtle"
-                  icon={<ChevronLeft24Regular />}
-                  disabled={currentPage === 1}
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  data-testid="button-prev-page"
-                  className={styles.pageButton}
-                />
-                <span className={styles.pageInfo} data-testid="text-page-info">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  appearance="subtle"
-                  icon={<ChevronRight24Regular />}
-                  disabled={currentPage >= totalPages}
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  data-testid="button-next-page"
-                  className={styles.pageButton}
-                />
-              </div>
-            )}
+            <Pagination 
+              currentPage={currentPage} 
+              totalPages={totalPages} 
+              onPageChange={handlePageChange} 
+            />
           </>
         ) : (
           <div className={styles.emptyState} data-testid="empty-meetings">

@@ -18,11 +18,8 @@ import {
   ToastTitle,
   ToastBody
 } from "@fluentui/react-components";
-import { 
-  Search20Regular,
-  ChevronLeft24Regular,
-  ChevronRight24Regular
-} from "@fluentui/react-icons";
+import { Search20Regular } from "@fluentui/react-icons";
+import { Pagination } from "@/components/Pagination";
 import { Calendar, AlertCircle, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getAuthToken } from "@/lib/authToken";
@@ -144,21 +141,6 @@ const useStyles = makeStyles({
   emptyDescription: {
     fontSize: tokens.fontSizeBase300,
     color: tokens.colorNeutralForeground3,
-  },
-  paginationRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    ...shorthands.gap("8px"),
-    marginTop: "16px",
-  },
-  pageButton: {
-    minWidth: "32px",
-  },
-  pageInfo: {
-    fontSize: tokens.fontSizeBase300,
-    color: tokens.colorNeutralForeground3,
-    ...shorthands.padding("0", "8px"),
   },
   dismissedToggle: {
     display: "flex",
@@ -404,29 +386,11 @@ export default function Meetings() {
               />
             ))}
           </div>
-          {totalPages > 1 && (
-            <div className={styles.paginationRow}>
-              <Button
-                appearance="subtle"
-                icon={<ChevronLeft24Regular />}
-                disabled={currentPage === 1}
-                onClick={() => handlePageChange(currentPage - 1)}
-                data-testid="button-prev-page"
-                className={styles.pageButton}
-              />
-              <span className={styles.pageInfo} data-testid="text-page-info">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                appearance="subtle"
-                icon={<ChevronRight24Regular />}
-                disabled={currentPage >= totalPages}
-                onClick={() => handlePageChange(currentPage + 1)}
-                data-testid="button-next-page"
-                className={styles.pageButton}
-              />
-            </div>
-          )}
+          <Pagination 
+            currentPage={currentPage} 
+            totalPages={totalPages} 
+            onPageChange={handlePageChange} 
+          />
         </>
       ) : (
         <div className={styles.emptyState} data-testid="empty-all-meetings">

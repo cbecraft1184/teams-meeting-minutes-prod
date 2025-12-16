@@ -18,11 +18,21 @@ For users with non-organizational emails (like Gmail), invite them as Azure AD B
 
 1. Go to **Azure Portal** → **Microsoft Entra ID** → **Users**
 2. Click **+ New user** → **Invite external user**
-3. Enter their email address (e.g., `john@gmail.com`)
-4. Add a personal message explaining the demo
-5. Click **Invite**
+3. Fill in the **Basics** tab:
+   - **Email**: Enter their email address (e.g., `john@gmail.com`)
+   - **Display name**: Enter their name
+4. Click **Properties** tab (optional) - add any additional info
+5. Click **Assignments** tab (optional) - assign to groups if needed
+6. Click **Review + invite**
+7. **Important**: On the review page, ensure **Send invite message** is checked
+8. Click **Invite**
 
-The user will receive an email invitation. When they click **Accept invitation**, Azure creates a guest account for them.
+The user will receive an email invitation from Microsoft. When they click **Accept invitation**, Azure creates a guest account for them.
+
+**If the guest didn't receive an email:**
+- Check their spam/junk folder for email from "Microsoft Invitations"
+- Resend: Go to **Users** → find the guest → click **Resend invite**
+- Alternative: Copy the **Redemption URL** from the guest's profile and send it manually
 
 ### Method B: Invite via Teams Meeting
 

@@ -473,6 +473,18 @@ const useStyles = makeStyles({
   },
 });
 
+interface UserInfo {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    clearanceLevel: string;
+  };
+  permissions?: {
+    role: string;
+  };
+}
+
 export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDetailsModalProps) {
   const styles = useStyles();
   const [selectedTab, setSelectedTab] = useState<string>("overview");
@@ -483,6 +495,12 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
+  
+  // Fetch user info to check admin status
+  const { data: userInfo } = useQuery<UserInfo>({
+    queryKey: ["/api/user/me"],
+  });
+  const isAdmin = userInfo?.user?.role === "admin";
   
   // Share link mutation
   const createShareLink = useMutation({
@@ -855,28 +873,46 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                           </Badge>
                         )}
                       </div>
-                      {showApprovalActions && meeting.minutes.processingStatus === "completed" && (
-                        <div className={styles.minutesActions}>
+                      <div className={styles.minutesActions}>
+                        {showApprovalActions && meeting.minutes.processingStatus === "completed" && (
+                          <>
+                            <Button 
+                              appearance="primary" 
+                              size="small" 
+                              data-testid="button-approve"
+                              onClick={() => setShowApproveDialog(true)}
+                            >
+                              <ThumbsUp className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                              Approve & Distribute
+                            </Button>
+                            <Button 
+                              appearance="primary" 
+                              size="small" 
+                              data-testid="button-reject"
+                              onClick={() => setShowRejectDialog(true)}
+                            >
+                              <ThumbsDown className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {isAdmin && (
                           <Button 
-                            appearance="primary" 
+                            appearance="secondary" 
                             size="small" 
-                            data-testid="button-approve"
-                            onClick={() => setShowApproveDialog(true)}
+                            data-testid="button-regenerate-minutes"
+                            disabled={reprocessMutation.isPending}
+                            onClick={() => reprocessMutation.mutate(meeting.id)}
                           >
-                            <ThumbsUp className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
-                            Approve & Distribute
+                            {reprocessMutation.isPending ? (
+                              <Spinner size="tiny" style={{ marginRight: "4px" }} />
+                            ) : (
+                              <RefreshCw className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
+                            )}
+                            {reprocessMutation.isPending ? "Regenerating..." : "Regenerate"}
                           </Button>
-                          <Button 
-                            appearance="primary" 
-                            size="small" 
-                            data-testid="button-reject"
-                            onClick={() => setShowRejectDialog(true)}
-                          >
-                            <ThumbsDown className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                     
                     {meeting.minutes.approvalStatus === "approved" && meeting.minutes.approvedBy && (

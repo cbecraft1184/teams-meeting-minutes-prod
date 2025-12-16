@@ -123,7 +123,11 @@ export class EmailDistributionService {
     const senderEmail = config.email.senderEmail;
 
     if (!senderEmail) {
-      throw new Error('GRAPH_SENDER_EMAIL environment variable not configured');
+      // Graceful fallback: log instead of crashing when email not configured
+      console.warn(`⚠️ [Email Service] GRAPH_SENDER_EMAIL not configured - email will be logged but not sent`);
+      this.logEmailToConsole(recipients, subject, body, attachments);
+      console.log(`ℹ️ [Email Service] To enable email delivery, configure GRAPH_SENDER_EMAIL environment variable`);
+      return;
     }
 
     console.log(`📧 [Email Service] Sending email via Microsoft Graph API`);

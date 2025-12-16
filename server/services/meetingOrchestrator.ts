@@ -426,7 +426,8 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
     
     // Extract simulated speakers from transcript text: "[Name] speaking" patterns
     // This is for solo test mode where one person role-plays multiple participants
-    const speakingPattern = /\b([A-Z][a-z]+)\s+speaking[.,!]?/gi;
+    // Supports: "Alex speaking", "Alex speaking:", "Alex Johnson speaking", etc.
+    const speakingPattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+speaking[.,!:]?/gi;
     const transcriptSimulatedSpeakers: string[] = [];
     while ((match = speakingPattern.exec(transcript)) !== null) {
       const speakerName = match[1].trim();

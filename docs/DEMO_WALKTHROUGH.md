@@ -1,0 +1,62 @@
+# Meeting Minutes App Demo Walkthrough
+
+A structured 10-minute walkthrough for demonstrating the Meeting Minutes app.
+
+---
+
+## Opening (2 min)
+
+- "This app automatically captures your Teams meetings and generates AI-powered minutes"
+- "No more manual note-taking or chasing people for action items"
+
+---
+
+## Screen 1: Dashboard (2 min)
+
+- Show the main meeting list
+- Point out status indicators (completed, in progress)
+- "All your meetings appear here automatically after they end"
+
+---
+
+## Screen 2: Meeting Details (3 min)
+
+Click into a meeting to show:
+
+- **Attendees** - Who was in the meeting
+- **AI Summary** - High-level overview
+- **Key Discussions** - Main topics covered
+- **Action Items** - Tasks with assignees and due dates
+
+"The AI extracts all of this from your conversation"
+
+---
+
+## Screen 3: Approval Workflow (2 min)
+
+- Show the Approve & Distribute button
+- "Organizers review before distribution"
+- "One click sends minutes to all attendees"
+
+---
+
+## Screen 4: Email & Documents (1 min)
+
+- Show or describe the email with DOCX/PDF attachments
+- "Everyone gets professional meeting minutes in their inbox"
+
+---
+
+## Closing (1 min)
+
+- "Questions?"
+- "Let's do a quick test meeting together"
+
+---
+
+## Demo Tips
+
+1. Have a pre-existing meeting with generated minutes ready to show
+2. Start with the "wow factor" - show the AI-generated summary first
+3. Keep explanations brief - let the screens speak for themselves
+4. Save technical details for Q&A if asked

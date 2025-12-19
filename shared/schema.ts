@@ -4,6 +4,27 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 
+// Attendee type for meeting minutes - supports both legacy strings and new objects
+export interface AttendeePresent {
+  name: string;
+  email: string;
+}
+
+// Union type for backward compatibility during migration
+export type AttendeePresentInput = string | AttendeePresent;
+
+// Zod schema for attendee validation
+export const attendeePresentSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(200)
+});
+
+// Union schema that accepts both strings (legacy) and objects (new format)
+export const attendeePresentInputSchema = z.union([
+  z.string().min(1).max(200),
+  attendeePresentSchema
+]);
+
 // Postgres ENUMs for data integrity and type safety
 export const classificationLevelEnum = pgEnum("classification_level", [
   "UNCLASSIFIED",
@@ -186,7 +207,7 @@ export const meetingMinutes = pgTable("meeting_minutes", {
   summary: text("summary").notNull(),
   keyDiscussions: jsonb("key_discussions").notNull().$type<string[]>(),
   decisions: jsonb("decisions").notNull().$type<string[]>(),
-  attendeesPresent: jsonb("attendees_present").notNull().$type<string[]>(),
+  attendeesPresent: jsonb("attendees_present").notNull().$type<AttendeePresentInput[]>(),
   processingStatus: processingStatusEnum("processing_status").notNull().default("pending"),
   approvalStatus: approvalStatusEnum("approval_status").notNull().default("pending_review"),
   approvedBy: text("approved_by"),
@@ -695,8 +716,8 @@ export const insertMeetingMinutesSchema = createInsertSchema(meetingMinutes).omi
     .trim(),
   
   // Strict validation for attendees present (allow 0 for solo meetings)
-  // Accepts any string: display names, emails, or any identifier
-  attendeesPresent: z.array(z.string().min(1).max(200))
+  // Accepts both strings (legacy) and {name, email} objects (new format)
+  attendeesPresent: z.array(attendeePresentInputSchema)
     .min(0, "Attendees must be an array")
     .max(500, "Maximum 500 attendees allowed"),
   

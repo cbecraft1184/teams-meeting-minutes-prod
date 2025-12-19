@@ -16,13 +16,19 @@ import {
   meetingMinutes, 
   actionItems,
   insertMeetingMinutesSchema,
-  insertActionItemSchema
+  insertActionItemSchema,
+  type AttendeePresent
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./azureOpenAI";
 import { ZodError } from "zod";
 import { storage } from "../storage";
 import { enqueueJob } from "./durableQueue";
+import { 
+  normalizeAttendeesArray, 
+  buildAttendeeLookups,
+  emailToDisplayName 
+} from "@shared/attendeeHelpers";
 
 /**
  * Generate meeting minutes automatically after enrichment
@@ -66,94 +72,25 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // Get attendees for action item assignment - normalize to display names
+    // Get attendees for action item assignment - normalize to AttendeePresent objects
     const rawInvitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
     
-    // Helper to convert email to display name
-    const emailToDisplayName = (email: string): string => {
-      const namePart = email.split('@')[0];
-      return namePart
-        .replace(/[._]/g, ' ')
-        .split(' ')
-        .filter(word => word.length > 0)
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-        .join(' ')
-        .trim();
-    };
+    // Normalize all attendees to {name, email} objects using shared helper
+    const normalizedInvitees = normalizeAttendeesArray(rawInvitees);
+    const normalizedAttendees = normalizeAttendeesArray(existingAttendees);
+    const attendeeObjects: AttendeePresent[] = normalizedInvitees.length > 0 ? normalizedInvitees : normalizedAttendees;
     
-    // Build email-to-displayName lookup for post-processing
-    const emailToNameLookup = new Map<string, string>();
-    
-    // Normalize attendees to display names (handle both string[] and object[] formats)
-    const normalizeAttendees = (attendees: any[]): string[] => {
-      return attendees.map(a => {
-        if (typeof a === 'string') {
-          const trimmed = a.trim();
-          if (!trimmed) return 'Unknown';
-          
-          // If it's an email, convert to display name and store lookup
-          if (trimmed.includes('@')) {
-            const displayName = emailToDisplayName(trimmed);
-            emailToNameLookup.set(trimmed.toLowerCase(), displayName);
-            return displayName;
-          }
-          return trimmed;
-        }
-        if (typeof a === 'object' && a !== null) {
-          // Handle Graph API attendee objects - try multiple field paths
-          const displayName = a.displayName?.trim() || 
-                             a.name?.trim() || 
-                             a.emailAddress?.name?.trim() ||
-                             a.identity?.user?.displayName?.trim();
-          
-          // Get email from various possible locations
-          const email = a.email?.trim() || 
-                       a.emailAddress?.address?.trim() ||
-                       a.identity?.user?.email?.trim();
-          
-          // Store email→displayName lookup if we have both
-          if (email && displayName) {
-            emailToNameLookup.set(email.toLowerCase(), displayName);
-          }
-          
-          // Return displayName if available, otherwise derive from email
-          if (displayName) return displayName;
-          if (email) {
-            const derivedName = emailToDisplayName(email);
-            emailToNameLookup.set(email.toLowerCase(), derivedName);
-            return derivedName;
-          }
-          
-          return 'Unknown';
-        }
-        return 'Unknown';
-      }).filter(name => name && name !== 'Unknown' && name.trim().length > 0);
-    };
-    
-    const normalizedInvitees = normalizeAttendees(rawInvitees);
-    const normalizedAttendees = normalizeAttendees(existingAttendees);
-    const attendeesForAI = normalizedInvitees.length > 0 ? normalizedInvitees : normalizedAttendees;
+    // Extract just names for AI prompt (AI works better with simple name list)
+    const attendeesForAI = attendeeObjects.map(a => a.name).filter(n => n.length > 0);
     
     console.log(`👥 [MinutesGenerator] Normalized attendees for AI: ${attendeesForAI.join(', ')}`);
     
+    // Build lookups for post-processing assignee matching
+    const { emailToName, nameToEmail, allIdentifiers } = buildAttendeeLookups(attendeeObjects);
+    
     // Extract action items from real transcript, passing attendee names for accurate assignment
     let actionItemsData = await extractActionItems(transcript, attendeesForAI);
-    
-    // Build a matching set that includes both display names and raw emails/strings
-    const attendeeMatchSet = new Set<string>();
-    rawInvitees.forEach((a: any) => {
-      if (typeof a === 'string') {
-        attendeeMatchSet.add(a.toLowerCase());
-      } else if (typeof a === 'object' && a !== null) {
-        if (a.displayName) attendeeMatchSet.add(a.displayName.toLowerCase());
-        if (a.name) attendeeMatchSet.add(a.name.toLowerCase());
-        if (a.email) attendeeMatchSet.add(a.email.toLowerCase());
-        if (a.emailAddress?.address) attendeeMatchSet.add(a.emailAddress.address.toLowerCase());
-      }
-    });
-    // Also add normalized names
-    attendeesForAI.forEach(name => attendeeMatchSet.add(name.toLowerCase()));
     
     // Post-process: Validate assignees match actual attendees or set to "Unassigned"
     actionItemsData = actionItemsData.map(item => {
@@ -165,7 +102,7 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       
       const assigneeLower = assignee.toLowerCase();
       
-      // Check if assignee matches any known attendee (case-insensitive exact or partial match)
+      // Check if assignee matches any known attendee name (case-insensitive exact or partial match)
       const matchedAttendee = attendeesForAI.find(a => {
         const aLower = a.toLowerCase();
         return aLower === assigneeLower ||
@@ -174,15 +111,16 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       });
       
       if (matchedAttendee) {
-        // Use the normalized display name from our attendee list
-        return { ...item, assignee: matchedAttendee };
+        // Use the normalized display name and get corresponding email
+        const email = nameToEmail.get(matchedAttendee.toLowerCase()) || '';
+        return { ...item, assignee: matchedAttendee, assigneeEmail: email };
       }
       
       // Check if assignee is an email - use lookup to get display name
       if (assignee.includes('@')) {
-        const displayName = emailToNameLookup.get(assigneeLower);
+        const displayName = emailToName.get(assigneeLower);
         if (displayName) {
-          return { ...item, assignee: displayName };
+          return { ...item, assignee: displayName, assigneeEmail: assignee.toLowerCase() };
         }
         // Email not in lookup - derive display name from email
         const derivedName = emailToDisplayName(assignee);
@@ -196,13 +134,13 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       }
       
       // Check against the full match set (emails, raw names)
-      const directMatch = attendeeMatchSet.has(assigneeLower);
+      const directMatch = allIdentifiers.has(assigneeLower);
       
       if (directMatch) {
         // Found in raw data - try to find the corresponding display name via lookup
-        const displayName = emailToNameLookup.get(assigneeLower);
+        const displayName = emailToName.get(assigneeLower);
         if (displayName) {
-          return { ...item, assignee: displayName };
+          return { ...item, assignee: displayName, assigneeEmail: assigneeLower };
         }
         // Fallback: keep original if it's already a valid name in the set
         return { ...item, assignee };
@@ -234,24 +172,25 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     const simulatedSpeakers = transcriptSimulatedSpeakers.length > 0 ? transcriptSimulatedSpeakers : aiSimulatedSpeakers;
     const isSoloTest = simulatedSpeakers.length > 0;
     
-    // Determine final attendees list:
-    // Priority: simulated speakers (solo test) > normalized invitees > existing attendees
-    let uniqueAttendees: string[];
+    // Determine final attendees list as AttendeePresent objects:
+    // Priority: simulated speakers (solo test) > attendee objects
+    let uniqueAttendeesObjects: AttendeePresent[];
     if (isSoloTest) {
-      // Solo test: use simulated speakers as attendees (the roles being played)
-      uniqueAttendees = [...simulatedSpeakers];
-      console.log(`👥 [MinutesGenerator] SOLO TEST detected - Using simulated speakers as attendees: ${uniqueAttendees.join(', ')}`);
+      // Solo test: convert simulated speaker names to objects (no email available)
+      uniqueAttendeesObjects = simulatedSpeakers.map(name => ({ name, email: '' }));
+      console.log(`👥 [MinutesGenerator] SOLO TEST detected - Using simulated speakers as attendees: ${simulatedSpeakers.join(', ')}`);
     } else {
-      // Normal meeting: use normalized attendees
-      uniqueAttendees = attendeesForAI.length > 0 ? attendeesForAI : normalizedAttendees;
-      console.log(`👥 [MinutesGenerator] Normal meeting - Using attendees: ${uniqueAttendees.length}`);
+      // Normal meeting: use normalized attendee objects
+      uniqueAttendeesObjects = attendeeObjects;
+      console.log(`👥 [MinutesGenerator] Normal meeting - Using attendees: ${uniqueAttendeesObjects.length}`);
     }
     
-    // Update the meeting record with attendees if needed
-    if (uniqueAttendees.length > 0 && uniqueAttendees.length !== existingAttendees.length) {
+    // Update the meeting record with attendee names if needed (meetings.attendees is string[])
+    const attendeeNames = uniqueAttendeesObjects.map(a => a.name).filter(n => n.length > 0);
+    if (attendeeNames.length > 0 && attendeeNames.length !== existingAttendees.length) {
       console.log(`📝 [MinutesGenerator] Updating meeting record with attendees`);
       await db.update(meetings)
-        .set({ attendees: uniqueAttendees })
+        .set({ attendees: attendeeNames })
         .where(eq(meetings.id, meetingId));
     }
     
@@ -263,12 +202,13 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     console.log(`⚙️  [MinutesGenerator] Approval required: ${requiresApproval} → Initial status: ${initialApprovalStatus}`);
     
     // STRICT VALIDATION: Validate meeting minutes data before database write
+    // Store attendees as objects with both name and email
     const minutesPayload = {
       meetingId: meeting.id,
       summary: minutesData.summary,
       keyDiscussions: minutesData.keyDiscussions,
       decisions: minutesData.decisions,
-      attendeesPresent: uniqueAttendees,
+      attendeesPresent: uniqueAttendeesObjects,
       processingStatus: "completed" as const,
       approvalStatus: initialApprovalStatus
     };

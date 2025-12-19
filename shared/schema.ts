@@ -726,13 +726,10 @@ export const insertActionItemSchema = createInsertSchema(actionItems).omit({
     .max(200, "Assignee must be 200 characters or less")
     .trim(),
   
-  // Strict validation for due date (must be in future if provided)
-  // Use union to handle null/undefined, then coerce and validate only when present
+  // Due date validation - accepts any valid date from transcripts
+  // Past dates are allowed since meetings may reference deadlines that have passed
   dueDate: z.union([
-    z.coerce.date().refine(
-      (date) => date > new Date(),
-      "Due date must be in the future"
-    ),
+    z.coerce.date(),
     z.null(),
     z.undefined()
   ]).optional(),

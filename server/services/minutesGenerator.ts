@@ -27,7 +27,11 @@ import { enqueueJob } from "./durableQueue";
 import { 
   normalizeAttendeesArray, 
   buildAttendeeLookups,
-  emailToDisplayName 
+  emailToDisplayName,
+  buildIdentityProfiles,
+  findMatchingIdentity,
+  extractSpeakersFromTranscript,
+  type IdentityProfile
 } from "@shared/attendeeHelpers";
 
 /**
@@ -72,28 +76,111 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // Get attendees for action item assignment - normalize to AttendeePresent objects
+    // STEP 1: Extract REAL speaker names directly from the transcript
+    // The transcript contains accurate names like <v Thomas Dulaney> that we should use
+    const transcriptSpeakers = extractSpeakersFromTranscript(transcript);
+    console.log(`🎤 [MinutesGenerator] Extracted ${transcriptSpeakers.length} speakers from transcript: ${transcriptSpeakers.join(', ')}`);
+    
+    // STEP 2: Get attendee/invitee data for email matching
     const rawInvitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
-    
-    // Normalize all attendees to {name, email} objects using shared helper
     const normalizedInvitees = normalizeAttendeesArray(rawInvitees);
     const normalizedAttendees = normalizeAttendeesArray(existingAttendees);
     const attendeeObjects: AttendeePresent[] = normalizedInvitees.length > 0 ? normalizedInvitees : normalizedAttendees;
     
-    // Extract just names for AI prompt (AI works better with simple name list)
-    const attendeesForAI = attendeeObjects.map(a => a.name).filter(n => n.length > 0);
+    // STEP 3: Build identity profiles using TRANSCRIPT SPEAKERS as primary names
+    // Match transcript speakers to attendee emails using fuzzy matching
+    const identityProfiles: IdentityProfile[] = [];
     
-    console.log(`👥 [MinutesGenerator] Normalized attendees for AI: ${attendeesForAI.join(', ')}`);
+    for (const speakerName of transcriptSpeakers) {
+      // Try to find matching attendee by name similarity
+      const speakerTokens = speakerName.toLowerCase().split(/\s+/).filter(t => t.length > 1);
+      let bestMatch: { attendee: AttendeePresent; score: number } | null = null;
+      
+      for (const attendee of attendeeObjects) {
+        let score = 0;
+        const attendeeName = attendee.name.toLowerCase();
+        const attendeeEmail = attendee.email.toLowerCase();
+        
+        // Exact name match
+        if (attendeeName === speakerName.toLowerCase()) {
+          score = 100;
+        }
+        // Name contains speaker or vice versa
+        else if (attendeeName.includes(speakerName.toLowerCase()) || speakerName.toLowerCase().includes(attendeeName)) {
+          score = 90;
+        }
+        // Normalized match (remove spaces/numbers)
+        else {
+          const speakerNorm = speakerName.toLowerCase().replace(/[^a-z]/g, '');
+          const attendeeNorm = attendeeName.replace(/[^a-z]/g, '');
+          const emailLocalNorm = attendeeEmail.split('@')[0].replace(/[^a-z]/g, '');
+          
+          if (speakerNorm === attendeeNorm || speakerNorm === emailLocalNorm) {
+            score = 95;
+          }
+          // Check token overlap
+          else {
+            const attendeeTokens = attendeeName.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/\s+/).filter(t => t.length > 1);
+            const emailTokens = attendeeEmail.split('@')[0].replace(/[._]/g, ' ').replace(/[0-9]/g, '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
+            const tokenSet = new Set([...attendeeTokens, ...emailTokens]);
+            const allAttendeeTokens: string[] = [];
+            tokenSet.forEach(t => allAttendeeTokens.push(t));
+            
+            const commonTokens = speakerTokens.filter(t => allAttendeeTokens.some(at => at.includes(t) || t.includes(at)));
+            if (commonTokens.length > 0) {
+              score = 50 + commonTokens.length * 15;
+            }
+          }
+        }
+        
+        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { attendee, score };
+        }
+      }
+      
+      // Create identity profile with transcript speaker name as canonical
+      const email = bestMatch && bestMatch.score >= 50 ? bestMatch.attendee.email : '';
+      if (bestMatch && bestMatch.score >= 50) {
+        console.log(`✅ [MinutesGenerator] Matched speaker "${speakerName}" → email: ${email} (score: ${bestMatch.score})`);
+      }
+      
+      identityProfiles.push({
+        canonicalName: speakerName,  // Use the REAL name from transcript
+        email: email,
+        aliases: [speakerName, speakerName.split(' ')[0]], // Full name and first name
+        tokens: speakerTokens
+      });
+    }
     
-    // Build lookups for post-processing assignee matching
+    // Add any attendees not matched to speakers (they might be mentioned but didn't speak)
+    for (const attendee of attendeeObjects) {
+      const alreadyMatched = identityProfiles.some(p => p.email === attendee.email && p.email !== '');
+      if (!alreadyMatched && attendee.email) {
+        // Build profile from attendee data
+        const profile = buildIdentityProfiles([attendee])[0];
+        if (profile) {
+          identityProfiles.push(profile);
+        }
+      }
+    }
+    
+    // Extract canonical names for AI prompt - use REAL speaker names from transcript
+    const attendeesForAI = identityProfiles.map(p => p.canonicalName).filter(n => n.length > 0);
+    
+    console.log(`👥 [MinutesGenerator] Final identity profiles: ${identityProfiles.length}`);
+    identityProfiles.forEach(p => {
+      console.log(`   - "${p.canonicalName}" (email: ${p.email || 'unknown'})`);
+    });
+    
+    // Build lookups for post-processing assignee matching (legacy, used as fallback)
     const { emailToName, nameToEmail, allIdentifiers } = buildAttendeeLookups(attendeeObjects);
     
     // Extract action items from real transcript, passing attendee names for accurate assignment
     let actionItemsData = await extractActionItems(transcript, attendeesForAI);
     
-    // Post-process: Validate assignees match actual attendees or set to "Unassigned"
-    // Uses smart fuzzy matching to handle name variations
+    // Post-process: Validate assignees match actual attendees using identity profiles
+    // Uses enriched identity matching with aliases derived from names AND emails
     actionItemsData = actionItemsData.map(item => {
       const assignee = item.assignee?.trim() || 'Unassigned';
       
@@ -101,116 +188,29 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
         return { ...item, assignee: 'Unassigned' };
       }
       
+      // Use the new identity matching system
+      const matchedProfile = findMatchingIdentity(assignee, identityProfiles);
+      
+      if (matchedProfile) {
+        console.log(`✅ [MinutesGenerator] Matched assignee "${assignee}" → "${matchedProfile.canonicalName}" (email: ${matchedProfile.email})`);
+        return { 
+          ...item, 
+          assignee: matchedProfile.canonicalName, 
+          assigneeEmail: matchedProfile.email 
+        };
+      }
+      
+      // Fallback: Check if assignee is an email directly
       const assigneeLower = assignee.toLowerCase();
-      
-      // Helper: Tokenize a name into lowercase words (removes punctuation, titles)
-      // Also splits camelCase/concatenated names like "ChristopherBecraft" → ["christopher", "becraft"]
-      const tokenize = (name: string): string[] => {
-        // First, split camelCase: "ChristopherBecraft" → "Christopher Becraft"
-        const withSpaces = name.replace(/([a-z])([A-Z])/g, '$1 $2');
-        return withSpaces
-          .toLowerCase()
-          .replace(/[^a-z\s]/g, ' ')  // Remove non-alpha chars (including numbers)
-          .split(/\s+/)
-          .filter(t => t.length > 1 && !['mr', 'mrs', 'ms', 'dr', 'jr', 'sr', 'ii', 'iii'].includes(t));
-      };
-      
-      const assigneeTokens = tokenize(assignee);
-      
-      // Helper: Score how well two names match (higher = better)
-      const matchScore = (attendeeName: string): number => {
-        const attendeeLower = attendeeName.toLowerCase();
-        const attendeeTokens = tokenize(attendeeName);
-        
-        // Exact match = highest score
-        if (attendeeLower === assigneeLower) return 100;
-        
-        // Full containment (one name contains the other)
-        if (attendeeLower.includes(assigneeLower)) return 90;
-        if (assigneeLower.includes(attendeeLower)) return 85;
-        
-        // Normalized comparison: remove all spaces and non-alpha chars
-        // "Mairaj Ali" → "mairajali", "Mairajali75" → "mairajali"
-        const normalizedAssignee = assigneeLower.replace(/[^a-z]/g, '');
-        const normalizedAttendee = attendeeLower.replace(/[^a-z]/g, '');
-        if (normalizedAssignee === normalizedAttendee) return 95;
-        if (normalizedAttendee.includes(normalizedAssignee) && normalizedAssignee.length >= 4) return 88;
-        if (normalizedAssignee.includes(normalizedAttendee) && normalizedAttendee.length >= 4) return 83;
-        
-        // Token-based matching
-        const commonTokens = assigneeTokens.filter(t => attendeeTokens.includes(t));
-        if (commonTokens.length === 0) return 0;
-        
-        // First name match (first token matches)
-        if (assigneeTokens[0] && attendeeTokens[0] === assigneeTokens[0]) {
-          return 70 + (commonTokens.length * 5);
-        }
-        
-        // Last name match (last token matches)
-        if (assigneeTokens.length > 0 && attendeeTokens.length > 0) {
-          const assigneeLastToken = assigneeTokens[assigneeTokens.length - 1];
-          const attendeeLastToken = attendeeTokens[attendeeTokens.length - 1];
-          if (assigneeLastToken === attendeeLastToken) {
-            return 65 + (commonTokens.length * 5);
-          }
-        }
-        
-        // Any token match
-        if (commonTokens.length > 0) {
-          return 50 + (commonTokens.length * 10);
-        }
-        
-        return 0;
-      };
-      
-      // Find best matching attendee
-      let bestMatch: { name: string; score: number } | null = null;
-      for (const attendeeName of attendeesForAI) {
-        const score = matchScore(attendeeName);
-        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
-          bestMatch = { name: attendeeName, score };
-        }
-      }
-      
-      // Accept match if score is high enough (at least partial name match)
-      if (bestMatch && bestMatch.score >= 50) {
-        const email = nameToEmail.get(bestMatch.name.toLowerCase()) || '';
-        console.log(`✅ [MinutesGenerator] Matched assignee "${assignee}" → "${bestMatch.name}" (score: ${bestMatch.score})`);
-        return { ...item, assignee: bestMatch.name, assigneeEmail: email };
-      }
-      
-      // Check if assignee is an email - use lookup to get display name
       if (assignee.includes('@')) {
         const displayName = emailToName.get(assigneeLower);
         if (displayName) {
           return { ...item, assignee: displayName, assigneeEmail: assignee.toLowerCase() };
         }
-        // Email not in lookup - derive display name from email
-        const derivedName = emailToDisplayName(assignee);
-        // Check if derived name matches any attendee
-        const derivedMatch = attendeesForAI.find(a => 
-          a.toLowerCase() === derivedName.toLowerCase()
-        );
-        if (derivedMatch) {
-          return { ...item, assignee: derivedMatch };
-        }
-      }
-      
-      // Check against the full match set (emails, raw names)
-      const directMatch = allIdentifiers.has(assigneeLower);
-      
-      if (directMatch) {
-        // Found in raw data - try to find the corresponding display name via lookup
-        const displayName = emailToName.get(assigneeLower);
-        if (displayName) {
-          return { ...item, assignee: displayName, assigneeEmail: assigneeLower };
-        }
-        // Fallback: keep original if it's already a valid name in the set
-        return { ...item, assignee };
       }
       
       // No match found - set to "Unassigned"
-      console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - no match found in attendees, setting to Unassigned`);
+      console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - no match found in ${identityProfiles.length} identity profiles, setting to Unassigned`);
       return { ...item, assignee: 'Unassigned' };
     });
     

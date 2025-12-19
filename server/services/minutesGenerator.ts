@@ -93,27 +93,79 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     let actionItemsData = await extractActionItems(transcript, attendeesForAI);
     
     // Post-process: Validate assignees match actual attendees or set to "Unassigned"
+    // Uses smart fuzzy matching to handle name variations
     actionItemsData = actionItemsData.map(item => {
       const assignee = item.assignee?.trim() || 'Unassigned';
       
-      if (assignee === 'Unassigned') {
-        return { ...item, assignee };
+      if (assignee === 'Unassigned' || assignee.toLowerCase() === 'unassigned') {
+        return { ...item, assignee: 'Unassigned' };
       }
       
       const assigneeLower = assignee.toLowerCase();
       
-      // Check if assignee matches any known attendee name (case-insensitive exact or partial match)
-      const matchedAttendee = attendeesForAI.find(a => {
-        const aLower = a.toLowerCase();
-        return aLower === assigneeLower ||
-               aLower.includes(assigneeLower) ||
-               assigneeLower.includes(aLower);
-      });
+      // Helper: Tokenize a name into lowercase words (removes punctuation, titles)
+      const tokenize = (name: string): string[] => {
+        return name
+          .toLowerCase()
+          .replace(/[^a-z\s]/g, ' ')  // Remove non-alpha chars
+          .split(/\s+/)
+          .filter(t => t.length > 1 && !['mr', 'mrs', 'ms', 'dr', 'jr', 'sr', 'ii', 'iii'].includes(t));
+      };
       
-      if (matchedAttendee) {
-        // Use the normalized display name and get corresponding email
-        const email = nameToEmail.get(matchedAttendee.toLowerCase()) || '';
-        return { ...item, assignee: matchedAttendee, assigneeEmail: email };
+      const assigneeTokens = tokenize(assignee);
+      
+      // Helper: Score how well two names match (higher = better)
+      const matchScore = (attendeeName: string): number => {
+        const attendeeLower = attendeeName.toLowerCase();
+        const attendeeTokens = tokenize(attendeeName);
+        
+        // Exact match = highest score
+        if (attendeeLower === assigneeLower) return 100;
+        
+        // Full containment (one name contains the other)
+        if (attendeeLower.includes(assigneeLower)) return 90;
+        if (assigneeLower.includes(attendeeLower)) return 85;
+        
+        // Token-based matching
+        const commonTokens = assigneeTokens.filter(t => attendeeTokens.includes(t));
+        if (commonTokens.length === 0) return 0;
+        
+        // First name match (first token matches)
+        if (assigneeTokens[0] && attendeeTokens[0] === assigneeTokens[0]) {
+          return 70 + (commonTokens.length * 5);
+        }
+        
+        // Last name match (last token matches)
+        if (assigneeTokens.length > 0 && attendeeTokens.length > 0) {
+          const assigneeLastToken = assigneeTokens[assigneeTokens.length - 1];
+          const attendeeLastToken = attendeeTokens[attendeeTokens.length - 1];
+          if (assigneeLastToken === attendeeLastToken) {
+            return 65 + (commonTokens.length * 5);
+          }
+        }
+        
+        // Any token match
+        if (commonTokens.length > 0) {
+          return 50 + (commonTokens.length * 10);
+        }
+        
+        return 0;
+      };
+      
+      // Find best matching attendee
+      let bestMatch: { name: string; score: number } | null = null;
+      for (const attendeeName of attendeesForAI) {
+        const score = matchScore(attendeeName);
+        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { name: attendeeName, score };
+        }
+      }
+      
+      // Accept match if score is high enough (at least partial name match)
+      if (bestMatch && bestMatch.score >= 50) {
+        const email = nameToEmail.get(bestMatch.name.toLowerCase()) || '';
+        console.log(`✅ [MinutesGenerator] Matched assignee "${assignee}" → "${bestMatch.name}" (score: ${bestMatch.score})`);
+        return { ...item, assignee: bestMatch.name, assigneeEmail: email };
       }
       
       // Check if assignee is an email - use lookup to get display name
@@ -147,7 +199,7 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       }
       
       // No match found - set to "Unassigned"
-      console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - setting to Unassigned`);
+      console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - no match found in attendees, setting to Unassigned`);
       return { ...item, assignee: 'Unassigned' };
     });
     

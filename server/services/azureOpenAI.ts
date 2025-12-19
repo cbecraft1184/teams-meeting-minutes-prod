@@ -161,9 +161,9 @@ export async function extractActionItems(transcript: string, attendees?: string[
     console.warn("⚠️  Using Replit AI (development). Production MUST use Azure OpenAI Government.");
   }
 
-  // Build attendee list for the prompt
+  // Build attendee list for the prompt - numbered for clarity
   const attendeeList = attendees && attendees.length > 0 
-    ? `\n\nMeeting Attendees (use ONLY these names for assignees):\n${attendees.map(a => `- ${a}`).join('\n')}`
+    ? `\n\nMEETING ATTENDEES (you MUST use one of these EXACT names as assignee):\n${attendees.map((a, i) => `${i + 1}. "${a}"`).join('\n')}`
     : '';
 
   return await pRetry(
@@ -175,9 +175,18 @@ export async function extractActionItems(transcript: string, attendees?: string[
               role: "system",
               content: `Extract action items from this meeting transcript. For each action item, identify:
 - The task to be completed
-- The person assigned - use the EXACT name from the attendee list below. If no specific person is mentioned, use "Unassigned". Do NOT use generic terms like "team", "leadership", or "everyone".
+- The person assigned (CRITICAL: see rules below)
 - Any deadlines mentioned (extract the actual date if stated)
 - Priority level (high/medium/low based on context)
+
+ASSIGNEE RULES - FOLLOW EXACTLY:
+1. When someone is assigned a task, find the CLOSEST MATCHING full name from the attendee list
+2. If the transcript says "Alex will...", find the attendee whose name contains "Alex" (e.g., "Alex Johnson") and use that FULL name
+3. If the transcript says "Johnson should...", find the attendee with "Johnson" in their name and use their FULL name
+4. NEVER use partial names, first names only, or nicknames - always use the COMPLETE name from the list
+5. If no attendee matches the mentioned person, use "Unassigned"
+6. If no specific person is mentioned (e.g., "someone needs to", "the team will"), use "Unassigned"
+7. Do NOT use generic terms like "team", "leadership", "everyone", or "TBD"
 ${attendeeList}
 
 Output as JSON:
@@ -185,7 +194,7 @@ Output as JSON:
   "items": [
     {
       "task": "Description of task",
-      "assignee": "Exact attendee name from list above or 'Unassigned'",
+      "assignee": "COMPLETE attendee name from list above OR 'Unassigned'",
       "dueDate": "YYYY-MM-DD or null",
       "priority": "high|medium|low"
     }

@@ -70,28 +70,65 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     const rawInvitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
     
+    // Helper to convert email to display name
+    const emailToDisplayName = (email: string): string => {
+      const namePart = email.split('@')[0];
+      return namePart
+        .replace(/[._]/g, ' ')
+        .split(' ')
+        .filter(word => word.length > 0)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ')
+        .trim();
+    };
+    
+    // Build email-to-displayName lookup for post-processing
+    const emailToNameLookup = new Map<string, string>();
+    
     // Normalize attendees to display names (handle both string[] and object[] formats)
     const normalizeAttendees = (attendees: any[]): string[] => {
       return attendees.map(a => {
         if (typeof a === 'string') {
-          // If it's an email, try to extract name part
-          if (a.includes('@')) {
-            const namePart = a.split('@')[0];
-            // Convert "john.doe" or "johndoe" to "John Doe"
-            return namePart
-              .replace(/[._]/g, ' ')
-              .split(' ')
-              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-              .join(' ');
+          const trimmed = a.trim();
+          if (!trimmed) return 'Unknown';
+          
+          // If it's an email, convert to display name and store lookup
+          if (trimmed.includes('@')) {
+            const displayName = emailToDisplayName(trimmed);
+            emailToNameLookup.set(trimmed.toLowerCase(), displayName);
+            return displayName;
           }
-          return a;
+          return trimmed;
         }
         if (typeof a === 'object' && a !== null) {
-          // Handle Graph API attendee objects
-          return a.displayName || a.name || a.emailAddress?.name || a.email?.split('@')[0] || 'Unknown';
+          // Handle Graph API attendee objects - try multiple field paths
+          const displayName = a.displayName?.trim() || 
+                             a.name?.trim() || 
+                             a.emailAddress?.name?.trim() ||
+                             a.identity?.user?.displayName?.trim();
+          
+          // Get email from various possible locations
+          const email = a.email?.trim() || 
+                       a.emailAddress?.address?.trim() ||
+                       a.identity?.user?.email?.trim();
+          
+          // Store email→displayName lookup if we have both
+          if (email && displayName) {
+            emailToNameLookup.set(email.toLowerCase(), displayName);
+          }
+          
+          // Return displayName if available, otherwise derive from email
+          if (displayName) return displayName;
+          if (email) {
+            const derivedName = emailToDisplayName(email);
+            emailToNameLookup.set(email.toLowerCase(), derivedName);
+            return derivedName;
+          }
+          
+          return 'Unknown';
         }
         return 'Unknown';
-      }).filter(name => name && name !== 'Unknown');
+      }).filter(name => name && name !== 'Unknown' && name.trim().length > 0);
     };
     
     const normalizedInvitees = normalizeAttendees(rawInvitees);
@@ -126,8 +163,9 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
         return { ...item, assignee };
       }
       
-      // Check if assignee matches any known attendee (case-insensitive exact or partial match)
       const assigneeLower = assignee.toLowerCase();
+      
+      // Check if assignee matches any known attendee (case-insensitive exact or partial match)
       const matchedAttendee = attendeesForAI.find(a => {
         const aLower = a.toLowerCase();
         return aLower === assigneeLower ||
@@ -135,21 +173,44 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
                assigneeLower.includes(aLower);
       });
       
-      // Also check against the full match set (emails, raw names)
-      const directMatch = attendeeMatchSet.has(assigneeLower);
-      
       if (matchedAttendee) {
         // Use the normalized display name from our attendee list
         return { ...item, assignee: matchedAttendee };
-      } else if (directMatch) {
-        // Found in raw data but not in normalized list - try to find the display name
-        const displayName = attendeesForAI[0] || assignee; // Fallback to first attendee or keep original
-        return { ...item, assignee };
-      } else {
-        // No match found - set to "Unassigned"
-        console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - setting to Unassigned`);
-        return { ...item, assignee: 'Unassigned' };
       }
+      
+      // Check if assignee is an email - use lookup to get display name
+      if (assignee.includes('@')) {
+        const displayName = emailToNameLookup.get(assigneeLower);
+        if (displayName) {
+          return { ...item, assignee: displayName };
+        }
+        // Email not in lookup - derive display name from email
+        const derivedName = emailToDisplayName(assignee);
+        // Check if derived name matches any attendee
+        const derivedMatch = attendeesForAI.find(a => 
+          a.toLowerCase() === derivedName.toLowerCase()
+        );
+        if (derivedMatch) {
+          return { ...item, assignee: derivedMatch };
+        }
+      }
+      
+      // Check against the full match set (emails, raw names)
+      const directMatch = attendeeMatchSet.has(assigneeLower);
+      
+      if (directMatch) {
+        // Found in raw data - try to find the corresponding display name via lookup
+        const displayName = emailToNameLookup.get(assigneeLower);
+        if (displayName) {
+          return { ...item, assignee: displayName };
+        }
+        // Fallback: keep original if it's already a valid name in the set
+        return { ...item, assignee };
+      }
+      
+      // No match found - set to "Unassigned"
+      console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - setting to Unassigned`);
+      return { ...item, assignee: 'Unassigned' };
     });
     
     console.log(`📋 [MinutesGenerator] Extracted ${actionItemsData.length} action items with attendee matching`);

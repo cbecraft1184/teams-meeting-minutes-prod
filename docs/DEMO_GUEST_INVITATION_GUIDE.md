@@ -68,12 +68,26 @@ The user will receive an email invitation from Microsoft. When they click **Acce
 
 ### For Guest Users
 
-Guest users can manually install the app:
-1. Open Teams
-2. Click **Apps** (... icon) in the sidebar
-3. Search for "Meeting Minutes"
-4. Click **Add**
-5. Right-click the app → **Pin**
+**Important**: Guest users CANNOT see the Apps menu in Teams - this is a Microsoft limitation by design. Guests must use one of these methods:
+
+**Option 1: Deep Link (Recommended for Demo)**
+Share this link with guests - they can click it to install the app in their Teams:
+```
+https://teams.microsoft.com/l/app/66ffea5c-139c-434a-a0f0-1bb2e08ccb19
+```
+
+**Option 2: Add as Channel Tab**
+If guests are members of a Team, you (as host) can add the app as a tab:
+1. Go to a channel in the shared Team
+2. Click **+** to add a tab
+3. Search for "Meeting Minutes" and add it
+4. Guests will automatically see it in that channel
+
+**Option 3: Browser Access (Standalone)**
+Guests can access the app directly in their browser without Teams:
+```
+https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
+```
 
 ## Step 4: Schedule the Demo Meeting
 
@@ -116,9 +130,9 @@ Guest users can manually install the app:
 ## Troubleshooting
 
 ### Guest Can't See the App
-- Verify guest access is enabled in Teams Admin Center
-- Check app permission policies allow guests
-- Have guest manually install via Teams Apps
+- **This is expected** - Guests cannot see the Apps menu in Teams (Microsoft limitation)
+- Share the deep link: `https://teams.microsoft.com/l/app/66ffea5c-139c-434a-a0f0-1bb2e08ccb19`
+- Or have them use the browser URL: `https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io`
 
 ### Guest Can't See Meetings
 - Ensure guest was invited to the Teams meeting

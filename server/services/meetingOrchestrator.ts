@@ -470,13 +470,18 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
     }
 
     // Update minutes with AI-generated content and attendees
+    // Convert string attendees to AttendeePresent objects
+    const attendeesAsObjects = uniqueAttendees.map((a: string) => ({
+      name: a.includes('@') ? a.split('@')[0].replace(/[._]/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') : a,
+      email: a.includes('@') ? a.toLowerCase() : ''
+    }));
     await db.update(meetingMinutes)
       .set({
         processingStatus: "completed",
         summary: minutesData.summary,
         keyDiscussions: minutesData.keyDiscussions,
         decisions: minutesData.decisions,
-        attendeesPresent: uniqueAttendees,
+        attendeesPresent: attendeesAsObjects,
       })
       .where(eq(meetingMinutes.id, minutes.id));
 

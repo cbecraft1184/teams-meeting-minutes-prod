@@ -169,7 +169,12 @@ async function seedDemoData() {
         'Created new VP of Engineering role to support growth',
         'Approved pursuit of strategic partnership with Enterprise Corp',
       ],
-      attendeesPresent: ['john.doe@contoso.com', 'approver@contoso.test', 'auditor@contoso.test', 'admin@contoso.test'],
+      attendeesPresent: [
+        { name: 'John Doe', email: 'john.doe@contoso.com' },
+        { name: 'Approver', email: 'approver@contoso.test' },
+        { name: 'Auditor', email: 'auditor@contoso.test' },
+        { name: 'Admin', email: 'admin@contoso.test' }
+      ],
       processingStatus: 'completed' as const,
       approvalStatus: 'approved' as const,
       approvedBy: 'john.doe@contoso.com',
@@ -192,7 +197,11 @@ async function seedDemoData() {
         'Launch beta program with 10 enterprise customers',
         'Update product documentation for all new features',
       ],
-      attendeesPresent: ['approver@contoso.test', 'auditor@contoso.test', 'admin@contoso.test'],
+      attendeesPresent: [
+        { name: 'Approver', email: 'approver@contoso.test' },
+        { name: 'Auditor', email: 'auditor@contoso.test' },
+        { name: 'Admin', email: 'admin@contoso.test' }
+      ],
       processingStatus: 'completed' as const,
       approvalStatus: 'approved' as const,
       approvedBy: 'approver@contoso.test',
@@ -215,7 +224,10 @@ async function seedDemoData() {
         'Mandatory security training for all engineering staff',
         'Schedule third-party security audit and penetration testing for January 2026',
       ],
-      attendeesPresent: ['john.doe@contoso.com', 'admin@contoso.test'],
+      attendeesPresent: [
+        { name: 'John Doe', email: 'john.doe@contoso.com' },
+        { name: 'Admin', email: 'admin@contoso.test' }
+      ],
       processingStatus: 'completed' as const,
       approvalStatus: 'approved' as const,
       approvedBy: 'john.doe@contoso.com',
@@ -236,7 +248,11 @@ async function seedDemoData() {
         'Request design review resources for upcoming features',
         'Investigate and fix staging environment intermittent issues',
       ],
-      attendeesPresent: ['auditor@contoso.test', 'approver@contoso.test', 'admin@contoso.test'],
+      attendeesPresent: [
+        { name: 'Auditor', email: 'auditor@contoso.test' },
+        { name: 'Approver', email: 'approver@contoso.test' },
+        { name: 'Admin', email: 'admin@contoso.test' }
+      ],
       processingStatus: 'completed' as const,
       approvalStatus: 'pending_review' as const,
     },

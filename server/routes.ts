@@ -510,12 +510,17 @@ export function registerRoutes(app: Express): Server {
       console.log(`[ACCESS] User ${req.user.email} generating minutes for meeting: ${meeting.title}`);
 
       // Create pending minutes record
+      // Convert meeting attendees to AttendeePresent objects
+      const attendeesAsObjects = (meeting.attendees || []).map((a: string) => ({
+        name: a.includes('@') ? a.split('@')[0].replace(/[._]/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') : a,
+        email: a.includes('@') ? a.toLowerCase() : ''
+      }));
       const pendingMinutes = await storage.createMinutes({
         meetingId,
         summary: "",
         keyDiscussions: [],
         decisions: [],
-        attendeesPresent: meeting.attendees,
+        attendeesPresent: attendeesAsObjects,
         processingStatus: "pending",
         sharepointUrl: null,
         docxUrl: null,
@@ -1917,7 +1922,7 @@ export function registerRoutes(app: Express): Server {
           summary: "This is a test meeting summary for outbox testing",
           keyDiscussions: ["Testing outbox pattern", "Verifying exactly-once delivery"],
           decisions: ["Implement proper retry logic"],
-          attendeesPresent: [req.user.email],
+          attendeesPresent: [{ name: req.user.displayName || req.user.email.split('@')[0], email: req.user.email }],
           approvalStatus: "approved",
           processingStatus: "completed",
         });

@@ -78,25 +78,16 @@ export function normalizeAttendeesArray(inputs: any[]): AttendeePresent[] {
 }
 
 /**
- * Get display name from attendee (handles both string and object formats)
+ * Get display name from attendee object
  */
 export function getAttendeeDisplayName(attendee: AttendeePresentInput): string {
-  if (typeof attendee === 'string') {
-    if (attendee.includes('@')) {
-      return emailToDisplayName(attendee);
-    }
-    return attendee;
-  }
   return attendee.name || attendee.email || 'Unknown';
 }
 
 /**
- * Get email from attendee (handles both string and object formats)
+ * Get email from attendee object
  */
 export function getAttendeeEmail(attendee: AttendeePresentInput): string {
-  if (typeof attendee === 'string') {
-    return attendee.includes('@') ? attendee.toLowerCase() : '';
-  }
   return attendee.email || '';
 }
 

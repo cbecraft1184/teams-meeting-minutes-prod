@@ -10,20 +10,20 @@ export interface AttendeePresent {
   email: string;
 }
 
-// Union type for backward compatibility during migration
-export type AttendeePresentInput = string | AttendeePresent;
+// AttendeePresent is now the only accepted format (migration complete)
+export type AttendeePresentInput = AttendeePresent;
 
-// Zod schema for attendee validation
+// Zod schema for attendee validation - email can be empty string for cases without email
 export const attendeePresentSchema = z.object({
   name: z.string().min(1).max(200),
-  email: z.string().email().max(200)
+  email: z.string().max(200).refine(
+    (val) => val === '' || z.string().email().safeParse(val).success,
+    { message: 'Must be empty or a valid email' }
+  )
 });
 
-// Union schema that accepts both strings (legacy) and objects (new format)
-export const attendeePresentInputSchema = z.union([
-  z.string().min(1).max(200),
-  attendeePresentSchema
-]);
+// Now object-only schema (migration complete)
+export const attendeePresentInputSchema = attendeePresentSchema;
 
 // Postgres ENUMs for data integrity and type safety
 export const classificationLevelEnum = pgEnum("classification_level", [
@@ -716,7 +716,7 @@ export const insertMeetingMinutesSchema = createInsertSchema(meetingMinutes).omi
     .trim(),
   
   // Strict validation for attendees present (allow 0 for solo meetings)
-  // Accepts both strings (legacy) and {name, email} objects (new format)
+  // Requires {name, email} objects - migration from legacy strings complete
   attendeesPresent: z.array(attendeePresentInputSchema)
     .min(0, "Attendees must be an array")
     .max(500, "Maximum 500 attendees allowed"),

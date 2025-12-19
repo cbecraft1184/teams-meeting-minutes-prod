@@ -54,6 +54,7 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 - **Transcript Access**: Correctly accesses transcripts using `/users/{organizerId}/onlineMeetings/{meetingId}/transcripts` with a fallback mechanism and requires application access policies.
 - **Processing Thresholds**: All meeting duration or word count thresholds have been removed to ensure all meetings with transcripts are processed. An admin reprocess endpoint (`POST /api/admin/meetings/:id/reprocess`) allows regeneration of minutes.
 - **Action Item Permissions**: Action items can only be updated by the assigned person, meeting organizer, or admin users. A schema change added `assignee_email` to the `action_items` table to support this model.
+- **Attendee Data Format**: The `attendeesPresent` field in meeting_minutes uses object format `{name: string, email: string}` to tie display names with email addresses. Migration from legacy string[] format completed December 2025. Helper functions in `shared/attendeeHelpers.ts` provide normalization and lookup utilities.
 - **Share Links (Org-Internal)**: Users can create share links for archived meetings that are restricted to their organization (Azure AD tenant). Links include tenant isolation, expiration (7 days default), and access tracking.
 
 ### Share Link Feature (Org-Internal Sharing)

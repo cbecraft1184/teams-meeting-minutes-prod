@@ -127,7 +127,11 @@ async function seed() {
         "Extended deadline for security review by 1 week",
         "Increased travel budget for stakeholder meetings"
       ],
-      attendeesPresent: ["john.doe@contoso.com", "jane.smith@contoso.com", "bob.johnson@contoso.com"],
+      attendeesPresent: [
+        { name: "John Doe", email: "john.doe@contoso.com" },
+        { name: "Jane Smith", email: "jane.smith@contoso.com" },
+        { name: "Bob Johnson", email: "bob.johnson@contoso.com" }
+      ],
       processingStatus: "completed",
       sharepointUrl: null,
       docxUrl: null,

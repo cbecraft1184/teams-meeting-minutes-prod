@@ -1707,6 +1707,81 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Admin: Run attendee data backfill (convert legacy strings to objects)
+  app.post("/api/admin/backfill-attendees", requireRole("admin"), async (req, res) => {
+    try {
+      const dryRun = req.query.dryRun === 'true';
+      console.log(`[Admin] Attendee backfill requested by ${req.user?.email} (dryRun: ${dryRun})`);
+      
+      const { meetingMinutes } = await import("@shared/schema");
+      const { normalizeAttendeesArray } = await import("@shared/attendeeHelpers");
+      
+      // Get all meeting minutes
+      const allMinutes = await db.select().from(meetingMinutes);
+      console.log(`Found ${allMinutes.length} meeting minutes records to check`);
+      
+      let converted = 0;
+      let skipped = 0;
+      const results: any[] = [];
+      
+      for (const minutes of allMinutes) {
+        const attendees = minutes.attendeesPresent;
+        
+        // Check if already in object format or empty
+        if (!attendees || !Array.isArray(attendees) || attendees.length === 0) {
+          skipped++;
+          results.push({ id: minutes.id, status: 'skipped', reason: 'Empty or null attendees' });
+          continue;
+        }
+        
+        // Check if first item is already an object
+        const firstItem = attendees[0];
+        if (typeof firstItem === 'object' && firstItem !== null && 'name' in firstItem) {
+          skipped++;
+          results.push({ id: minutes.id, status: 'skipped', reason: 'Already in object format' });
+          continue;
+        }
+        
+        // Legacy string format - needs conversion
+        if (typeof firstItem === 'string') {
+          const normalizedAttendees = normalizeAttendeesArray(attendees as any);
+          
+          if (!dryRun) {
+            await db.update(meetingMinutes)
+              .set({ attendeesPresent: normalizedAttendees, updatedAt: new Date() })
+              .where(eq(meetingMinutes.id, minutes.id));
+          }
+          
+          converted++;
+          results.push({ 
+            id: minutes.id, 
+            status: dryRun ? 'would_convert' : 'converted',
+            from: attendees.slice(0, 3),
+            to: normalizedAttendees.slice(0, 3)
+          });
+        }
+      }
+      
+      const summary = {
+        success: true,
+        dryRun,
+        converted,
+        skipped,
+        total: allMinutes.length,
+        results
+      };
+      
+      console.log(`[Admin] Backfill complete: ${converted} converted, ${skipped} skipped`);
+      res.json(summary);
+    } catch (error: any) {
+      console.error("[Admin] Attendee backfill failed:", error);
+      res.status(500).json({ 
+        error: "Failed to run attendee backfill",
+        message: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // ========== DEMO/TESTING ENDPOINTS (Mock Mode) ==========
 
   // Get list of available mock users (development only)

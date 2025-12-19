@@ -11,27 +11,44 @@ This project delivers an AI-powered Microsoft Teams meeting minutes management s
 
 ## Azure CLI Authentication (Replit Environment)
 
-To authenticate with Azure CLI in Replit for deployment or API calls:
+### Service Principal Login (Recommended - Non-Interactive)
+Use this method for scripts and automated tasks:
 
-1. **Run device code login:**
-   ```bash
+```bash
+az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+```
+
+### Production Database Access
+After logging in, get the production database URL:
+
+```bash
+PROD_DB_URL=$(az containerapp secret show --name teams-minutes-app --resource-group rg-teams-minutes-demo --secret-name database-url --query "value" -o tsv)
+export DATABASE_URL="$PROD_DB_URL"
+```
+
+### Run Scripts Against Production
+Example - run the attendee backfill:
+
+```bash
+npx tsx scripts/backfill-attendees.ts --dry-run  # Preview changes
+npx tsx scripts/backfill-attendees.ts            # Apply changes
+```
+
+### Device Code Login (Interactive - For User Auth)
+Use when you need user-level permissions:
+
+1. ```bash
    az login --use-device-code
    ```
+2. Go to https://microsoft.com/devicelogin and enter the code shown
+3. Complete MFA authentication
 
-2. **User authenticates:** The command outputs a URL (https://microsoft.com/devicelogin) and a code. User opens the URL in browser and enters the code to complete MFA authentication.
-
-3. **Get access token for API calls:**
-   ```bash
-   az account get-access-token --resource https://graph.microsoft.com --query accessToken -o tsv
-   ```
-
-4. **Call production API (example - reprocess meeting):**
-   ```bash
-   curl -X POST "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/api/admin/meetings/{meetingId}/reprocess" \
-     -H "Authorization: Bearer $TOKEN"
-   ```
-
-**Important:** The `az login` command may timeout or exit before completion - that's OK as long as the device code is displayed. The authentication happens in the browser.
+### Get Access Token for API Calls
+```bash
+TOKEN=$(az account get-access-token --resource https://graph.microsoft.com --query accessToken -o tsv)
+curl -X POST "https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/api/admin/meetings/{meetingId}/reprocess" \
+  -H "Authorization: Bearer $TOKEN"
+```
 
 ## System Architecture
 The system is a full-stack application featuring a React-based frontend, a Node.js Express backend, and PostgreSQL for data persistence, designed for scalability and integration within the Microsoft ecosystem.

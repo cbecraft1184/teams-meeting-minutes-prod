@@ -1,5 +1,7 @@
 import type { AttendeePresent, AttendeePresentInput } from './schema';
 
+export type { AttendeePresent, AttendeePresentInput };
+
 /**
  * Convert email to display name
  * john.doe@company.com -> John Doe

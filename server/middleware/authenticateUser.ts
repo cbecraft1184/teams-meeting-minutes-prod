@@ -30,6 +30,7 @@ declare global {
         department: string | null;
         organizationalUnit: string | null;
         azureAdId: string | null;
+        tenantId?: string | null; // Azure AD tenant ID for multi-tenant support
         azureAdGroups?: {
           groupNames: string[];
           clearanceLevel: string;

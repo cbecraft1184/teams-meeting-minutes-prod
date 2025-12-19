@@ -66,13 +66,65 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // Get attendees for action item assignment
-    const invitees = (meeting as any).invitees || [];
+    // Get attendees for action item assignment - normalize to display names
+    const rawInvitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
-    const attendeesForAI = invitees.length > 0 ? invitees : existingAttendees;
+    
+    // Normalize attendees to display names (handle both string[] and object[] formats)
+    const normalizeAttendees = (attendees: any[]): string[] => {
+      return attendees.map(a => {
+        if (typeof a === 'string') {
+          // If it's an email, try to extract name part
+          if (a.includes('@')) {
+            const namePart = a.split('@')[0];
+            // Convert "john.doe" or "johndoe" to "John Doe"
+            return namePart
+              .replace(/[._]/g, ' ')
+              .split(' ')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+              .join(' ');
+          }
+          return a;
+        }
+        if (typeof a === 'object' && a !== null) {
+          // Handle Graph API attendee objects
+          return a.displayName || a.name || a.emailAddress?.name || a.email?.split('@')[0] || 'Unknown';
+        }
+        return 'Unknown';
+      }).filter(name => name && name !== 'Unknown');
+    };
+    
+    const normalizedInvitees = normalizeAttendees(rawInvitees);
+    const normalizedAttendees = normalizeAttendees(existingAttendees);
+    const attendeesForAI = normalizedInvitees.length > 0 ? normalizedInvitees : normalizedAttendees;
+    
+    console.log(`👥 [MinutesGenerator] Normalized attendees for AI: ${attendeesForAI.join(', ')}`);
     
     // Extract action items from real transcript, passing attendee names for accurate assignment
-    const actionItemsData = await extractActionItems(transcript, attendeesForAI);
+    let actionItemsData = await extractActionItems(transcript, attendeesForAI);
+    
+    // Post-process: Validate assignees match actual attendees or set to "Unassigned"
+    actionItemsData = actionItemsData.map(item => {
+      const assignee = item.assignee?.trim() || 'Unassigned';
+      
+      // Check if assignee matches any known attendee (case-insensitive)
+      const matchedAttendee = attendeesForAI.find(a => 
+        a.toLowerCase() === assignee.toLowerCase() ||
+        a.toLowerCase().includes(assignee.toLowerCase()) ||
+        assignee.toLowerCase().includes(a.toLowerCase())
+      );
+      
+      // If no match and not already "Unassigned", log and set to Unassigned
+      if (!matchedAttendee && assignee !== 'Unassigned') {
+        console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - keeping as-is (may be role/team)`);
+      }
+      
+      return {
+        ...item,
+        assignee: matchedAttendee || assignee
+      };
+    });
+    
     console.log(`📋 [MinutesGenerator] Extracted ${actionItemsData.length} action items with attendee matching`);
     
     // Extract simulated speakers from transcript text: "[Name] speaking" patterns
@@ -95,16 +147,16 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     const isSoloTest = simulatedSpeakers.length > 0;
     
     // Determine final attendees list:
-    // Priority: simulated speakers (solo test) > invitees > existing attendees
+    // Priority: simulated speakers (solo test) > normalized invitees > existing attendees
     let uniqueAttendees: string[];
     if (isSoloTest) {
       // Solo test: use simulated speakers as attendees (the roles being played)
       uniqueAttendees = [...simulatedSpeakers];
       console.log(`👥 [MinutesGenerator] SOLO TEST detected - Using simulated speakers as attendees: ${uniqueAttendees.join(', ')}`);
     } else {
-      // Normal meeting: use invitees from Graph, fall back to existing attendees
-      uniqueAttendees = invitees.length > 0 ? invitees : existingAttendees;
-      console.log(`👥 [MinutesGenerator] Normal meeting - Using invitees: ${uniqueAttendees.length}`);
+      // Normal meeting: use normalized attendees
+      uniqueAttendees = attendeesForAI.length > 0 ? attendeesForAI : normalizedAttendees;
+      console.log(`👥 [MinutesGenerator] Normal meeting - Using attendees: ${uniqueAttendees.length}`);
     }
     
     // Update the meeting record with attendees if needed

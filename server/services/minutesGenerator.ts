@@ -66,12 +66,14 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // Extract action items from real transcript
-    const actionItemsData = await extractActionItems(transcript);
-    
-    // Get invitees from Graph calendar sync (the authoritative list)
+    // Get attendees for action item assignment
     const invitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
+    const attendeesForAI = invitees.length > 0 ? invitees : existingAttendees;
+    
+    // Extract action items from real transcript, passing attendee names for accurate assignment
+    const actionItemsData = await extractActionItems(transcript, attendeesForAI);
+    console.log(`📋 [MinutesGenerator] Extracted ${actionItemsData.length} action items with attendee matching`);
     
     // Extract simulated speakers from transcript text: "[Name] speaking" patterns
     // This is for solo test mode where one person role-plays multiple participants

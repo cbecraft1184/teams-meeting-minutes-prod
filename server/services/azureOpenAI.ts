@@ -148,7 +148,7 @@ Output JSON format:
 
 // Extract action items from transcript
 // Uses Azure OpenAI Government in production, Replit AI in development
-export async function extractActionItems(transcript: string): Promise<Array<{
+export async function extractActionItems(transcript: string, attendees?: string[]): Promise<Array<{
   task: string;
   assignee: string;
   dueDate: string | null;
@@ -161,6 +161,11 @@ export async function extractActionItems(transcript: string): Promise<Array<{
     console.warn("⚠️  Using Replit AI (development). Production MUST use Azure OpenAI Government.");
   }
 
+  // Build attendee list for the prompt
+  const attendeeList = attendees && attendees.length > 0 
+    ? `\n\nMeeting Attendees (use ONLY these names for assignees):\n${attendees.map(a => `- ${a}`).join('\n')}`
+    : '';
+
   return await pRetry(
     async () => {
       try {
@@ -170,19 +175,22 @@ export async function extractActionItems(transcript: string): Promise<Array<{
               role: "system",
               content: `Extract action items from this meeting transcript. For each action item, identify:
 - The task to be completed
-- The person assigned (if mentioned)
-- Any deadlines mentioned
+- The person assigned - use the EXACT name from the attendee list below. If no specific person is mentioned, use "Unassigned". Do NOT use generic terms like "team", "leadership", or "everyone".
+- Any deadlines mentioned (extract the actual date if stated)
 - Priority level (high/medium/low based on context)
+${attendeeList}
 
-Output as JSON array:
-[
-  {
-    "task": "Description of task",
-    "assignee": "Name or 'Unassigned'",
-    "dueDate": "YYYY-MM-DD or null",
-    "priority": "high|medium|low"
-  }
-]`
+Output as JSON:
+{
+  "items": [
+    {
+      "task": "Description of task",
+      "assignee": "Exact attendee name from list above or 'Unassigned'",
+      "dueDate": "YYYY-MM-DD or null",
+      "priority": "high|medium|low"
+    }
+  ]
+}`
             },
             {
               role: "user",

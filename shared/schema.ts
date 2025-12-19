@@ -695,8 +695,8 @@ export const insertMeetingMinutesSchema = createInsertSchema(meetingMinutes).omi
     .trim(),
   
   // Strict validation for attendees present (allow 0 for solo meetings)
-  // Accepts display names or emails - no longer requires email format
-  attendeesPresent: z.array(z.string().min(1, "Attendee name is required").max(200))
+  // Accepts any string: display names, emails, or any identifier
+  attendeesPresent: z.array(z.string().min(1).max(200))
     .min(0, "Attendees must be an array")
     .max(500, "Maximum 500 attendees allowed"),
   

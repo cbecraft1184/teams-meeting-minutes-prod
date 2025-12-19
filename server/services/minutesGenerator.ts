@@ -104,10 +104,13 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       const assigneeLower = assignee.toLowerCase();
       
       // Helper: Tokenize a name into lowercase words (removes punctuation, titles)
+      // Also splits camelCase/concatenated names like "ChristopherBecraft" → ["christopher", "becraft"]
       const tokenize = (name: string): string[] => {
-        return name
+        // First, split camelCase: "ChristopherBecraft" → "Christopher Becraft"
+        const withSpaces = name.replace(/([a-z])([A-Z])/g, '$1 $2');
+        return withSpaces
           .toLowerCase()
-          .replace(/[^a-z\s]/g, ' ')  // Remove non-alpha chars
+          .replace(/[^a-z\s]/g, ' ')  // Remove non-alpha chars (including numbers)
           .split(/\s+/)
           .filter(t => t.length > 1 && !['mr', 'mrs', 'ms', 'dr', 'jr', 'sr', 'ii', 'iii'].includes(t));
       };
@@ -125,6 +128,14 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
         // Full containment (one name contains the other)
         if (attendeeLower.includes(assigneeLower)) return 90;
         if (assigneeLower.includes(attendeeLower)) return 85;
+        
+        // Normalized comparison: remove all spaces and non-alpha chars
+        // "Mairaj Ali" → "mairajali", "Mairajali75" → "mairajali"
+        const normalizedAssignee = assigneeLower.replace(/[^a-z]/g, '');
+        const normalizedAttendee = attendeeLower.replace(/[^a-z]/g, '');
+        if (normalizedAssignee === normalizedAttendee) return 95;
+        if (normalizedAttendee.includes(normalizedAssignee) && normalizedAssignee.length >= 4) return 88;
+        if (normalizedAssignee.includes(normalizedAttendee) && normalizedAttendee.length >= 4) return 83;
         
         // Token-based matching
         const commonTokens = assigneeTokens.filter(t => attendeeTokens.includes(t));

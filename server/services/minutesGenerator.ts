@@ -103,26 +103,53 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Extract action items from real transcript, passing attendee names for accurate assignment
     let actionItemsData = await extractActionItems(transcript, attendeesForAI);
     
+    // Build a matching set that includes both display names and raw emails/strings
+    const attendeeMatchSet = new Set<string>();
+    rawInvitees.forEach((a: any) => {
+      if (typeof a === 'string') {
+        attendeeMatchSet.add(a.toLowerCase());
+      } else if (typeof a === 'object' && a !== null) {
+        if (a.displayName) attendeeMatchSet.add(a.displayName.toLowerCase());
+        if (a.name) attendeeMatchSet.add(a.name.toLowerCase());
+        if (a.email) attendeeMatchSet.add(a.email.toLowerCase());
+        if (a.emailAddress?.address) attendeeMatchSet.add(a.emailAddress.address.toLowerCase());
+      }
+    });
+    // Also add normalized names
+    attendeesForAI.forEach(name => attendeeMatchSet.add(name.toLowerCase()));
+    
     // Post-process: Validate assignees match actual attendees or set to "Unassigned"
     actionItemsData = actionItemsData.map(item => {
       const assignee = item.assignee?.trim() || 'Unassigned';
       
-      // Check if assignee matches any known attendee (case-insensitive)
-      const matchedAttendee = attendeesForAI.find(a => 
-        a.toLowerCase() === assignee.toLowerCase() ||
-        a.toLowerCase().includes(assignee.toLowerCase()) ||
-        assignee.toLowerCase().includes(a.toLowerCase())
-      );
-      
-      // If no match and not already "Unassigned", log and set to Unassigned
-      if (!matchedAttendee && assignee !== 'Unassigned') {
-        console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - keeping as-is (may be role/team)`);
+      if (assignee === 'Unassigned') {
+        return { ...item, assignee };
       }
       
-      return {
-        ...item,
-        assignee: matchedAttendee || assignee
-      };
+      // Check if assignee matches any known attendee (case-insensitive exact or partial match)
+      const assigneeLower = assignee.toLowerCase();
+      const matchedAttendee = attendeesForAI.find(a => {
+        const aLower = a.toLowerCase();
+        return aLower === assigneeLower ||
+               aLower.includes(assigneeLower) ||
+               assigneeLower.includes(aLower);
+      });
+      
+      // Also check against the full match set (emails, raw names)
+      const directMatch = attendeeMatchSet.has(assigneeLower);
+      
+      if (matchedAttendee) {
+        // Use the normalized display name from our attendee list
+        return { ...item, assignee: matchedAttendee };
+      } else if (directMatch) {
+        // Found in raw data but not in normalized list - try to find the display name
+        const displayName = attendeesForAI[0] || assignee; // Fallback to first attendee or keep original
+        return { ...item, assignee };
+      } else {
+        // No match found - set to "Unassigned"
+        console.log(`⚠️ [MinutesGenerator] Unknown assignee "${assignee}" - setting to Unassigned`);
+        return { ...item, assignee: 'Unassigned' };
+      }
     });
     
     console.log(`📋 [MinutesGenerator] Extracted ${actionItemsData.length} action items with attendee matching`);

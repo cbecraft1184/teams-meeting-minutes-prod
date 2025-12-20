@@ -471,6 +471,9 @@ export default function Settings() {
   const [showGeneratedDate, setShowGeneratedDate] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState<DocumentTemplate | null>(null);
+  const [logoEnabled, setLogoEnabled] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   
   const { data: userInfo, isLoading: isLoadingUser } = useQuery<UserInfo>({
     queryKey: ["/api/user/me"],
@@ -650,6 +653,8 @@ export default function Settings() {
     setFooterText("");
     setShowPageNumbers(true);
     setShowGeneratedDate(true);
+    setLogoEnabled(false);
+    setLogoUrl("");
     setIsEditorOpen(true);
   };
 
@@ -666,6 +671,8 @@ export default function Settings() {
     setFooterText(template.config.footerText);
     setShowPageNumbers(template.config.showPageNumbers);
     setShowGeneratedDate(template.config.showGeneratedDate);
+    setLogoEnabled(template.config.branding.logoEnabled || false);
+    setLogoUrl(template.config.branding.logoUrl || "");
     setIsEditorOpen(true);
   };
 
@@ -674,7 +681,8 @@ export default function Settings() {
       sections: templateSections,
       branding: {
         organizationName,
-        logoEnabled: false,
+        logoEnabled,
+        logoUrl: logoEnabled ? logoUrl : undefined,
         primaryColor,
         secondaryColor,
       },
@@ -721,6 +729,67 @@ export default function Settings() {
     [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
     newSections.forEach((s, i) => s.order = i + 1);
     setTemplateSections(newSections);
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file) return;
+    
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+      dispatchToast(
+        <div><strong>Invalid file type</strong><div>Please upload a PNG, JPG, GIF, or SVG image</div></div>,
+        { intent: "error" }
+      );
+      return;
+    }
+    
+    if (file.size > 2 * 1024 * 1024) {
+      dispatchToast(
+        <div><strong>File too large</strong><div>Logo must be under 2MB</div></div>,
+        { intent: "error" }
+      );
+      return;
+    }
+    
+    setIsUploadingLogo(true);
+    try {
+      const urlResponse = await fetch("/api/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+        }),
+      });
+      
+      if (!urlResponse.ok) throw new Error("Failed to get upload URL");
+      
+      const { uploadURL, objectPath } = await urlResponse.json();
+      
+      const uploadResponse = await fetch(uploadURL, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      
+      if (!uploadResponse.ok) throw new Error("Failed to upload logo");
+      
+      setLogoUrl(objectPath);
+      setLogoEnabled(true);
+      dispatchToast(
+        <div><strong>Logo uploaded</strong><div>Your logo has been uploaded successfully</div></div>,
+        { intent: "success" }
+      );
+    } catch (error) {
+      console.error("Logo upload error:", error);
+      dispatchToast(
+        <div><strong>Upload failed</strong><div>Could not upload logo. Please try again.</div></div>,
+        { intent: "error" }
+      );
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
   
   return (
@@ -1549,6 +1618,94 @@ export default function Settings() {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div style={{ marginTop: tokens.spacingVerticalS }}>
+                <Label>Organization Logo</Label>
+                <div style={{ display: "flex", alignItems: "center", gap: tokens.spacingHorizontalM, marginTop: tokens.spacingVerticalXS }}>
+                  <Switch
+                    checked={logoEnabled}
+                    onChange={(_, data) => setLogoEnabled(data.checked)}
+                    data-testid="switch-logo-enabled"
+                  />
+                  <Text size={200}>{logoEnabled ? "Logo enabled" : "No logo"}</Text>
+                </div>
+                {logoEnabled && (
+                  <div style={{ marginTop: tokens.spacingVerticalS, display: "flex", alignItems: "center", gap: tokens.spacingHorizontalM }}>
+                    {logoUrl ? (
+                      <>
+                        <div style={{ 
+                          width: "80px", 
+                          height: "60px", 
+                          border: `1px solid ${tokens.colorNeutralStroke1}`,
+                          borderRadius: tokens.borderRadiusMedium,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          overflow: "hidden",
+                          backgroundColor: tokens.colorNeutralBackground2
+                        }}>
+                          <img 
+                            src={logoUrl} 
+                            alt="Logo preview" 
+                            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                          />
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacingVerticalXS }}>
+                          <Button
+                            appearance="secondary"
+                            size="small"
+                            onClick={() => {
+                              const input = document.createElement('input');
+                              input.type = 'file';
+                              input.accept = 'image/png,image/jpeg,image/gif,image/svg+xml';
+                              input.onchange = (e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0];
+                                if (file) handleLogoUpload(file);
+                              };
+                              input.click();
+                            }}
+                            disabled={isUploadingLogo}
+                            data-testid="button-replace-logo"
+                          >
+                            {isUploadingLogo ? <Spinner size="tiny" /> : "Replace Logo"}
+                          </Button>
+                          <Button
+                            appearance="subtle"
+                            size="small"
+                            onClick={() => {
+                              setLogoUrl("");
+                            }}
+                            data-testid="button-remove-logo"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <Button
+                        appearance="secondary"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/png,image/jpeg,image/gif,image/svg+xml';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) handleLogoUpload(file);
+                          };
+                          input.click();
+                        }}
+                        disabled={isUploadingLogo}
+                        data-testid="button-upload-logo"
+                      >
+                        {isUploadingLogo ? <Spinner size="tiny" /> : "Upload Logo"}
+                      </Button>
+                    )}
+                    <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                      PNG, JPG, GIF, or SVG (max 2MB)
+                    </Text>
+                  </div>
+                )}
               </div>
 
               <Divider />

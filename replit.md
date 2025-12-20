@@ -108,6 +108,12 @@ All major tables now include `tenant_id` columns with indexes for efficient filt
 - `action_items.tenant_id` - Isolates action items by organization
 - `job_queue.tenant_id` - Associates jobs with tenant context
 
+**Endpoint-Level Enforcement**:
+- `GET /api/meetings` - Uses `getMeetingsByTenant()` for non-admin users
+- `GET /api/meetings/:id` - Uses `getMeetingForTenant()` for non-admin users
+- `POST /api/meetings/:id/share` - Uses `getMeetingForTenant()` for non-admin users
+- Admin users bypass tenant filtering for cross-tenant administration scenarios
+
 ### SharePoint Archival Status Tracking (Added December 2025)
 The `meeting_minutes` table tracks SharePoint archival state:
 - `archival_status`: pending | uploading | success | failed

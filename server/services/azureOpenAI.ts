@@ -148,7 +148,7 @@ Output JSON format:
 
 // Extract action items from transcript
 // Uses Azure OpenAI Government in production, Replit AI in development
-export async function extractActionItems(transcript: string, attendees?: string[]): Promise<Array<{
+export async function extractActionItems(transcript: string, attendees?: string[], meetingDate?: Date): Promise<Array<{
   task: string;
   assignee: string;
   dueDate: string | null;
@@ -163,8 +163,12 @@ export async function extractActionItems(transcript: string, attendees?: string[
 
   // Build attendee list for the prompt - numbered for clarity
   const attendeeList = attendees && attendees.length > 0 
-    ? `\n\nMEETING ATTENDEES (you MUST use one of these EXACT names as assignee):\n${attendees.map((a, i) => `${i + 1}. "${a}"`).join('\n')}`
+    ? `\n\nMEETING ATTENDEES (use one of these names as assignee - match first names to full names):\n${attendees.map((a, i) => `${i + 1}. "${a}"`).join('\n')}`
     : '';
+
+  // Provide meeting date context for relative date parsing
+  const refDate = meetingDate || new Date();
+  const dateContext = `\n\nMEETING DATE: ${refDate.toISOString().split('T')[0]} (${refDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })})`;
 
   return await pRetry(
     async () => {
@@ -176,26 +180,38 @@ export async function extractActionItems(transcript: string, attendees?: string[
               content: `Extract action items from this meeting transcript. For each action item, identify:
 - The task to be completed
 - The person assigned (CRITICAL: see rules below)
-- Any deadlines mentioned (extract the actual date if stated)
+- Any deadlines mentioned (CRITICAL: convert to actual dates - see rules below)
 - Priority level (high/medium/low based on context)
 
 ASSIGNEE RULES - FOLLOW EXACTLY:
-1. When someone is assigned a task, find the CLOSEST MATCHING full name from the attendee list
-2. If the transcript says "Alex will...", find the attendee whose name contains "Alex" (e.g., "Alex Johnson") and use that FULL name
-3. If the transcript says "Johnson should...", find the attendee with "Johnson" in their name and use their FULL name
-4. NEVER use partial names, first names only, or nicknames - always use the COMPLETE name from the list
-5. If no attendee matches the mentioned person, use "Unassigned"
-6. If no specific person is mentioned (e.g., "someone needs to", "the team will"), use "Unassigned"
-7. Do NOT use generic terms like "team", "leadership", "everyone", or "TBD"
+1. In meetings, people are often addressed by FIRST NAME ONLY. When you hear "Joe, can you..." or "Joe will...", find the attendee whose first name is "Joe" (e.g., "Joe Smith") and use the FULL name "Joe Smith"
+2. Match the first name mentioned to the full name in the attendee list
+3. Example: If transcript says "Joe, have you got a response?" and attendee list has "Joe Smith", use "Joe Smith" as assignee
+4. Example: If transcript says "Alex will handle it" and attendee list has "Alex Johnson", use "Alex Johnson"
+5. If someone speaks and commits to doing something (e.g., "I can ping them again"), they are the assignee - match their speaker name to the attendee list
+6. If no attendee matches the mentioned person, use "Unassigned"
+7. If no specific person is mentioned (e.g., "someone needs to", "the team will"), use "Unassigned"
+8. Do NOT use generic terms like "team", "leadership", "everyone", or "TBD"
 ${attendeeList}
+
+DUE DATE RULES - CONVERT ALL RELATIVE DATES:
+Use the MEETING DATE provided below as reference to convert relative dates to actual YYYY-MM-DD format:
+- "this Friday" = the Friday of the same week as the meeting date
+- "next Monday" = the Monday of the following week
+- "by end of week" = the Friday of the meeting week
+- "tomorrow" = the day after the meeting date
+- "in two weeks" = 14 days after the meeting date
+- Include TIME in the task description if mentioned (e.g., "by Friday 10am" → dueDate: "2024-01-19", task includes "by 10am")
+- If no deadline mentioned, use null
+${dateContext}
 
 Output as JSON:
 {
   "items": [
     {
-      "task": "Description of task",
-      "assignee": "COMPLETE attendee name from list above OR 'Unassigned'",
-      "dueDate": "YYYY-MM-DD or null",
+      "task": "Description of task (include time if specified, e.g., 'Get response from NDC2 by 10am')",
+      "assignee": "FULL attendee name from list above OR 'Unassigned'",
+      "dueDate": "YYYY-MM-DD (actual date, not relative) or null",
       "priority": "high|medium|low"
     }
   ]

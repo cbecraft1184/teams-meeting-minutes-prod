@@ -175,8 +175,9 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     // Build lookups for post-processing assignee matching (legacy, used as fallback)
     const { emailToName, nameToEmail, allIdentifiers } = buildAttendeeLookups(attendeeObjects);
     
-    // Extract action items from real transcript, passing attendee names for accurate assignment
-    let actionItemsData = await extractActionItems(transcript, attendeesForAI);
+    // Extract action items from real transcript, passing attendee names and meeting date for accurate assignment
+    const meetingDate = meeting.scheduledAt ? new Date(meeting.scheduledAt) : new Date();
+    let actionItemsData = await extractActionItems(transcript, attendeesForAI, meetingDate);
     
     // Post-process: Validate assignees match actual attendees using identity profiles
     // Uses enriched identity matching with aliases derived from names AND emails

@@ -211,7 +211,7 @@ export async function extractActionItems(transcript: string, attendees?: string[
 
   // Build attendee list for the prompt - numbered for clarity
   const attendeeList = attendees && attendees.length > 0 
-    ? `\n\nMEETING ATTENDEES (use one of these names as assignee - match first names to full names):\n${attendees.map((a, i) => `${i + 1}. "${a}"`).join('\n')}`
+    ? `\n\nMEETING ATTENDEES (use EXACTLY one of these names as assignee):\n${attendees.map((a, i) => `${i + 1}. "${a}"`).join('\n')}`
     : '';
 
   // Provide meeting date context for relative date parsing
@@ -225,44 +225,58 @@ export async function extractActionItems(transcript: string, attendees?: string[
           messages: [
             {
               role: "system",
-              content: `Extract action items from this meeting transcript. For each action item, identify:
-- The task to be completed
-- The person assigned (CRITICAL: see rules below)
-- Any deadlines mentioned (CRITICAL: convert to actual dates - see rules below)
-- Priority level (high/medium/low based on context)
+              content: `You are an expert at extracting ONLY explicitly assigned action items from meeting transcripts.
 
-ASSIGNEE RULES - FOLLOW EXACTLY:
-1. In meetings, people are often addressed by FIRST NAME ONLY. When you hear "Joe, can you..." or "Joe will...", find the attendee whose first name is "Joe" (e.g., "Joe Smith") and use the FULL name "Joe Smith"
-2. Match the first name mentioned to the full name in the attendee list
-3. Example: If transcript says "Joe, have you got a response?" and attendee list has "Joe Smith", use "Joe Smith" as assignee
-4. Example: If transcript says "Alex will handle it" and attendee list has "Alex Johnson", use "Alex Johnson"
-5. If someone speaks and commits to doing something (e.g., "I can ping them again"), they are the assignee - match their speaker name to the attendee list
-6. If no attendee matches the mentioned person, use "Unassigned"
-7. If no specific person is mentioned (e.g., "someone needs to", "the team will"), use "Unassigned"
-8. Do NOT use generic terms like "team", "leadership", "everyone", or "TBD"
+WHAT IS AN ACTION ITEM:
+An action item is a SPECIFIC TASK explicitly assigned to a SPECIFIC PERSON with a CLEAR DELIVERABLE.
+Look for these patterns:
+- "[Person], please [do task]" - EXPLICIT assignment
+- "[Person], can you [do task]" followed by agreement - EXPLICIT assignment
+- "Please [do task] by [date]" directed at someone - EXPLICIT assignment
+- "[Person] will [do task]" as a commitment - EXPLICIT assignment
+
+WHAT IS NOT AN ACTION ITEM (DO NOT EXTRACT):
+- General discussions or status updates ("we discussed X", "the team is working on Y")
+- Questions without task assignments ("have you looked at this?")
+- Vague references ("someone should look into this")
+- Past actions already completed ("Abdul and I have been on it")
+- Ongoing work without new assignment ("we're proceeding with testing")
+- Group responsibilities without individual assignment
+
+ASSIGNEE MATCHING RULES - CRITICAL:
+1. When a first name is mentioned (e.g., "Vamsi, can you..."), find the FULL NAME from the attendee list that starts with that first name
+2. Example: "Vamsi, can you work with James" + attendee "Vamsi Pathri" → assignee = "Vamsi Pathri"
+3. Example: "Ban, please write up" + attendee "Ban Chou" → assignee = "Ban Chou"
+4. Example: "Ricky, please provide final approval" + attendee "Ricky" → assignee = "Ricky"
+5. The meeting leader/moderator (usually "Chris" in this format) assigns tasks - they are NOT the assignee unless explicitly taking a task
+6. NEVER use usernames, emails, or identifiers - only use names from the attendee list
+7. If you cannot match the name to someone in the attendee list, use "Unassigned"
 ${attendeeList}
 
 DUE DATE RULES - CONVERT ALL RELATIVE DATES:
-Use the MEETING DATE provided below as reference to convert relative dates to actual YYYY-MM-DD format:
-- "this Friday" = the Friday of the CURRENT week (same week as meeting)
-- "this Wednesday" = if meeting is on Wednesday, it means TODAY (the meeting day itself)
-- "next [day]" = that day in the FOLLOWING week (7+ days out). Example: if meeting is Wednesday Dec 18, "next Wednesday" = Dec 25
-- "the following [day]" or "week after next" = that day TWO weeks from now
-- "by end of week" = the Friday of the meeting week
-- "tomorrow" = the day after the meeting date
-- "in two weeks" = 14 days after the meeting date
-- "by [day]" without "this" or "next" = the NEXT occurrence of that day (could be this week or next)
-- Include TIME in the task description if mentioned (e.g., "by Friday 10am" → dueDate: "2024-01-19", task includes "by 10am")
-- If no deadline mentioned, use null
+Use the MEETING DATE provided as reference:
+- "Wednesday, December 17th" or "December 17th" → "2023-12-17"
+- "Thursday, December 18th" → "2023-12-18"  
+- "Friday, December 19th" → "2023-12-19"
+- "by [day], [month] [date]" → extract the actual date
+- "EOD" = end of day (include in task description)
+- "10 AM EST" = include time in task description
+- "immediately after this meeting" → use meeting date with note in task
+- If no specific date, use null
 ${dateContext}
+
+PRIORITY RULES:
+- "high": Urgent, blocking, or has tight deadline
+- "medium": Standard importance, clear deadline but not urgent
+- "low": Nice-to-have or flexible timing
 
 Output as JSON:
 {
   "items": [
     {
-      "task": "Description of task (include time if specified, e.g., 'Get response from NDC2 by 10am')",
-      "assignee": "FULL attendee name from list above OR 'Unassigned'",
-      "dueDate": "YYYY-MM-DD (actual date, not relative) or null",
+      "task": "Clear, actionable task description",
+      "assignee": "EXACT full name from attendee list",
+      "dueDate": "YYYY-MM-DD or null",
       "priority": "high|medium|low"
     }
   ]

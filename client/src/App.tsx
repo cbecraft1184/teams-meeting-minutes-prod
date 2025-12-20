@@ -16,6 +16,7 @@ import Search from "@/pages/search";
 import Settings from "@/pages/settings";
 import Help from "@/pages/help";
 import SharedMeeting from "@/pages/shared-meeting";
+import AdminJobs from "@/pages/admin-jobs";
 import NotFound from "@/pages/not-found";
 import { useState } from "react";
 
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/meetings" component={Meetings} />
       <Route path="/search" component={Search} />
       <Route path="/settings" component={Settings} />
+      <Route path="/admin/jobs" component={AdminJobs} />
       <Route path="/help" component={Help} />
       <Route path="/share/:token" component={SharedMeeting} />
       <Route component={NotFound} />

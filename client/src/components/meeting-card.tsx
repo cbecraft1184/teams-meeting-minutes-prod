@@ -1,5 +1,5 @@
-import { Card, Button, makeStyles, tokens, shorthands, mergeClasses, Tooltip, Dialog, DialogSurface, DialogBody, DialogTitle, DialogContent, DialogActions, Input, Spinner } from "@fluentui/react-components";
-import { Calendar, Clock, Users, FileText, Download, Share2, EyeOff, Eye, Hash, Copy, Check } from "lucide-react";
+import { Card, Button, makeStyles, tokens, shorthands, mergeClasses, Tooltip, Dialog, DialogSurface, DialogBody, DialogTitle, DialogContent, DialogActions, Input, Spinner, Badge } from "@fluentui/react-components";
+import { Calendar, Clock, Users, FileText, Download, Share2, EyeOff, Eye, Hash, Copy, Check, Cloud, CloudOff, Loader } from "lucide-react";
 import { ClassificationBadge } from "./classification-badge";
 import { StatusBadge } from "./status-badge";
 import { format } from "date-fns";
@@ -228,6 +228,35 @@ export function MeetingCard({ meeting, onViewDetails, onDismiss, onRestore, show
             <div className={mergeClasses(styles.metadataItem, styles.minutesAvailable)}>
               <FileText style={{ width: "16px", height: "16px" }} />
               <span>Minutes available</span>
+            </div>
+          )}
+          {meeting.status === "archived" && meeting.minutes && (
+            <div className={styles.metadataItem}>
+              {meeting.minutes.archivalStatus === "success" ? (
+                <Tooltip content={`Archived to SharePoint on ${meeting.minutes.archivedAt ? format(new Date(meeting.minutes.archivedAt), "PPP 'at' p") : 'N/A'}`} relationship="label">
+                  <Badge appearance="filled" color="success" icon={<Cloud style={{ width: "12px", height: "12px" }} />}>
+                    SharePoint
+                  </Badge>
+                </Tooltip>
+              ) : meeting.minutes.archivalStatus === "uploading" ? (
+                <Tooltip content="Uploading to SharePoint..." relationship="label">
+                  <Badge appearance="tint" color="brand" icon={<Loader style={{ width: "12px", height: "12px" }} />}>
+                    Uploading
+                  </Badge>
+                </Tooltip>
+              ) : meeting.minutes.archivalStatus === "failed" ? (
+                <Tooltip content={meeting.minutes.archivalError || "SharePoint upload failed"} relationship="label">
+                  <Badge appearance="tint" color="danger" icon={<CloudOff style={{ width: "12px", height: "12px" }} />}>
+                    Archival Failed
+                  </Badge>
+                </Tooltip>
+              ) : (
+                <Tooltip content="Pending SharePoint archival" relationship="label">
+                  <Badge appearance="tint" color="informative" icon={<Cloud style={{ width: "12px", height: "12px" }} />}>
+                    Pending
+                  </Badge>
+                </Tooltip>
+              )}
             </div>
           )}
         </div>

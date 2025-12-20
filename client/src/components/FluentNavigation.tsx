@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   makeStyles,
   shorthands,
@@ -13,8 +13,10 @@ import {
   Search24Regular,
   Settings24Regular,
   Shield24Filled,
+  TaskListLtr24Regular,
 } from "@fluentui/react-icons";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 
 const useStyles = makeStyles({
   nav: {
@@ -147,6 +149,12 @@ const menuItems = [
     url: "/settings",
     icon: Settings24Regular,
   },
+  {
+    title: "Job Queue",
+    url: "/admin/jobs",
+    icon: TaskListLtr24Regular,
+    adminOnly: true,
+  },
 ];
 
 interface FluentNavigationProps {
@@ -180,6 +188,19 @@ export function FluentNavigation({ isOpen = true, onClose }: FluentNavigationPro
   const navRef = useRef<HTMLElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   const isMobile = useMediaQuery('(max-width: 768px)');
+  
+  // Fetch user permissions to determine admin access
+  const { data: userInfo } = useQuery<{ permissions: { role: string } }>({
+    queryKey: ['/api/user/me'],
+  });
+  
+  const isAdmin = userInfo?.permissions?.role === 'admin';
+  
+  // Filter menu items based on user role
+  const visibleMenuItems = useMemo(() => 
+    menuItems.filter(item => !(item as any).adminOnly || isAdmin),
+    [isAdmin]
+  );
 
   const handleNavigation = (url: string) => {
     setLocation(url);
@@ -270,7 +291,7 @@ export function FluentNavigation({ isOpen = true, onClose }: FluentNavigationPro
       </div>
 
       <div className={styles.menuContainer}>
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.url;
           

@@ -35,7 +35,9 @@ import { eq, desc, and, gte, lte, isNull, sql } from "drizzle-orm";
 export interface IStorage {
   // Meetings
   getMeeting(id: string): Promise<MeetingWithMinutes | undefined>;
+  getMeetingForTenant(id: string, tenantId: string): Promise<MeetingWithMinutes | undefined>;
   getAllMeetings(): Promise<MeetingWithMinutes[]>;
+  getMeetingsByTenant(tenantId: string): Promise<MeetingWithMinutes[]>;
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
   updateMeeting(id: string, updates: Partial<Meeting>): Promise<Meeting>;
   deleteMeeting(id: string): Promise<void>;
@@ -44,6 +46,7 @@ export interface IStorage {
   getMinutes(id: string): Promise<MeetingMinutes | undefined>;
   getMinutesByMeetingId(meetingId: string): Promise<MeetingMinutes | undefined>;
   getAllMinutes(): Promise<MeetingMinutes[]>;
+  getMinutesByTenant(tenantId: string): Promise<MeetingMinutes[]>;
   createMinutes(minutes: InsertMeetingMinutes): Promise<MeetingMinutes>;
   updateMinutes(id: string, updates: Partial<MeetingMinutes>): Promise<MeetingMinutes>;
   
@@ -136,6 +139,58 @@ export class DatabaseStorage implements IStorage {
       actionItems: actionItemsMap.get(meeting.id) || []
     }));
   }
+  
+  // TENANT-ISOLATED: Get meeting only if it belongs to the specified tenant
+  async getMeetingForTenant(id: string, tenantId: string): Promise<MeetingWithMinutes | undefined> {
+    const [meeting] = await db.select().from(meetings).where(
+      and(eq(meetings.id, id), eq(meetings.tenantId, tenantId))
+    );
+    if (!meeting) return undefined;
+
+    const [minutes] = await db.select().from(meetingMinutes).where(eq(meetingMinutes.meetingId, id));
+    const items = await db.select().from(actionItems).where(eq(actionItems.meetingId, id));
+
+    return {
+      ...meeting,
+      minutes,
+      actionItems: items
+    };
+  }
+  
+  // TENANT-ISOLATED: Get all meetings for a specific tenant
+  async getMeetingsByTenant(tenantId: string): Promise<MeetingWithMinutes[]> {
+    const tenantMeetings = await db.select()
+      .from(meetings)
+      .where(eq(meetings.tenantId, tenantId))
+      .orderBy(desc(meetings.scheduledAt));
+    
+    if (tenantMeetings.length === 0) return [];
+    
+    const meetingIds = tenantMeetings.map(m => m.id);
+    
+    // Fetch minutes and action items only for these tenant's meetings
+    const tenantMinutes = await db.select()
+      .from(meetingMinutes)
+      .where(eq(meetingMinutes.tenantId, tenantId));
+    const tenantActionItems = await db.select()
+      .from(actionItems)
+      .where(eq(actionItems.tenantId, tenantId));
+    
+    const minutesMap = new Map(tenantMinutes.map(m => [m.meetingId, m]));
+    const actionItemsMap = new Map<string, ActionItem[]>();
+    
+    tenantActionItems.forEach(item => {
+      const existing = actionItemsMap.get(item.meetingId) || [];
+      existing.push(item);
+      actionItemsMap.set(item.meetingId, existing);
+    });
+    
+    return tenantMeetings.map(meeting => ({
+      ...meeting,
+      minutes: minutesMap.get(meeting.id),
+      actionItems: actionItemsMap.get(meeting.id) || []
+    }));
+  }
 
   async createMeeting(insertMeeting: InsertMeeting): Promise<Meeting> {
     const [meeting] = await db.insert(meetings).values(insertMeeting).returning();
@@ -169,6 +224,14 @@ export class DatabaseStorage implements IStorage {
 
   async getAllMinutes(): Promise<MeetingMinutes[]> {
     return await db.select().from(meetingMinutes).orderBy(desc(meetingMinutes.createdAt));
+  }
+  
+  // TENANT-ISOLATED: Get all minutes for a specific tenant
+  async getMinutesByTenant(tenantId: string): Promise<MeetingMinutes[]> {
+    return await db.select()
+      .from(meetingMinutes)
+      .where(eq(meetingMinutes.tenantId, tenantId))
+      .orderBy(desc(meetingMinutes.createdAt));
   }
 
   async createMinutes(insertMinutes: InsertMeetingMinutes): Promise<MeetingMinutes> {
@@ -463,9 +526,10 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(jobQueue.createdAt))
         .limit(limit);
     }
+    // Use sql template for enum comparison
     return db.select()
       .from(jobQueue)
-      .where(eq(jobQueue.status, status))
+      .where(sql`${jobQueue.status} = ${status}`)
       .orderBy(desc(jobQueue.createdAt))
       .limit(limit);
   }
@@ -481,7 +545,7 @@ export class DatabaseStorage implements IStorage {
     const [updated] = await db.update(jobQueue)
       .set({
         status: 'pending',
-        attempts: 0,
+        attemptCount: 0,
         deadLetteredAt: null,
         resolvedAt: new Date(),
         resolvedBy,
@@ -489,7 +553,7 @@ export class DatabaseStorage implements IStorage {
         // Reset scheduling metadata for the durable queue worker
         scheduledFor: new Date(), // Schedule for immediate processing
         processedAt: null,        // Clear processed timestamp
-        startedAt: null           // Clear started timestamp
+        lastAttemptAt: null       // Clear last attempt timestamp
       })
       .where(eq(jobQueue.id, id))
       .returning();

@@ -106,14 +106,26 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const allMeetings = await storage.getAllMeetings();
-      
-      // Filter meetings based on user's access level (Azure AD groups or database fallback)
-      let accessibleMeetings = accessControlService.filterMeetings(req.user, allMeetings);
-      
-      // Get user's tenant and email for dismissal filtering
+      // Get user's tenant ID for multi-tenant isolation
       const tenantId = (req.user as any).tenantId || 'default';
       const userEmail = req.user.email;
+      
+      // MULTI-TENANT ISOLATION: Filter meetings by tenant at database level
+      // Admin users can see all meetings (for cross-tenant admin scenarios)
+      // Regular users only see their tenant's meetings
+      const isAdmin = accessControlService.isAdmin(req.user);
+      let allMeetings;
+      
+      if (tenantId !== 'default' && !isAdmin) {
+        // Tenant-isolated query for non-admin users with valid tenant
+        allMeetings = await storage.getMeetingsByTenant(tenantId);
+      } else {
+        // Fallback for admin users or legacy 'default' tenant
+        allMeetings = await storage.getAllMeetings();
+      }
+      
+      // Additional filtering based on user's access level (Azure AD groups or database fallback)
+      let accessibleMeetings = accessControlService.filterMeetings(req.user, allMeetings);
       
       // Get dismissed meeting IDs for this user
       const dismissedIds = await storage.getDismissedMeetingIds(tenantId, userEmail);
@@ -257,14 +269,24 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get single meeting (with access control)
+  // Get single meeting (with access control and tenant isolation)
   app.get("/api/meetings/:id", async (req, res) => {
     try {
       if (!req.user) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const meeting = await storage.getMeeting(req.params.id);
+      const tenantId = (req.user as any).tenantId || 'default';
+      const isAdmin = accessControlService.isAdmin(req.user);
+      
+      // MULTI-TENANT ISOLATION: Non-admin users only see their tenant's meetings
+      let meeting;
+      if (tenantId !== 'default' && !isAdmin) {
+        meeting = await storage.getMeetingForTenant(req.params.id, tenantId);
+      } else {
+        meeting = await storage.getMeeting(req.params.id);
+      }
+      
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
@@ -2446,7 +2468,17 @@ export function registerRoutes(app: Express): Server {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const meeting = await storage.getMeeting(req.params.id);
+      const tenantId = (req.user as any).tenantId || 'default';
+      const isAdmin = accessControlService.isAdmin(req.user);
+      
+      // MULTI-TENANT ISOLATION: Users can only share meetings from their tenant
+      let meeting;
+      if (tenantId !== 'default' && !isAdmin) {
+        meeting = await storage.getMeetingForTenant(req.params.id, tenantId);
+      } else {
+        meeting = await storage.getMeeting(req.params.id);
+      }
+      
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
@@ -2459,8 +2491,6 @@ export function registerRoutes(app: Express): Server {
       // Generate unique token for share link
       const { nanoid } = await import("nanoid");
       const token = nanoid(21); // URL-safe unique ID
-
-      const tenantId = (req.user as any).tenantId || 'default';
       
       // Get expiry from request (default 7 days, max 30 days)
       const expiryDays = Math.min(Math.max(req.body.expiryDays || 7, 1), 30);
@@ -2540,7 +2570,7 @@ export function registerRoutes(app: Express): Server {
             accessorEmail: req.user?.email,
             accessorName: req.user?.displayName,
             accessorTenantId: userTenantId,
-            accessorClearanceLevel: userClearance,
+            accessorClearanceLevel: userClearance as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
             ipAddress,
             userAgent,
             accessGranted: false,
@@ -2603,7 +2633,7 @@ export function registerRoutes(app: Express): Server {
         accessorEmail: req.user.email,
         accessorName: req.user.displayName,
         accessorTenantId: userTenantId,
-        accessorClearanceLevel: userClearance,
+        accessorClearanceLevel: userClearance as "UNCLASSIFIED" | "CONFIDENTIAL" | "SECRET" | "TOP_SECRET",
         ipAddress,
         userAgent,
         accessGranted: true,

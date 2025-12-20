@@ -76,101 +76,100 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
-    // STEP 1: Extract REAL speaker names directly from the transcript
-    // The transcript contains accurate names like <v Thomas Dulaney> that we should use
-    const transcriptSpeakers = extractSpeakersFromTranscript(transcript);
-    console.log(`🎤 [MinutesGenerator] Extracted ${transcriptSpeakers.length} speakers from transcript: ${transcriptSpeakers.join(', ')}`);
-    
-    // STEP 2: Get attendee/invitee data for email matching
+    // STEP 1: Get ALL invitees - these are people who could have action items assigned
     const rawInvitees = (meeting as any).invitees || [];
     const existingAttendees = meeting.attendees || [];
     const normalizedInvitees = normalizeAttendeesArray(rawInvitees);
     const normalizedAttendees = normalizeAttendeesArray(existingAttendees);
     const attendeeObjects: AttendeePresent[] = normalizedInvitees.length > 0 ? normalizedInvitees : normalizedAttendees;
     
-    // STEP 3: Build identity profiles using TRANSCRIPT SPEAKERS as primary names
-    // Match transcript speakers to attendee emails using fuzzy matching
-    const identityProfiles: IdentityProfile[] = [];
+    // STEP 2: Extract speaker names from transcript to learn REAL names
+    // (The transcript has accurate names like "Thomas Dulaney" while attendee list may have "Thomas")
+    const transcriptSpeakers = extractSpeakersFromTranscript(transcript);
+    console.log(`🎤 [MinutesGenerator] Extracted ${transcriptSpeakers.length} speakers from transcript: ${transcriptSpeakers.join(', ')}`);
+    
+    // STEP 3: Build a map of email → real name by matching speakers to invitees
+    const emailToRealName = new Map<string, string>();
     
     for (const speakerName of transcriptSpeakers) {
-      // Try to find matching attendee by name similarity
       const speakerTokens = speakerName.toLowerCase().split(/\s+/).filter(t => t.length > 1);
       let bestMatch: { attendee: AttendeePresent; score: number } | null = null;
       
       for (const attendee of attendeeObjects) {
+        if (!attendee.email) continue;
         let score = 0;
         const attendeeName = attendee.name.toLowerCase();
         const attendeeEmail = attendee.email.toLowerCase();
         
-        // Exact name match
-        if (attendeeName === speakerName.toLowerCase()) {
-          score = 100;
-        }
-        // Name contains speaker or vice versa
-        else if (attendeeName.includes(speakerName.toLowerCase()) || speakerName.toLowerCase().includes(attendeeName)) {
-          score = 90;
-        }
         // Normalized match (remove spaces/numbers)
-        else {
-          const speakerNorm = speakerName.toLowerCase().replace(/[^a-z]/g, '');
-          const attendeeNorm = attendeeName.replace(/[^a-z]/g, '');
-          const emailLocalNorm = attendeeEmail.split('@')[0].replace(/[^a-z]/g, '');
-          
-          if (speakerNorm === attendeeNorm || speakerNorm === emailLocalNorm) {
-            score = 95;
+        const speakerNorm = speakerName.toLowerCase().replace(/[^a-z]/g, '');
+        const attendeeNorm = attendeeName.replace(/[^a-z]/g, '');
+        const emailLocalNorm = attendeeEmail.split('@')[0].replace(/[^a-z]/g, '');
+        
+        if (speakerNorm === attendeeNorm || speakerNorm === emailLocalNorm) {
+          score = 95;
+        } else {
+          // Token overlap with email parts and domain
+          const emailParts = attendeeEmail.split('@');
+          const emailTokens = emailParts[0].replace(/[._]/g, ' ').replace(/[0-9]/g, '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
+          const domain = emailParts[1] || '';
+          const domainFirst = domain.split('.')[0];
+          if (domainFirst && !['gmail', 'hotmail', 'outlook', 'yahoo', 'live', 'icloud'].includes(domainFirst)) {
+            emailTokens.push(domainFirst);
           }
-          // Check token overlap
-          else {
-            const attendeeTokens = attendeeName.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/\s+/).filter(t => t.length > 1);
-            const emailTokens = attendeeEmail.split('@')[0].replace(/[._]/g, ' ').replace(/[0-9]/g, '').toLowerCase().split(/\s+/).filter(t => t.length > 1);
-            const tokenSet = new Set([...attendeeTokens, ...emailTokens]);
-            const allAttendeeTokens: string[] = [];
-            tokenSet.forEach(t => allAttendeeTokens.push(t));
-            
-            const commonTokens = speakerTokens.filter(t => allAttendeeTokens.some(at => at.includes(t) || t.includes(at)));
-            if (commonTokens.length > 0) {
-              score = 50 + commonTokens.length * 15;
-            }
+          
+          const commonTokens = speakerTokens.filter(t => emailTokens.some(et => et.includes(t) || t.includes(et)));
+          if (commonTokens.length > 0) {
+            score = 50 + commonTokens.length * 15;
           }
         }
         
-        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+        if (score >= 50 && (!bestMatch || score > bestMatch.score)) {
           bestMatch = { attendee, score };
         }
       }
       
-      // Create identity profile with transcript speaker name as canonical
-      const email = bestMatch && bestMatch.score >= 50 ? bestMatch.attendee.email : '';
-      if (bestMatch && bestMatch.score >= 50) {
-        console.log(`✅ [MinutesGenerator] Matched speaker "${speakerName}" → email: ${email} (score: ${bestMatch.score})`);
+      if (bestMatch) {
+        emailToRealName.set(bestMatch.attendee.email.toLowerCase(), speakerName);
+        console.log(`✅ [MinutesGenerator] Learned: "${speakerName}" = ${bestMatch.attendee.email} (score: ${bestMatch.score})`);
+      }
+    }
+    
+    // STEP 4: Build identity profiles for ALL invitees (not just speakers)
+    // Use real names from transcript where available, otherwise derive from email
+    const identityProfiles: IdentityProfile[] = [];
+    
+    for (const attendee of attendeeObjects) {
+      const email = attendee.email.toLowerCase();
+      
+      // Use real name from transcript if we matched it, otherwise use email-derived name
+      const realName = emailToRealName.get(email);
+      const canonicalName = realName || attendee.name || emailToDisplayName(attendee.email);
+      
+      const tokens = canonicalName.toLowerCase().split(/\s+/).filter(t => t.length > 1);
+      const aliases = [canonicalName];
+      if (canonicalName.includes(' ')) {
+        aliases.push(canonicalName.split(' ')[0]); // First name
+        aliases.push(canonicalName.split(' ').slice(-1)[0]); // Last name
+      }
+      if (attendee.name && attendee.name !== canonicalName) {
+        aliases.push(attendee.name);
       }
       
       identityProfiles.push({
-        canonicalName: speakerName,  // Use the REAL name from transcript
-        email: email,
-        aliases: [speakerName, speakerName.split(' ')[0]], // Full name and first name
-        tokens: speakerTokens
+        canonicalName,
+        email: attendee.email,
+        aliases,
+        tokens
       });
     }
     
-    // Add any attendees not matched to speakers (they might be mentioned but didn't speak)
-    for (const attendee of attendeeObjects) {
-      const alreadyMatched = identityProfiles.some(p => p.email === attendee.email && p.email !== '');
-      if (!alreadyMatched && attendee.email) {
-        // Build profile from attendee data
-        const profile = buildIdentityProfiles([attendee])[0];
-        if (profile) {
-          identityProfiles.push(profile);
-        }
-      }
-    }
-    
-    // Extract canonical names for AI prompt - use REAL speaker names from transcript
+    // Extract canonical names for AI prompt - all invitees with best available names
     const attendeesForAI = identityProfiles.map(p => p.canonicalName).filter(n => n.length > 0);
     
-    console.log(`👥 [MinutesGenerator] Final identity profiles: ${identityProfiles.length}`);
+    console.log(`👥 [MinutesGenerator] Identity profiles for ${identityProfiles.length} invitees:`);
     identityProfiles.forEach(p => {
-      console.log(`   - "${p.canonicalName}" (email: ${p.email || 'unknown'})`);
+      console.log(`   - "${p.canonicalName}" (${p.email})`);
     });
     
     // Build lookups for post-processing assignee matching (legacy, used as fallback)

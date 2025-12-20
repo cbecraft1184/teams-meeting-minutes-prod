@@ -532,6 +532,7 @@ export const meetingEventTypeEnum = pgEnum("meeting_event_type", [
   "minutes_approved",
   "minutes_rejected",
   "minutes_regenerated",
+  "minutes_edited",
   "email_sent",
   "sharepoint_uploaded",
   "action_item_created",

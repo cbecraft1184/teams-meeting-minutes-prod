@@ -763,6 +763,75 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Update minutes content (summary, discussions, decisions) - for editing before approval
+  app.patch("/api/minutes/:id", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const existingMinutes = await storage.getMinutes(req.params.id);
+      if (!existingMinutes) {
+        return res.status(404).json({ error: "Minutes not found" });
+      }
+
+      // Verify user has access to the associated meeting
+      const meeting = await storage.getMeeting(existingMinutes.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Associated meeting not found" });
+      }
+
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        accessControlService.logAccessAttempt(req.user, meeting, false, "Attempted to edit minutes without meeting access");
+        return res.status(403).json({ error: "Access denied: Cannot edit minutes for meetings you cannot access" });
+      }
+
+      // Only allow editing if minutes are pending or rejected (not already approved)
+      if (existingMinutes.approvalStatus === "approved") {
+        return res.status(400).json({ error: "Cannot edit approved minutes. Please create a new version if changes are needed." });
+      }
+
+      // Extract editable fields from request body
+      const { summary, keyDiscussions, decisions } = req.body;
+      const updateData: any = {};
+
+      if (summary !== undefined) updateData.summary = summary;
+      if (keyDiscussions !== undefined) updateData.keyDiscussions = keyDiscussions;
+      if (decisions !== undefined) updateData.decisions = decisions;
+
+      // If minutes were rejected and now being edited, set back to pending
+      if (existingMinutes.approvalStatus === "rejected") {
+        updateData.approvalStatus = "pending";
+        updateData.rejectionReason = null;
+      }
+
+      const updatedMinutes = await storage.updateMinutes(req.params.id, updateData);
+
+      // Log the edit event
+      await storage.createMeetingEvent({
+        meetingId: meeting.id,
+        tenantId: (req.user as any).tenantId || null,
+        eventType: "minutes_edited",
+        title: "Minutes Edited",
+        description: `Minutes edited by ${req.user.displayName || req.user.email}`,
+        actorEmail: req.user.email,
+        actorName: req.user.displayName || req.user.email,
+        actorAadId: req.user.id,
+        metadata: { 
+          minutesId: req.params.id,
+          fieldsChanged: Object.keys(updateData)
+        },
+        correlationId: null,
+      });
+
+      console.log(`[EDIT] User ${req.user.email} edited minutes for meeting: ${meeting.title}`);
+      res.json(updatedMinutes);
+    } catch (error: any) {
+      console.error("Error updating minutes:", error);
+      res.status(500).json({ error: "Failed to update minutes" });
+    }
+  });
+
   // Resend email distribution for approved minutes (requires approver or admin role)
   app.post("/api/meetings/:id/resend-email", async (req, res) => {
     try {

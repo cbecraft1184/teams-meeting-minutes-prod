@@ -71,9 +71,7 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 ### Data Integrity
 7. **AssigneeEmail Persistence** (`minutesGenerator.ts`): Action items now include `assigneeEmail` field for downstream permission checks.
 8. **Attendee Content Comparison** (`minutesGenerator.ts`): `hasAttendeesChanged` logic now compares actual names, not just array length, to detect when attendee list content changes.
-
-### Known Improvement Opportunity
-- **Transaction Wrapping**: DB operations in `minutesGenerator.ts` (meeting update, minutes insert, action items insert) could be wrapped in a transaction for atomicity. Currently handled by failure record creation on error.
+9. **Transaction Wrapping** (`minutesGenerator.ts`): All DB operations (meeting update, minutes insert, action items insert, status update) are now wrapped in a single `db.transaction()` for atomicity - if any operation fails, all changes are rolled back.
 
 ## Debugging Lessons Learned
 - **attendeesPresent format**: Always `{name, email}[]` - map to `.name` before `.join()` for display

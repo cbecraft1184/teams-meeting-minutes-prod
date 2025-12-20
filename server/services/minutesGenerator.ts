@@ -265,13 +265,6 @@ export async function autoGenerateMinutes(
     const hasAttendeesChanged = attendeeNames.length !== existingAttendees.length || 
       attendeeNames.some((name, index) => name !== existingAttendees[index]);
     
-    if (attendeeNames.length > 0 && hasAttendeesChanged) {
-      console.log(`📝 [MinutesGenerator] Updating meeting record with attendees`);
-      await db.update(meetings)
-        .set({ attendees: attendeeNames })
-        .where(eq(meetings.id, meetingId));
-    }
-    
     // Check approval settings
     const settings = await storage.getSettings();
     const requiresApproval = settings.requireApprovalForMinutes;
@@ -292,17 +285,40 @@ export async function autoGenerateMinutes(
       generatedDetailLevel: effectiveDetailLevel
     };
     
+    // Validate minutes payload before transaction
+    let validatedMinutes;
     try {
-      const validatedMinutes = insertMeetingMinutesSchema.parse(minutesPayload);
+      validatedMinutes = insertMeetingMinutesSchema.parse(minutesPayload);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        console.error(`❌ [MinutesGenerator] Invalid meeting minutes data:`, {
+          payload: minutesPayload,
+          errors: error.errors
+        });
+        throw new Error(`Validation failed for meeting minutes: ${error.errors.map(e => e.message).join(', ')}`);
+      }
+      throw error;
+    }
+    
+    // TRANSACTION: Wrap all DB operations for atomicity
+    // If any operation fails, all changes are rolled back
+    await db.transaction(async (tx) => {
+      // Step 1: Update meeting attendees if changed
+      if (attendeeNames.length > 0 && hasAttendeesChanged) {
+        console.log(`📝 [MinutesGenerator] Updating meeting record with attendees`);
+        await tx.update(meetings)
+          .set({ attendees: attendeeNames })
+          .where(eq(meetings.id, meetingId));
+      }
       
-      // Create meeting minutes record with validated data
-      const [createdMinutes] = await db.insert(meetingMinutes)
+      // Step 2: Create meeting minutes record
+      const [createdMinutes] = await tx.insert(meetingMinutes)
         .values(validatedMinutes)
         .returning();
       
       console.log(`✅ [MinutesGenerator] Created meeting minutes ${createdMinutes.id}`);
       
-      // STRICT VALIDATION: Validate each action item before database write
+      // Step 3: Validate and insert action items
       if (actionItemsData.length > 0) {
         const validatedActionItems = [];
         
@@ -336,31 +352,21 @@ export async function autoGenerateMinutes(
         }
         
         if (validatedActionItems.length > 0) {
-          await db.insert(actionItems).values(validatedActionItems);
+          await tx.insert(actionItems).values(validatedActionItems);
           console.log(`✅ [MinutesGenerator] Created ${validatedActionItems.length}/${actionItemsData.length} action items (skipped ${actionItemsData.length - validatedActionItems.length} invalid)`);
         }
       }
       
-    } catch (error) {
-      if (error instanceof ZodError) {
-        console.error(`❌ [MinutesGenerator] Invalid meeting minutes data:`, {
-          payload: minutesPayload,
-          errors: error.errors
-        });
-        throw new Error(`Validation failed for meeting minutes: ${error.errors.map(e => e.message).join(', ')}`);
-      }
-      throw error;
-    }
+      // Step 4: Update meeting status to completed
+      await tx.update(meetings)
+        .set({
+          status: "completed",
+          graphSyncStatus: "enriched"
+        })
+        .where(eq(meetings.id, meetingId));
+    });
     
-    // Update meeting status
-    await db.update(meetings)
-      .set({
-        status: "completed",
-        graphSyncStatus: "enriched"
-      })
-      .where(eq(meetings.id, meetingId));
-    
-    console.log(`✅ [MinutesGenerator] Meeting minutes generation complete for ${meetingId}`);
+    console.log(`✅ [MinutesGenerator] Meeting minutes generation complete for ${meetingId} (transaction committed)`);
     
     // If approval not required, automatically trigger distribution workflow
     if (!requiresApproval) {

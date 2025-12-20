@@ -152,7 +152,7 @@ export function validateConfiguration(): ValidationResult {
   const missingOptional: SecretCheck[] = [];
   const configured: SecretCheck[] = [];
 
-  // Define fallback mappings for *_DEV to AZURE_*
+  // Define fallback mappings for *_DEV and *_PROD to base AZURE_* variables
   const fallbackMappings: Record<string, string> = {
     'GRAPH_TENANT_ID_DEV': 'AZURE_TENANT_ID',
     'GRAPH_CLIENT_ID_DEV': 'AZURE_CLIENT_ID',
@@ -160,6 +160,13 @@ export function validateConfiguration(): ValidationResult {
     'AZURE_OPENAI_ENDPOINT_DEV': 'AZURE_OPENAI_ENDPOINT',
     'AZURE_OPENAI_API_KEY_DEV': 'AZURE_OPENAI_API_KEY',
     'AZURE_OPENAI_DEPLOYMENT_DEV': 'AZURE_OPENAI_DEPLOYMENT',
+    // Production fallbacks - check non-suffixed versions too
+    'GRAPH_TENANT_ID_PROD': 'GRAPH_TENANT_ID',
+    'GRAPH_CLIENT_ID_PROD': 'GRAPH_CLIENT_ID',
+    'GRAPH_CLIENT_SECRET_PROD': 'GRAPH_CLIENT_SECRET',
+    'AZURE_OPENAI_ENDPOINT_PROD': 'AZURE_OPENAI_ENDPOINT',
+    'AZURE_OPENAI_API_KEY_PROD': 'AZURE_OPENAI_API_KEY',
+    'AZURE_OPENAI_DEPLOYMENT_PROD': 'AZURE_OPENAI_DEPLOYMENT',
   };
 
   for (const secret of REQUIRED_SECRETS) {

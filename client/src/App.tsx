@@ -274,6 +274,7 @@ function AppWithProviders() {
           timeout={4000}
           pauseOnHover={true}
           data-testid="app-toaster"
+          style={{ zIndex: 10000000 }}
         />
         <AppContent />
       </ThemeProvider>

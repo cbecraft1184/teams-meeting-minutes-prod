@@ -259,7 +259,7 @@ EXTRACTION PROCESS:
 2. Split joint assignments into individual items (e.g., "David, please send... Ricky, please provide..." produces two entries).
 3. Ensure the final list mirrors the exact commitments present—no more, no less.
 
-OUTPUT FORMAT:
+Output your response as JSON in this exact format:
 {
   "items": [
     {

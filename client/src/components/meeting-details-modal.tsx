@@ -32,6 +32,9 @@ import {
   MenuItem,
   Spinner,
   Input,
+  Label,
+  Dropdown,
+  Option,
 } from "@fluentui/react-components";
 import { 
   Calendar, 
@@ -60,7 +63,9 @@ import {
   Hash,
   Share2,
   Copy,
-  Check
+  Check,
+  Plus,
+  Trash2
 } from "lucide-react";
 import { format } from "date-fns";
 import { ClassificationBadge } from "./classification-badge";
@@ -519,6 +524,15 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
     setEditedDecisions([]);
   };
   
+  // Add action item state
+  const [showAddActionItem, setShowAddActionItem] = useState(false);
+  const [newActionItem, setNewActionItem] = useState({
+    task: "",
+    assignee: "",
+    priority: "medium",
+    dueDate: ""
+  });
+  
   // Fetch user info to check admin status
   const { data: userInfo } = useQuery<UserInfo>({
     queryKey: ["/api/user/me"],
@@ -690,6 +704,67 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
         <Toast>
           <ToastTitle>Error</ToastTitle>
           <ToastBody>{error.message || "Failed to update action item"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    }
+  });
+
+  // Delete action item mutation
+  const deleteActionItemMutation = useMutation({
+    mutationFn: async (actionItemId: string) => {
+      return await apiRequest("DELETE", `/api/action-items/${actionItemId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Action item deleted</ToastTitle>
+          <ToastBody>The action item has been removed.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to delete action item"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    }
+  });
+
+  // Create action item mutation
+  const createActionItemMutation = useMutation({
+    mutationFn: async (data: { 
+      meetingId: string; 
+      task: string; 
+      assignee: string;
+      assigneeEmail?: string;
+      priority: string;
+      dueDate?: string;
+    }) => {
+      return await apiRequest("POST", `/api/action-items`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Action item created</ToastTitle>
+          <ToastBody>New action item has been added.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+      setShowAddActionItem(false);
+      setNewActionItem({ task: "", assignee: "", priority: "medium", dueDate: "" });
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to create action item"}</ToastBody>
         </Toast>,
         { intent: "error" }
       );
@@ -1217,6 +1292,118 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
 
             {selectedTab === "actions" && (
               <div>
+                {/* Add Action Item button */}
+                <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    appearance="primary"
+                    size="small"
+                    data-testid="button-add-action-item"
+                    onClick={() => setShowAddActionItem(!showAddActionItem)}
+                  >
+                    <Plus className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
+                    Add Action Item
+                  </Button>
+                </div>
+
+                {/* Add Action Item Form */}
+                {showAddActionItem && (
+                  <div style={{ 
+                    padding: '16px', 
+                    marginBottom: '16px', 
+                    backgroundColor: tokens.colorNeutralBackground2, 
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}>
+                    <div>
+                      <Label htmlFor="new-task">Task</Label>
+                      <Textarea
+                        id="new-task"
+                        data-testid="input-new-action-task"
+                        value={newActionItem.task}
+                        onChange={(e, data) => setNewActionItem({ ...newActionItem, task: data.value })}
+                        placeholder="Describe the action item..."
+                        style={{ width: '100%' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '150px' }}>
+                        <Label htmlFor="new-assignee">Assignee</Label>
+                        <Input
+                          id="new-assignee"
+                          data-testid="input-new-action-assignee"
+                          value={newActionItem.assignee}
+                          onChange={(e, data) => setNewActionItem({ ...newActionItem, assignee: data.value })}
+                          placeholder="Name of assignee"
+                        />
+                      </div>
+                      <div style={{ minWidth: '120px' }}>
+                        <Label htmlFor="new-priority">Priority</Label>
+                        <Dropdown
+                          id="new-priority"
+                          data-testid="dropdown-new-action-priority"
+                          value={newActionItem.priority}
+                          onOptionSelect={(e, data) => setNewActionItem({ ...newActionItem, priority: data.optionValue || 'medium' })}
+                        >
+                          <Option value="low">Low</Option>
+                          <Option value="medium">Medium</Option>
+                          <Option value="high">High</Option>
+                        </Dropdown>
+                      </div>
+                      <div style={{ minWidth: '150px' }}>
+                        <Label htmlFor="new-due-date">Due Date (optional)</Label>
+                        <Input
+                          id="new-due-date"
+                          data-testid="input-new-action-due-date"
+                          type="date"
+                          value={newActionItem.dueDate}
+                          onChange={(e, data) => setNewActionItem({ ...newActionItem, dueDate: data.value })}
+                        />
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <Button
+                        appearance="secondary"
+                        size="small"
+                        data-testid="button-cancel-add-action"
+                        onClick={() => {
+                          setShowAddActionItem(false);
+                          setNewActionItem({ task: "", assignee: "", priority: "medium", dueDate: "" });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        appearance="primary"
+                        size="small"
+                        data-testid="button-save-new-action"
+                        disabled={!newActionItem.task.trim() || !newActionItem.assignee.trim() || createActionItemMutation.isPending}
+                        onClick={() => {
+                          const payload: {
+                            meetingId: string;
+                            task: string;
+                            assignee: string;
+                            priority: string;
+                            dueDate?: string;
+                          } = {
+                            meetingId: meeting.id,
+                            task: newActionItem.task.trim(),
+                            assignee: newActionItem.assignee.trim(),
+                            priority: newActionItem.priority,
+                          };
+                          if (newActionItem.dueDate) {
+                            payload.dueDate = new Date(newActionItem.dueDate).toISOString();
+                          }
+                          createActionItemMutation.mutate(payload);
+                        }}
+                      >
+                        {createActionItemMutation.isPending ? <Spinner size="tiny" /> : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {meeting.actionItems && meeting.actionItems.length > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {meeting.actionItems.map((item) => (
@@ -1287,6 +1474,15 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                                 </MenuList>
                               </MenuPopover>
                             </Menu>
+                            <Button
+                              appearance="subtle"
+                              size="small"
+                              data-testid={`button-delete-action-${item.id}`}
+                              disabled={deleteActionItemMutation.isPending}
+                              onClick={() => deleteActionItemMutation.mutate(item.id)}
+                            >
+                              <Trash2 className={styles.iconSmall} style={{ color: tokens.colorPaletteRedForeground1 }} />
+                            </Button>
                           </div>
                         </div>
                       </div>

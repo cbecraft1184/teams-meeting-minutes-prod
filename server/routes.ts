@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema, insertMeetingEventSchema, users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
 import { requireWebhookAuth } from "./middleware/requireServiceAuth";
@@ -1961,6 +1961,31 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("[Admin] Failed to retry job:", error);
       res.status(500).json({ error: "Failed to retry job" });
+    }
+  });
+
+  // ========== ADMIN MIGRATIONS ==========
+  
+  // Run pending database migrations (admin only)
+  app.post("/api/admin/run-migrations", requireRole("admin"), async (req, res) => {
+    try {
+      console.log(`[Admin] Running migrations requested by ${req.user?.email}`);
+      
+      // Add missing columns to document_templates table
+      await db.execute(sql`
+        ALTER TABLE document_templates 
+        ADD COLUMN IF NOT EXISTS created_by_email TEXT
+      `);
+      
+      console.log(`[Admin] Migrations completed successfully`);
+      res.json({ 
+        success: true, 
+        message: "Migrations completed successfully",
+        migrations: ["document_templates.created_by_email"]
+      });
+    } catch (error: any) {
+      console.error("[Admin] Migration failed:", error);
+      res.status(500).json({ error: error.message || "Migration failed" });
     }
   });
 

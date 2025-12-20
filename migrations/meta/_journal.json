@@ -15,6 +15,13 @@
       "when": 1764870596119,
       "tag": "0001_thin_ultimates",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766194501941,
+      "tag": "0002_productive_praxagora",
+      "breakpoints": true
     }
   ]
 }

@@ -196,11 +196,14 @@ ${attendeeList}
 
 DUE DATE RULES - CONVERT ALL RELATIVE DATES:
 Use the MEETING DATE provided below as reference to convert relative dates to actual YYYY-MM-DD format:
-- "this Friday" = the Friday of the same week as the meeting date
-- "next Monday" = the Monday of the following week
+- "this Friday" = the Friday of the CURRENT week (same week as meeting)
+- "this Wednesday" = if meeting is on Wednesday, it means TODAY (the meeting day itself)
+- "next [day]" = that day in the FOLLOWING week (7+ days out). Example: if meeting is Wednesday Dec 18, "next Wednesday" = Dec 25
+- "the following [day]" or "week after next" = that day TWO weeks from now
 - "by end of week" = the Friday of the meeting week
 - "tomorrow" = the day after the meeting date
 - "in two weeks" = 14 days after the meeting date
+- "by [day]" without "this" or "next" = the NEXT occurrence of that day (could be this week or next)
 - Include TIME in the task description if mentioned (e.g., "by Friday 10am" → dueDate: "2024-01-19", task includes "by 10am")
 - If no deadline mentioned, use null
 ${dateContext}

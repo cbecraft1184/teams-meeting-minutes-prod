@@ -49,14 +49,28 @@ function isUsingAzure(): boolean {
 }
 
 // Helper function to check if error is rate limit or quota violation
+// BUGFIX: Also check HTTP status field for 429 responses from Azure SDK
 function isRateLimitError(error: any): boolean {
-  const errorMsg = error?.message || String(error);
+  // Check HTTP status field (Azure SDK exposes this)
+  const status = error?.status ?? error?.response?.status;
+  if (status === 429) {
+    return true;
+  }
+  
+  // Fallback to message inspection
+  const message = `${error?.message ?? ""} ${String(error ?? "")}`.toLowerCase();
   return (
-    errorMsg.includes("429") ||
-    errorMsg.includes("RATELIMIT_EXCEEDED") ||
-    errorMsg.toLowerCase().includes("quota") ||
-    errorMsg.toLowerCase().includes("rate limit")
+    message.includes("429") ||
+    message.includes("ratelimit_exceeded") ||
+    message.includes("quota") ||
+    message.includes("rate limit")
   );
+}
+
+// Helper function to check if error is a client error (4xx) that should not be retried
+function isClientError(error: any): boolean {
+  const status = error?.status ?? error?.response?.status;
+  return status && status >= 400 && status < 500 && status !== 429;
 }
 
 // Detail level type for meeting minutes generation
@@ -188,7 +202,12 @@ Output JSON format:
         if (isRateLimitError(error)) {
           throw error; // Rethrow to trigger p-retry
         }
-        throw new AbortError(error);
+        // BUGFIX: Only abort on true client errors (4xx except 429)
+        // Allow retries for transient errors (5xx, network, JSON parse failures)
+        if (isClientError(error)) {
+          throw new AbortError(error);
+        }
+        throw error; // Rethrow to allow p-retry for transient errors
       }
     },
     {
@@ -308,7 +327,12 @@ Output your response as JSON in this exact format:
         if (isRateLimitError(error)) {
           throw error;
         }
-        throw new AbortError(error);
+        // BUGFIX: Only abort on true client errors (4xx except 429)
+        // Allow retries for transient errors (5xx, network, JSON parse failures)
+        if (isClientError(error)) {
+          throw new AbortError(error);
+        }
+        throw error; // Rethrow to allow p-retry for transient errors
       }
     },
     {

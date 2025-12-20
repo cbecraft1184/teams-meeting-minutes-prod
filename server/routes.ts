@@ -261,6 +261,11 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Meeting not found" });
       }
 
+      // SECURITY: Verify user has access to this meeting (same as dismiss endpoint)
+      if (!accessControlService.canViewMeeting(req.user, meeting)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
       // Restore the meeting
       await storage.restoreMeeting(tenantId, meetingId, userEmail);
       

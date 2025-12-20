@@ -484,6 +484,11 @@ export class DatabaseStorage implements IStorage {
       .set(updates)
       .where(eq(shareLinks.id, id))
       .returning();
+    
+    // BUGFIX: Guard against undefined return when ID doesn't exist
+    if (!updated) {
+      throw new Error('Share link not found');
+    }
     return updated;
   }
 
@@ -557,6 +562,11 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(jobQueue.id, id))
       .returning();
+    
+    // BUGFIX: Guard against undefined return when job ID doesn't exist
+    if (!updated) {
+      throw new Error('Job not found');
+    }
     return updated;
   }
   

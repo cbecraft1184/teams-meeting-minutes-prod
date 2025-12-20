@@ -169,7 +169,24 @@ class TeamsMeetingBot extends TeamsActivityHandler {
       };
     }
 
+    // SECURITY: Resolve tenant ID for multi-tenant isolation
+    const tenantId = (context.activity.channelData as any)?.tenant?.id || 
+                     context.activity.conversation?.tenantId;
+    
+    if (!tenantId) {
+      console.warn('[Message Extension] Missing tenant id - cannot search without tenant context');
+      return {
+        composeExtension: {
+          type: 'result',
+          attachmentLayout: 'list',
+          attachments: [],
+          text: 'Unable to resolve tenant context. Please try again later.',
+        },
+      };
+    }
+
     try {
+      // SECURITY: Filter by tenant to prevent cross-tenant data leakage
       const results = await db
         .select({
           meeting: meetings,
@@ -180,6 +197,7 @@ class TeamsMeetingBot extends TeamsActivityHandler {
         .where(
           and(
             eq(meetingMinutes.approvalStatus, 'approved'),
+            eq(meetings.tenantId, tenantId),
             ilike(meetings.title, `%${searchQuery.substring(0, 100)}%`)
           )
         )

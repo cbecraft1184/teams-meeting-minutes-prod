@@ -131,16 +131,49 @@ app.use((req, res, next) => {
     }
   });
 
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    log('SIGTERM received, shutting down...');
+  // BUGFIX: Proper graceful shutdown that closes HTTP server and database pool
+  let shuttingDown = false;
+  
+  async function gracefulShutdown(signal: string) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    
+    log(`${signal} received, initiating graceful shutdown...`);
+    
+    // Stop background workers first
     stopJobWorker();
     stopCleanupScheduler();
-  });
+    
+    // Close HTTP server (stop accepting new connections)
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => {
+        if (err) {
+          console.error('[Shutdown] Error closing HTTP server:', err);
+          reject(err);
+        } else {
+          log('HTTP server closed');
+          resolve();
+        }
+      });
+    });
+    
+    // Close database pool
+    try {
+      const { pool } = await import('./db');
+      await pool.end();
+      log('Database pool closed');
+    } catch (err) {
+      console.error('[Shutdown] Error closing database pool:', err);
+    }
+    
+    log('Graceful shutdown complete');
+    process.exit(0);
+  }
 
-  process.on('SIGINT', () => {
-    log('SIGINT received, shutting down...');
-    stopJobWorker();
-    stopCleanupScheduler();
-  });
-})();
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+})().catch((err) => {
+  // BUGFIX: Handle startup errors to prevent unhandled promise rejection
+  console.error('[Startup] Fatal error during initialization:', err);
+  process.exit(1);
+});

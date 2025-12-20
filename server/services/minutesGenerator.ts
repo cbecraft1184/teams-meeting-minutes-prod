@@ -260,8 +260,12 @@ export async function autoGenerateMinutes(
     }
     
     // Update the meeting record with attendee names if needed (meetings.attendees is string[])
+    // BUGFIX: Compare content, not just length - detect when attendee list changes
     const attendeeNames = uniqueAttendeesObjects.map(a => a.name).filter(n => n.length > 0);
-    if (attendeeNames.length > 0 && attendeeNames.length !== existingAttendees.length) {
+    const hasAttendeesChanged = attendeeNames.length !== existingAttendees.length || 
+      attendeeNames.some((name, index) => name !== existingAttendees[index]);
+    
+    if (attendeeNames.length > 0 && hasAttendeesChanged) {
       console.log(`📝 [MinutesGenerator] Updating meeting record with attendees`);
       await db.update(meetings)
         .set({ attendees: attendeeNames })
@@ -303,11 +307,13 @@ export async function autoGenerateMinutes(
         const validatedActionItems = [];
         
         for (const item of actionItemsData) {
+          // BUGFIX: Include assigneeEmail for permission checks downstream
           const actionItemPayload = {
             meetingId: meeting.id,
             minutesId: createdMinutes.id,
             task: item.task,
             assignee: item.assignee || "Unassigned",
+            assigneeEmail: (item as any).assigneeEmail ?? null,
             dueDate: item.dueDate ? new Date(item.dueDate) : null,
             priority: item.priority as "high" | "medium" | "low",
             status: "pending" as const

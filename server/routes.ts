@@ -19,6 +19,7 @@ import { teamsBotAdapter } from "./services/teamsBot";
 import { graphCalendarSync } from "./services/graphCalendarSync";
 import { ZodError } from "zod";
 import { serveStatic as setupProductionStatic } from "./static";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
@@ -53,6 +54,9 @@ export function registerRoutes(app: Express): Server {
   // Microsoft Graph API calls these directly - NO user authentication
   // Security: clientState validation (shared secret)
   registerWebhookRoutes(app);
+  
+  // Register object storage routes for file uploads (logos, etc.)
+  registerObjectStorageRoutes(app);
 
   // API health check endpoint (PUBLIC - no authentication required)
   // Used by Azure Container Apps health probes and Teams app connectivity checks

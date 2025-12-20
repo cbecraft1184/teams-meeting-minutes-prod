@@ -8,13 +8,18 @@ let replitAIClient: OpenAI | null = null;
 
 function getAIClient(): AzureOpenAI | OpenAI {
   // Production: Use Azure OpenAI Government Cloud
-  if (process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT) {
+  // Check both _PROD suffix (Azure Container Apps) and non-suffixed (local dev) variants
+  const apiKey = process.env.AZURE_OPENAI_API_KEY_PROD || process.env.AZURE_OPENAI_API_KEY;
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT_PROD || process.env.AZURE_OPENAI_ENDPOINT;
+  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT_PROD || process.env.AZURE_OPENAI_DEPLOYMENT;
+  
+  if (apiKey && endpoint) {
     if (!azureClient) {
       azureClient = new AzureOpenAI({
-        apiKey: process.env.AZURE_OPENAI_API_KEY,
-        endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+        apiKey,
+        endpoint,
         apiVersion: process.env.AZURE_OPENAI_API_VERSION || "2024-02-15-preview",
-        deployment: process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4-teams-minutes"
+        deployment: deployment || "gpt-4-teams-minutes"
       });
     }
     return azureClient;
@@ -38,7 +43,9 @@ function getAIClient(): AzureOpenAI | OpenAI {
 }
 
 function isUsingAzure(): boolean {
-  return !!(process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT);
+  const apiKey = process.env.AZURE_OPENAI_API_KEY_PROD || process.env.AZURE_OPENAI_API_KEY;
+  const endpoint = process.env.AZURE_OPENAI_ENDPOINT_PROD || process.env.AZURE_OPENAI_ENDPOINT;
+  return !!(apiKey && endpoint);
 }
 
 // Helper function to check if error is rate limit or quota violation

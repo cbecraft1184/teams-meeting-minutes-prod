@@ -526,6 +526,8 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
   
   // Add action item state
   const [showAddActionItem, setShowAddActionItem] = useState(false);
+  // Detail level for regenerating minutes
+  const [selectedDetailLevel, setSelectedDetailLevel] = useState<"low" | "medium" | "high">("medium");
   const [newActionItem, setNewActionItem] = useState({
     task: "",
     assignee: "",
@@ -799,8 +801,8 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
 
   // Reprocess mutation to regenerate minutes
   const reprocessMutation = useMutation({
-    mutationFn: async (meetingId: string) => {
-      return await apiRequest("POST", `/api/admin/meetings/${meetingId}/reprocess`, {});
+    mutationFn: async ({ meetingId, detailLevel }: { meetingId: string; detailLevel?: "low" | "medium" | "high" }) => {
+      return await apiRequest("POST", `/api/admin/meetings/${meetingId}/reprocess`, { detailLevel });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
@@ -1017,6 +1019,17 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                              "Revision Requested"}
                           </Badge>
                         )}
+                        {(meeting.minutes as any).generatedDetailLevel && (
+                          <Badge 
+                            appearance="outline"
+                            color="subtle"
+                            data-testid="badge-detail-level"
+                          >
+                            {(meeting.minutes as any).generatedDetailLevel === "low" ? "Low Detail" :
+                             (meeting.minutes as any).generatedDetailLevel === "medium" ? "Medium Detail" :
+                             "High Detail"}
+                          </Badge>
+                        )}
                       </div>
                       <div className={styles.minutesActions}>
                         {showApprovalActions && meeting.minutes.processingStatus === "completed" && (
@@ -1042,20 +1055,33 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                           </>
                         )}
                         {isAdmin && (
-                          <Button 
-                            appearance="secondary" 
-                            size="small" 
-                            data-testid="button-regenerate-minutes"
-                            disabled={reprocessMutation.isPending}
-                            onClick={() => reprocessMutation.mutate(meeting.id)}
-                          >
-                            {reprocessMutation.isPending ? (
-                              <Spinner size="tiny" style={{ marginRight: "4px" }} />
-                            ) : (
-                              <RefreshCw className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
-                            )}
-                            {reprocessMutation.isPending ? "Regenerating..." : "Regenerate"}
-                          </Button>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <Dropdown
+                              value={selectedDetailLevel === "low" ? "Low (Executive)" : selectedDetailLevel === "medium" ? "Medium (Standard)" : "High (Comprehensive)"}
+                              selectedOptions={[selectedDetailLevel]}
+                              onOptionSelect={(_, data) => setSelectedDetailLevel(data.optionValue as "low" | "medium" | "high")}
+                              data-testid="dropdown-detail-level"
+                              style={{ minWidth: "160px" }}
+                            >
+                              <Option value="low" data-testid="option-detail-low">Low (Executive)</Option>
+                              <Option value="medium" data-testid="option-detail-medium">Medium (Standard)</Option>
+                              <Option value="high" data-testid="option-detail-high">High (Comprehensive)</Option>
+                            </Dropdown>
+                            <Button 
+                              appearance="secondary" 
+                              size="small" 
+                              data-testid="button-regenerate-minutes"
+                              disabled={reprocessMutation.isPending}
+                              onClick={() => reprocessMutation.mutate({ meetingId: meeting.id, detailLevel: selectedDetailLevel })}
+                            >
+                              {reprocessMutation.isPending ? (
+                                <Spinner size="tiny" style={{ marginRight: "4px" }} />
+                              ) : (
+                                <RefreshCw className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
+                              )}
+                              {reprocessMutation.isPending ? "Regenerating..." : "Regenerate"}
+                            </Button>
+                          </div>
                         )}
                         {/* Edit button - only show when not approved and not in edit mode */}
                         {meeting.minutes.approvalStatus !== "approved" && !isEditMode && (
@@ -1269,21 +1295,36 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                     <FileText className={mergeClasses(styles.emptyIcon, styles.iconLarge, styles.iconCentered)} />
                     <p className={styles.emptyText}>No minutes available for this meeting yet.</p>
                     {meeting.status === "completed" && (
-                      <Button
-                        appearance="primary"
-                        size="medium"
-                        style={{ marginTop: "16px" }}
-                        data-testid="button-reprocess"
-                        disabled={reprocessMutation.isPending}
-                        onClick={() => reprocessMutation.mutate(meeting.id)}
-                      >
-                        {reprocessMutation.isPending ? (
-                          <Spinner size="tiny" style={{ marginRight: "8px" }} />
-                        ) : (
-                          <RefreshCw className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
-                        )}
-                        {reprocessMutation.isPending ? "Processing..." : "Generate Minutes"}
-                      </Button>
+                      <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <span style={{ fontSize: "14px", color: tokens.colorNeutralForeground2 }}>Detail Level:</span>
+                          <Dropdown
+                            value={selectedDetailLevel === "low" ? "Low (Executive)" : selectedDetailLevel === "medium" ? "Medium (Standard)" : "High (Comprehensive)"}
+                            selectedOptions={[selectedDetailLevel]}
+                            onOptionSelect={(_, data) => setSelectedDetailLevel(data.optionValue as "low" | "medium" | "high")}
+                            data-testid="dropdown-generate-detail-level"
+                            style={{ minWidth: "180px" }}
+                          >
+                            <Option value="low">Low (Executive)</Option>
+                            <Option value="medium">Medium (Standard)</Option>
+                            <Option value="high">High (Comprehensive)</Option>
+                          </Dropdown>
+                        </div>
+                        <Button
+                          appearance="primary"
+                          size="medium"
+                          data-testid="button-reprocess"
+                          disabled={reprocessMutation.isPending}
+                          onClick={() => reprocessMutation.mutate({ meetingId: meeting.id, detailLevel: selectedDetailLevel })}
+                        >
+                          {reprocessMutation.isPending ? (
+                            <Spinner size="tiny" style={{ marginRight: "8px" }} />
+                          ) : (
+                            <RefreshCw className={mergeClasses(styles.iconMedium, styles.iconWithMargin)} />
+                          )}
+                          {reprocessMutation.isPending ? "Processing..." : "Generate Minutes"}
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}

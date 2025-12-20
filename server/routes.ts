@@ -1706,10 +1706,22 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Admin: Force reprocess a meeting (regenerate minutes)
+  // Accepts optional detailLevel in body: "low" | "medium" | "high"
   app.post("/api/admin/meetings/:id/reprocess", requireRole("admin"), async (req, res) => {
     try {
       const meetingId = req.params.id;
-      console.log(`[Admin] Reprocess meeting ${meetingId} requested by ${req.user?.email}`);
+      const { detailLevel } = req.body || {};
+      
+      // Validate detail level if provided
+      const validDetailLevels = ["low", "medium", "high"];
+      if (detailLevel && !validDetailLevels.includes(detailLevel)) {
+        return res.status(400).json({ 
+          error: "Invalid detail level",
+          validValues: validDetailLevels 
+        });
+      }
+      
+      console.log(`[Admin] Reprocess meeting ${meetingId} requested by ${req.user?.email}${detailLevel ? ` with detail level: ${detailLevel}` : ''}`);
       
       // Get meeting to verify it exists
       const meeting = await storage.getMeeting(meetingId);
@@ -1747,7 +1759,7 @@ export function registerRoutes(app: Express): Server {
       const { minutesGeneratorService } = await import("./services/minutesGenerator");
       
       try {
-        await minutesGeneratorService.autoGenerateMinutes(meetingId);
+        await minutesGeneratorService.autoGenerateMinutes(meetingId, detailLevel || undefined);
         
         // Update status to completed after successful generation
         await db.update(meetingsTable)

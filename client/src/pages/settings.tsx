@@ -455,6 +455,23 @@ export default function Settings() {
   const [extractActions, setExtractActions] = useState(true);
   const [classificationLevel, setClassificationLevel] = useState("UNCLASSIFIED");
   
+  // Template editor state
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<DocumentTemplate | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [templateSections, setTemplateSections] = useState<Array<{ id: string; name: string; enabled: boolean; order: number }>>([]);
+  const [organizationName, setOrganizationName] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#0078D4");
+  const [secondaryColor, setSecondaryColor] = useState("#106EBE");
+  const [fontFamily, setFontFamily] = useState("helvetica");
+  const [headerText, setHeaderText] = useState("");
+  const [footerText, setFooterText] = useState("");
+  const [showPageNumbers, setShowPageNumbers] = useState(true);
+  const [showGeneratedDate, setShowGeneratedDate] = useState(true);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [templateToDelete, setTemplateToDelete] = useState<DocumentTemplate | null>(null);
+  
   const { data: userInfo, isLoading: isLoadingUser } = useQuery<UserInfo>({
     queryKey: ["/api/user/me"],
   });
@@ -532,6 +549,179 @@ export default function Settings() {
       );
     },
   });
+
+  // Template CRUD mutations
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: { name: string; description?: string; config: DocumentTemplateConfig }) => {
+      const response = await fetch("/api/document-templates", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to create template");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      setIsEditorOpen(false);
+      dispatchToast(<div><strong>Template created</strong><div>New document template has been saved</div></div>, { intent: "success" });
+    },
+    onError: (error: any) => {
+      dispatchToast(<div><strong>Create failed</strong><div>{error.message}</div></div>, { intent: "error" });
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; description?: string; config?: Partial<DocumentTemplateConfig> } }) => {
+      const response = await fetch(`/api/document-templates/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to update template");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      setIsEditorOpen(false);
+      dispatchToast(<div><strong>Template updated</strong><div>Changes have been saved</div></div>, { intent: "success" });
+    },
+    onError: (error: any) => {
+      dispatchToast(<div><strong>Update failed</strong><div>{error.message}</div></div>, { intent: "error" });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/document-templates/${id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Failed to delete template");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      setDeleteConfirmOpen(false);
+      setTemplateToDelete(null);
+      dispatchToast(<div><strong>Template deleted</strong></div>, { intent: "success" });
+    },
+    onError: (error: any) => {
+      dispatchToast(<div><strong>Delete failed</strong><div>{error.message}</div></div>, { intent: "error" });
+    },
+  });
+
+  const duplicateTemplateMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const response = await fetch(`/api/document-templates/${id}/duplicate`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to duplicate template");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/document-templates"] });
+      dispatchToast(<div><strong>Template duplicated</strong></div>, { intent: "success" });
+    },
+    onError: (error: any) => {
+      dispatchToast(<div><strong>Duplicate failed</strong><div>{error.message}</div></div>, { intent: "error" });
+    },
+  });
+
+  // Default sections for new templates
+  const defaultSections = [
+    { id: 'title', name: 'Title Page', enabled: true, order: 1 },
+    { id: 'details', name: 'Meeting Details', enabled: true, order: 2 },
+    { id: 'attendees', name: 'Attendees', enabled: true, order: 3 },
+    { id: 'summary', name: 'Executive Summary', enabled: true, order: 4 },
+    { id: 'discussions', name: 'Key Discussions', enabled: true, order: 5 },
+    { id: 'decisions', name: 'Decisions', enabled: true, order: 6 },
+    { id: 'actionItems', name: 'Action Items', enabled: true, order: 7 },
+  ];
+
+  const openNewTemplateEditor = () => {
+    setEditingTemplate(null);
+    setTemplateName("");
+    setTemplateDescription("");
+    setTemplateSections([...defaultSections]);
+    setOrganizationName("");
+    setPrimaryColor("#0078D4");
+    setSecondaryColor("#106EBE");
+    setFontFamily("helvetica");
+    setHeaderText("");
+    setFooterText("");
+    setShowPageNumbers(true);
+    setShowGeneratedDate(true);
+    setIsEditorOpen(true);
+  };
+
+  const openEditTemplateEditor = (template: DocumentTemplate) => {
+    setEditingTemplate(template);
+    setTemplateName(template.name);
+    setTemplateDescription(template.description || "");
+    setTemplateSections([...template.config.sections]);
+    setOrganizationName(template.config.branding.organizationName);
+    setPrimaryColor(template.config.branding.primaryColor);
+    setSecondaryColor(template.config.branding.secondaryColor);
+    setFontFamily(template.config.styling.fontFamily);
+    setHeaderText(template.config.headerText);
+    setFooterText(template.config.footerText);
+    setShowPageNumbers(template.config.showPageNumbers);
+    setShowGeneratedDate(template.config.showGeneratedDate);
+    setIsEditorOpen(true);
+  };
+
+  const handleSaveTemplate = () => {
+    const config: DocumentTemplateConfig = {
+      sections: templateSections,
+      branding: {
+        organizationName,
+        logoEnabled: false,
+        primaryColor,
+        secondaryColor,
+      },
+      styling: {
+        fontFamily: fontFamily as "helvetica" | "times" | "courier",
+        titleSize: 18,
+        headingSize: 14,
+        bodySize: 11,
+        lineSpacing: 1.15,
+      },
+      headerText,
+      footerText,
+      showPageNumbers,
+      showGeneratedDate,
+    };
+
+    if (editingTemplate) {
+      updateTemplateMutation.mutate({
+        id: editingTemplate.id,
+        data: { name: templateName, description: templateDescription, config },
+      });
+    } else {
+      createTemplateMutation.mutate({ name: templateName, description: templateDescription, config });
+    }
+  };
+
+  const toggleSectionEnabled = (sectionId: string) => {
+    setTemplateSections(sections =>
+      sections.map(s => s.id === sectionId ? { ...s, enabled: !s.enabled } : s)
+    );
+  };
+
+  const moveSectionUp = (index: number) => {
+    if (index === 0) return;
+    const newSections = [...templateSections];
+    [newSections[index - 1], newSections[index]] = [newSections[index], newSections[index - 1]];
+    newSections.forEach((s, i) => s.order = i + 1);
+    setTemplateSections(newSections);
+  };
+
+  const moveSectionDown = (index: number) => {
+    if (index === templateSections.length - 1) return;
+    const newSections = [...templateSections];
+    [newSections[index], newSections[index + 1]] = [newSections[index + 1], newSections[index]];
+    newSections.forEach((s, i) => s.order = i + 1);
+    setTemplateSections(newSections);
+  };
   
   return (
     <div className={styles.container}>
@@ -1052,12 +1242,55 @@ export default function Settings() {
                             title="Set as default"
                           />
                         )}
+                        {isAdmin && !template.isSystem && (
+                          <Button
+                            size="small"
+                            appearance="subtle"
+                            icon={<Edit20Regular />}
+                            onClick={() => openEditTemplateEditor(template)}
+                            data-testid={`button-edit-template-${template.id}`}
+                            title="Edit template"
+                          />
+                        )}
+                        {isAdmin && (
+                          <Button
+                            size="small"
+                            appearance="subtle"
+                            icon={<Copy20Regular />}
+                            onClick={() => duplicateTemplateMutation.mutate({ id: template.id, name: `${template.name} (Copy)` })}
+                            disabled={duplicateTemplateMutation.isPending}
+                            data-testid={`button-duplicate-template-${template.id}`}
+                            title="Duplicate template"
+                          />
+                        )}
+                        {isAdmin && !template.isSystem && !template.isDefault && (
+                          <Button
+                            size="small"
+                            appearance="subtle"
+                            icon={<Delete20Regular />}
+                            onClick={() => { setTemplateToDelete(template); setDeleteConfirmOpen(true); }}
+                            data-testid={`button-delete-template-${template.id}`}
+                            title="Delete template"
+                          />
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
 
-                <div className={styles.infoBox}>
+                {isAdmin && (
+                  <Button
+                    appearance="primary"
+                    icon={<Add20Regular />}
+                    onClick={openNewTemplateEditor}
+                    data-testid="button-create-template"
+                    style={{ marginTop: tokens.spacingVerticalM }}
+                  >
+                    Create Template
+                  </Button>
+                )}
+
+                <div className={styles.infoBox} style={{ marginTop: tokens.spacingVerticalM }}>
                   <div className={styles.infoBoxContent}>
                     <Info20Regular className={styles.infoBoxIcon} />
                     <div className={styles.infoBoxText}>
@@ -1071,7 +1304,20 @@ export default function Settings() {
                 </div>
               </>
             ) : (
-              <Text className={styles.fieldDescription}>No document templates found</Text>
+              <div>
+                <Text className={styles.fieldDescription}>No document templates found</Text>
+                {isAdmin && (
+                  <Button
+                    appearance="primary"
+                    icon={<Add20Regular />}
+                    onClick={openNewTemplateEditor}
+                    data-testid="button-create-template-empty"
+                    style={{ marginTop: tokens.spacingVerticalM }}
+                  >
+                    Create Template
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </Card>
@@ -1193,6 +1439,198 @@ export default function Settings() {
           </div>
         </Card>
       </div>
+
+      {/* Template Editor Dialog */}
+      <Dialog open={isEditorOpen} onOpenChange={(_, data) => setIsEditorOpen(data.open)}>
+        <DialogSurface style={{ maxWidth: "700px", width: "90vw" }}>
+          <DialogBody>
+            <DialogTitle>{editingTemplate ? "Edit Template" : "Create Template"}</DialogTitle>
+            <DialogContent style={{ display: "flex", flexDirection: "column", gap: tokens.spacingVerticalM }}>
+              <div>
+                <Label htmlFor="template-name" required>Template Name</Label>
+                <Input
+                  id="template-name"
+                  value={templateName}
+                  onChange={(_, data) => setTemplateName(data.value)}
+                  placeholder="Enter template name"
+                  data-testid="input-template-name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="template-desc">Description</Label>
+                <Input
+                  id="template-desc"
+                  value={templateDescription}
+                  onChange={(_, data) => setTemplateDescription(data.value)}
+                  placeholder="Enter description (optional)"
+                  data-testid="input-template-description"
+                />
+              </div>
+
+              <Divider />
+              <Text weight="semibold">Sections</Text>
+              <div style={{ display: "flex", flexDirection: "column", gap: tokens.spacingVerticalS }}>
+                {templateSections.sort((a, b) => a.order - b.order).map((section, index) => (
+                  <div key={section.id} style={{ display: "flex", alignItems: "center", gap: tokens.spacingHorizontalS, padding: tokens.spacingVerticalXS, backgroundColor: tokens.colorNeutralBackground2, borderRadius: tokens.borderRadiusMedium }}>
+                    <Switch
+                      checked={section.enabled}
+                      onChange={() => toggleSectionEnabled(section.id)}
+                      data-testid={`switch-section-${section.id}`}
+                    />
+                    <Text style={{ flex: 1 }}>{section.name}</Text>
+                    <Button size="small" appearance="subtle" onClick={() => moveSectionUp(index)} disabled={index === 0} title="Move up" data-testid={`button-section-up-${section.id}`}>↑</Button>
+                    <Button size="small" appearance="subtle" onClick={() => moveSectionDown(index)} disabled={index === templateSections.length - 1} title="Move down" data-testid={`button-section-down-${section.id}`}>↓</Button>
+                  </div>
+                ))}
+              </div>
+
+              <Divider />
+              <Text weight="semibold">Branding</Text>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: tokens.spacingVerticalS }}>
+                <div>
+                  <Label htmlFor="org-name">Organization Name</Label>
+                  <Input
+                    id="org-name"
+                    value={organizationName}
+                    onChange={(_, data) => setOrganizationName(data.value)}
+                    placeholder="Your organization"
+                    data-testid="input-org-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="font-family">Font Family</Label>
+                  <Dropdown
+                    id="font-family"
+                    value={fontFamily === "helvetica" ? "Helvetica (Sans-serif)" : fontFamily === "times" ? "Times (Serif)" : "Courier (Monospace)"}
+                    selectedOptions={[fontFamily]}
+                    onOptionSelect={(_, data) => setFontFamily(data.optionValue as string)}
+                    data-testid="dropdown-font-family"
+                  >
+                    <Option value="helvetica">Helvetica (Sans-serif)</Option>
+                    <Option value="times">Times (Serif)</Option>
+                    <Option value="courier">Courier (Monospace)</Option>
+                  </Dropdown>
+                </div>
+                <div>
+                  <Label htmlFor="primary-color">Primary Color</Label>
+                  <div style={{ display: "flex", alignItems: "center", gap: tokens.spacingHorizontalS }}>
+                    <input
+                      type="color"
+                      id="primary-color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                      data-testid="input-primary-color"
+                      style={{ width: "40px", height: "32px", border: "none", borderRadius: tokens.borderRadiusMedium, cursor: "pointer" }}
+                    />
+                    <Input
+                      value={primaryColor}
+                      onChange={(_, data) => setPrimaryColor(data.value)}
+                      style={{ flex: 1 }}
+                      placeholder="#0078D4"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label htmlFor="secondary-color">Secondary Color</Label>
+                  <div style={{ display: "flex", alignItems: "center", gap: tokens.spacingHorizontalS }}>
+                    <input
+                      type="color"
+                      id="secondary-color"
+                      value={secondaryColor}
+                      onChange={(e) => setSecondaryColor(e.target.value)}
+                      data-testid="input-secondary-color"
+                      style={{ width: "40px", height: "32px", border: "none", borderRadius: tokens.borderRadiusMedium, cursor: "pointer" }}
+                    />
+                    <Input
+                      value={secondaryColor}
+                      onChange={(_, data) => setSecondaryColor(data.value)}
+                      style={{ flex: 1 }}
+                      placeholder="#106EBE"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <Divider />
+              <Text weight="semibold">Header & Footer</Text>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: tokens.spacingVerticalS }}>
+                <div>
+                  <Label htmlFor="header-text">Header Text</Label>
+                  <Input
+                    id="header-text"
+                    value={headerText}
+                    onChange={(_, data) => setHeaderText(data.value)}
+                    placeholder="Text in document header"
+                    data-testid="input-header-text"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="footer-text">Footer Text</Label>
+                  <Input
+                    id="footer-text"
+                    value={footerText}
+                    onChange={(_, data) => setFooterText(data.value)}
+                    placeholder="Text in document footer"
+                    data-testid="input-footer-text"
+                  />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: tokens.spacingHorizontalL }}>
+                <div style={{ display: "flex", alignItems: "center", gap: tokens.spacingHorizontalS }}>
+                  <Switch
+                    checked={showPageNumbers}
+                    onChange={(_, data) => setShowPageNumbers(data.checked)}
+                    data-testid="switch-page-numbers"
+                  />
+                  <Label>Show page numbers</Label>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: tokens.spacingHorizontalS }}>
+                  <Switch
+                    checked={showGeneratedDate}
+                    onChange={(_, data) => setShowGeneratedDate(data.checked)}
+                    data-testid="switch-generated-date"
+                  />
+                  <Label>Show generated date</Label>
+                </div>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setIsEditorOpen(false)} data-testid="button-cancel-template">Cancel</Button>
+              <Button
+                appearance="primary"
+                onClick={handleSaveTemplate}
+                disabled={!templateName.trim() || createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                data-testid="button-save-template"
+              >
+                {(createTemplateMutation.isPending || updateTemplateMutation.isPending) ? <Spinner size="tiny" /> : (editingTemplate ? "Save Changes" : "Create Template")}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={(_, data) => setDeleteConfirmOpen(data.open)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Delete Template</DialogTitle>
+            <DialogContent>
+              <Text>Are you sure you want to delete "{templateToDelete?.name}"? This action cannot be undone.</Text>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setDeleteConfirmOpen(false)} data-testid="button-cancel-delete">Cancel</Button>
+              <Button
+                appearance="primary"
+                onClick={() => templateToDelete && deleteTemplateMutation.mutate(templateToDelete.id)}
+                disabled={deleteTemplateMutation.isPending}
+                data-testid="button-confirm-delete"
+              >
+                {deleteTemplateMutation.isPending ? <Spinner size="tiny" /> : "Delete"}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </div>
   );
 }

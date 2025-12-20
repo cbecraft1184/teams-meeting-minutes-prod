@@ -130,6 +130,16 @@ export const processingDecisionEnum = pgEnum("processing_decision", [
   "manual_override"    // Admin manually triggered processing
 ]);
 
+// Detail level for meeting minutes generation
+// Low = High-level executive summary only
+// Medium = Medium and high-level topics
+// High = All details including granular discussion points
+export const detailLevelEnum = pgEnum("detail_level", [
+  "low",    // High-level executive summary only (most concise)
+  "medium", // Medium and high-level topics (balanced)
+  "high"    // All details including low-level discussion points (most comprehensive)
+]);
+
 // Meeting schema
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -186,6 +196,9 @@ export const meetings = pgTable("meetings", {
   parentMeetingId: varchar("parent_meeting_id").references((): any => meetings.id, { onDelete: "cascade" }), // Null for canonical/first session, references parent for subsequent sessions
   sessionNumber: integer("session_number").notNull().default(1), // Session 1, 2, 3... for display
   
+  // Minutes generation preferences
+  preferredDetailLevel: detailLevelEnum("preferred_detail_level").default("medium"), // User preference for minutes detail level
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   graphEventIdx: index("meeting_graph_event_idx").on(table.graphEventId),
@@ -216,6 +229,10 @@ export const meetingMinutes = pgTable("meeting_minutes", {
   sharepointUrl: text("sharepoint_url"),
   docxUrl: text("docx_url"),
   pdfUrl: text("pdf_url"),
+  
+  // Detail level for this generated minutes
+  generatedDetailLevel: detailLevelEnum("generated_detail_level").default("medium"), // Level used when generating
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -259,8 +276,12 @@ export interface DocumentSection {
 export interface DocumentBranding {
   organizationName: string;
   logoEnabled: boolean;
+  logoUrl?: string; // URL to custom logo image
   primaryColor: string; // Hex color
   secondaryColor: string; // Hex color
+  accentColor?: string; // Hex color for highlights
+  backgroundColor?: string; // Hex color for backgrounds
+  textColor?: string; // Hex color for main text
 }
 
 export interface DocumentStyling {
@@ -269,6 +290,19 @@ export interface DocumentStyling {
   headingSize: number;
   bodySize: number;
   lineSpacing: number;
+  borderRadius?: number; // Border radius for elements (px)
+  borderColor?: string; // Hex color for borders
+}
+
+// Email template configuration
+export interface EmailTemplateConfig {
+  subject: string; // Email subject template (supports {{meeting.title}} placeholders)
+  greeting: string; // Email greeting text
+  bodyIntro: string; // Introduction paragraph
+  bodyOutro: string; // Closing paragraph
+  signature: string; // Email signature
+  includeAttachments: boolean; // Whether to attach DOCX/PDF
+  attachmentFormat: "docx" | "pdf" | "both"; // Which formats to attach
 }
 
 export interface DocumentTemplateConfig {
@@ -279,6 +313,8 @@ export interface DocumentTemplateConfig {
   footerText: string;
   showPageNumbers: boolean;
   showGeneratedDate: boolean;
+  // Email template settings (optional for backwards compatibility)
+  email?: EmailTemplateConfig;
 }
 
 // Document Templates schema - for visual presentation of minutes
@@ -289,6 +325,12 @@ export const documentTemplates = pgTable("document_templates", {
   isDefault: boolean("is_default").notNull().default(false),
   isSystem: boolean("is_system").notNull().default(false),
   config: jsonb("config").notNull().$type<DocumentTemplateConfig>(),
+  // Tenant/scope for multi-tenant template support
+  tenantId: text("tenant_id"), // Azure AD tenant ID (null = system-wide template)
+  createdByEmail: text("created_by_email"), // Who created this template
+  // Version tracking
+  version: integer("version").notNull().default(1),
+  isPublished: boolean("is_published").notNull().default(false), // Only published templates can be used
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

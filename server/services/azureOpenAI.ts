@@ -52,9 +52,52 @@ function isRateLimitError(error: any): boolean {
   );
 }
 
+// Detail level type for meeting minutes generation
+export type DetailLevel = "low" | "medium" | "high";
+
+// Get detail-level-specific instructions for the AI
+function getDetailLevelInstructions(detailLevel: DetailLevel): string {
+  switch (detailLevel) {
+    case "low":
+      return `
+DETAIL LEVEL: LOW (Executive Summary)
+- Generate a CONCISE executive summary (2-3 paragraphs max)
+- Include ONLY the most critical, high-level takeaways
+- Limit keyDiscussions to 3-5 MOST important points only
+- Limit decisions to critical, high-impact decisions only
+- Focus on strategic outcomes, not tactical details
+- Be extremely brief and to the point`;
+    
+    case "medium":
+      return `
+DETAIL LEVEL: MEDIUM (Standard Summary)
+- Generate a balanced summary covering main topics
+- Include medium and high-level discussion points
+- Limit keyDiscussions to 5-8 key points
+- Include all significant decisions
+- Balance brevity with completeness`;
+    
+    case "high":
+      return `
+DETAIL LEVEL: HIGH (Comprehensive)
+- Generate a thorough, detailed summary
+- Include ALL discussion points: low, medium, and high-level
+- Capture granular details and nuances from the discussion
+- Include all decisions, even minor ones
+- Document the full context and reasoning behind discussions
+- Be comprehensive and thorough`;
+    
+    default:
+      return getDetailLevelInstructions("medium");
+  }
+}
+
 // Generate meeting minutes from transcript
 // Uses Azure OpenAI Government in production, Replit AI in development
-export async function generateMeetingMinutes(transcript: string): Promise<{
+export async function generateMeetingMinutes(
+  transcript: string,
+  detailLevel: DetailLevel = "medium"
+): Promise<{
   summary: string;
   keyDiscussions: string[];
   decisions: string[];
@@ -67,6 +110,9 @@ export async function generateMeetingMinutes(transcript: string): Promise<{
     console.warn("⚠️  Using Replit AI (development). Production MUST use Azure OpenAI Government.");
   }
 
+  const detailInstructions = getDetailLevelInstructions(detailLevel);
+  console.log(`📊 [AI] Generating minutes with detail level: ${detailLevel}`);
+
   return await pRetry(
     async () => {
       try {
@@ -75,7 +121,9 @@ export async function generateMeetingMinutes(transcript: string): Promise<{
             {
               role: "system",
               content: `You are an AI assistant helping to generate professional meeting minutes. 
-Analyze the provided meeting transcript and generate a concise, professional summary.
+Analyze the provided meeting transcript and generate a professional summary.
+
+${detailInstructions}
 
 IMPORTANT DISTINCTIONS:
 - "decisions": Final conclusions, agreements, or choices made during the meeting. Example: "Approved the new branding colors", "Agreed to postpone launch to Q2"

@@ -20,7 +20,7 @@ import {
   type AttendeePresent
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { generateMeetingMinutes, extractActionItems } from "./azureOpenAI";
+import { generateMeetingMinutes, extractActionItems, type DetailLevel } from "./azureOpenAI";
 import { ZodError } from "zod";
 import { storage } from "../storage";
 import { enqueueJob } from "./durableQueue";
@@ -36,9 +36,14 @@ import {
 
 /**
  * Generate meeting minutes automatically after enrichment
+ * @param meetingId - The meeting ID to generate minutes for
+ * @param detailLevel - Optional detail level override (defaults to meeting's preferredDetailLevel or "medium")
  */
-export async function autoGenerateMinutes(meetingId: string): Promise<void> {
-  console.log(`🤖 [MinutesGenerator] Auto-generating minutes for meeting ${meetingId}`);
+export async function autoGenerateMinutes(
+  meetingId: string, 
+  detailLevel?: DetailLevel
+): Promise<void> {
+  console.log(`🤖 [MinutesGenerator] Auto-generating minutes for meeting ${meetingId}${detailLevel ? ` with detail level: ${detailLevel}` : ''}`);
   
   try {
     // Get meeting details
@@ -71,8 +76,14 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     
     console.log(`🔄 [MinutesGenerator] Using transcript (${transcript.length} characters) to generate minutes...`);
     
-    // Generate minutes using AI with real transcript
-    const minutesData = await generateMeetingMinutes(transcript);
+    // Determine detail level: use provided, then meeting preference, then default to medium
+    const effectiveDetailLevel: DetailLevel = detailLevel || 
+      (meeting.preferredDetailLevel as DetailLevel) || 
+      "medium";
+    console.log(`📊 [MinutesGenerator] Using detail level: ${effectiveDetailLevel}`);
+    
+    // Generate minutes using AI with real transcript and detail level
+    const minutesData = await generateMeetingMinutes(transcript, effectiveDetailLevel);
     
     console.log(`🔄 [MinutesGenerator] Extracting action items...`);
     
@@ -273,7 +284,8 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
       decisions: minutesData.decisions,
       attendeesPresent: uniqueAttendeesObjects,
       processingStatus: "completed" as const,
-      approvalStatus: initialApprovalStatus
+      approvalStatus: initialApprovalStatus,
+      generatedDetailLevel: effectiveDetailLevel
     };
     
     try {
@@ -374,14 +386,23 @@ export async function autoGenerateMinutes(meetingId: string): Promise<void> {
     
     if (meeting) {
       // STRICT VALIDATION: Create failure record with schema-compliant placeholder values
+      // Use effective detail level if available, default to medium
+      const failedDetailLevel: DetailLevel = detailLevel || 
+        (meeting.preferredDetailLevel as DetailLevel) || 
+        "medium";
+      
+      // Normalize attendees to object format
+      const fallbackAttendees = normalizeAttendeesArray(meeting.attendees || []);
+      
       const fallbackPayload = {
         meetingId: meetingId,
         summary: "Failed to generate meeting minutes. Please regenerate or create manually.",
         keyDiscussions: ["Minutes generation failed - no discussions captured"],
         decisions: ["Minutes generation failed - no decisions captured"],
-        attendeesPresent: meeting.attendees || ["unknown@example.com"], // Use meeting attendees or fallback
+        attendeesPresent: fallbackAttendees.length > 0 ? fallbackAttendees : [{ name: "Unknown", email: "" }],
         processingStatus: "failed" as const,
-        approvalStatus: "pending_review" as const
+        approvalStatus: "pending_review" as const,
+        generatedDetailLevel: failedDetailLevel
       };
       
       try {

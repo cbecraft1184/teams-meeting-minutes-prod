@@ -78,24 +78,67 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 ### Share Link Feature (Org-Internal Sharing)
 The system supports secure sharing of archived meeting minutes within an organization:
 
-**Security Model**:
+**Security Model** (Updated December 2025):
 - Share links are scoped to the creator's Azure AD tenant (tenantId)
-- When accessing a shared link, the server verifies the user's tenantId matches the link's tenantId
-- Links expire after 7 days by default and can be manually deactivated
-- Only the link creator or admins can deactivate a share link
+- Tenant isolation: Server verifies accessor's tenantId matches the link's tenantId
+- Clearance level validation: Links can require minimum clearance (UNCLASSIFIED → CONFIDENTIAL → SECRET → TOP_SECRET)
+- Configurable expiration: 1-30 days (default 7 days)
+- Revocation support: Links can be revoked with reason tracking
+- Comprehensive audit logging: All access attempts (granted/denied) logged with IP, user-agent, and denial reasons
+- Case-insensitive clearance comparison for Azure AD compatibility
 
 **API Endpoints**:
-- `POST /api/meetings/:id/share` - Creates a share link for an archived meeting
-- `GET /api/share/:token` - Retrieves meeting data via share token (tenant-verified)
+- `POST /api/meetings/:id/share` - Creates share link with optional expiryDays and requiredClearanceLevel
+- `GET /api/share/:token` - Retrieves meeting data (validates tenant, clearance, expiry, revocation)
 - `DELETE /api/share/:token` - Deactivates a share link
 
 **Database Schema**:
-- `share_links` table stores: token, meetingId, tenantId, createdByEmail, createdByName, expiresAt, isActive, accessCount, lastAccessedAt
+- `share_links` table: token, meetingId, tenantId, createdByEmail, createdByName, expiresAt, isActive, requiredClearanceLevel, revokedAt, revokedBy, revokeReason, accessCount, lastAccessedAt, lastAccessorEmail
+- `share_link_audit_log` table: shareLinkId, meetingId, tenantId, accessorEmail, accessorName, accessorTenantId, accessorClearanceLevel, ipAddress, userAgent, accessGranted, denialReason, accessedAt
 
 **Frontend**:
 - Share button appears on archived meeting cards
 - ShareDialog shows org-internal notice and copy-to-clipboard functionality
 - `/share/:token` route displays shared meeting details
+
+### Multi-Tenant Isolation (Added December 2025)
+All major tables now include `tenant_id` columns with indexes for efficient filtering:
+- `meetings.tenant_id` - Isolates meetings by organization
+- `meeting_minutes.tenant_id` - Isolates minutes by organization
+- `action_items.tenant_id` - Isolates action items by organization
+- `job_queue.tenant_id` - Associates jobs with tenant context
+
+### SharePoint Archival Status Tracking (Added December 2025)
+The `meeting_minutes` table tracks SharePoint archival state:
+- `archival_status`: pending | uploading | success | failed
+- `archival_error`: Error message if archival failed
+- `archived_at`: Timestamp of successful archival
+- `archival_attempts`: Number of retry attempts
+
+### Admin Job Queue Management (Added December 2025)
+Administrators can monitor and manage failed background jobs:
+
+**API Endpoints**:
+- `GET /api/admin/jobs/stats` - Job queue statistics (pending, processing, failed, dead-letter, completed counts)
+- `GET /api/admin/jobs?status=failed` - List jobs by status
+- `GET /api/admin/jobs/:id` - Get single job details
+- `POST /api/admin/jobs/:id/retry` - Retry a failed/dead-letter job (resets scheduling metadata)
+
+**Database Schema**:
+- `job_queue` extended with: meetingId, deadLetteredAt, resolvedAt, resolvedBy for tracking job lifecycle
+
+### Logo Upload System (Added December 2025)
+Organizations can upload custom logos for document branding:
+
+**Features**:
+- GCS-backed object storage for logo persistence
+- Magic byte image type detection (PNG: 0x89504E47, JPG: 0xFFD8FF, GIF: 0x474946, BMP: 0x424D)
+- Logos embedded in DOCX and PDF exports
+- Settings page UI for logo upload/preview
+
+**Storage**:
+- Logos stored in object storage under `public/logos/` directory
+- Logo URL stored in `app_settings.logo_url`
 
 ## External Dependencies
 

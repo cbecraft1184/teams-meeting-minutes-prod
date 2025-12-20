@@ -496,6 +496,29 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
   const [copied, setCopied] = useState(false);
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
   
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedSummary, setEditedSummary] = useState("");
+  const [editedDiscussions, setEditedDiscussions] = useState<string[]>([]);
+  const [editedDecisions, setEditedDecisions] = useState<string[]>([]);
+  
+  // Initialize edit fields when entering edit mode
+  const enterEditMode = () => {
+    if (meeting?.minutes) {
+      setEditedSummary(meeting.minutes.summary || "");
+      setEditedDiscussions([...(meeting.minutes.keyDiscussions || [])]);
+      setEditedDecisions([...(meeting.minutes.decisions || [])]);
+      setIsEditMode(true);
+    }
+  };
+  
+  const cancelEditMode = () => {
+    setIsEditMode(false);
+    setEditedSummary("");
+    setEditedDiscussions([]);
+    setEditedDecisions([]);
+  };
+  
   // Fetch user info to check admin status
   const { data: userInfo } = useQuery<UserInfo>({
     queryKey: ["/api/user/me"],
@@ -599,6 +622,53 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
       );
     }
   });
+
+  // Edit minutes content mutation
+  const editMinutesMutation = useMutation({
+    mutationFn: async ({ minutesId, summary, keyDiscussions, decisions }: { 
+      minutesId: string; 
+      summary: string; 
+      keyDiscussions: string[]; 
+      decisions: string[];
+    }) => {
+      return await apiRequest("PATCH", `/api/minutes/${minutesId}`, { 
+        summary, 
+        keyDiscussions, 
+        decisions 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Minutes updated</ToastTitle>
+          <ToastBody>Meeting minutes have been saved successfully.</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+      setIsEditMode(false);
+    },
+    onError: (error: any) => {
+      dispatchToast(
+        <Toast>
+          <ToastTitle>Error</ToastTitle>
+          <ToastBody>{error.message || "Failed to update minutes"}</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    }
+  });
+
+  const saveMinutesEdits = () => {
+    if (meeting?.minutes) {
+      editMinutesMutation.mutate({
+        minutesId: meeting.minutes.id,
+        summary: editedSummary,
+        keyDiscussions: editedDiscussions.filter(d => d.trim() !== ""),
+        decisions: editedDecisions.filter(d => d.trim() !== "")
+      });
+    }
+  };
 
   // Action item status update mutation
   const updateActionItemMutation = useMutation({
@@ -912,6 +982,45 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                             {reprocessMutation.isPending ? "Regenerating..." : "Regenerate"}
                           </Button>
                         )}
+                        {/* Edit button - only show when not approved and not in edit mode */}
+                        {meeting.minutes.approvalStatus !== "approved" && !isEditMode && (
+                          <Button 
+                            appearance="secondary" 
+                            size="small" 
+                            data-testid="button-edit-minutes"
+                            onClick={enterEditMode}
+                          >
+                            <Edit className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
+                            Edit
+                          </Button>
+                        )}
+                        {/* Save/Cancel buttons in edit mode */}
+                        {isEditMode && (
+                          <>
+                            <Button 
+                              appearance="primary" 
+                              size="small" 
+                              data-testid="button-save-minutes"
+                              disabled={editMinutesMutation.isPending}
+                              onClick={saveMinutesEdits}
+                            >
+                              {editMinutesMutation.isPending ? (
+                                <Spinner size="tiny" style={{ marginRight: "4px" }} />
+                              ) : (
+                                <Check className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
+                              )}
+                              {editMinutesMutation.isPending ? "Saving..." : "Save"}
+                            </Button>
+                            <Button 
+                              appearance="secondary" 
+                              size="small" 
+                              data-testid="button-cancel-edit"
+                              onClick={cancelEditMode}
+                            >
+                              Cancel
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                     
@@ -954,35 +1063,128 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                       <>
                         <div className={styles.contentSection}>
                           <h4 className={styles.sectionTitle}>Summary</h4>
-                          <p className={styles.listItem}>{meeting.minutes.summary}</p>
+                          {isEditMode ? (
+                            <Textarea
+                              data-testid="input-edit-summary"
+                              value={editedSummary}
+                              onChange={(e, data) => setEditedSummary(data.value)}
+                              style={{ width: "100%", minHeight: "100px" }}
+                            />
+                          ) : (
+                            <p className={styles.listItem}>{meeting.minutes.summary}</p>
+                          )}
                         </div>
 
                         <Divider />
 
                         <div className={styles.contentSection}>
-                          <h4 className={styles.sectionTitle}>Key Discussions</h4>
-                          <ul className={styles.list}>
-                            {meeting.minutes.keyDiscussions.map((discussion, index) => (
-                              <li key={index} className={styles.listItem}>
-                                <span style={{ color: tokens.colorNeutralForeground3 }}>•</span>
-                                <span>{discussion}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <h4 className={styles.sectionTitle}>Key Discussions</h4>
+                            {isEditMode && (
+                              <Button
+                                appearance="subtle"
+                                size="small"
+                                data-testid="button-add-discussion"
+                                onClick={() => setEditedDiscussions([...editedDiscussions, ""])}
+                              >
+                                + Add
+                              </Button>
+                            )}
+                          </div>
+                          {isEditMode ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              {editedDiscussions.map((discussion, index) => (
+                                <div key={index} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                  <Input
+                                    data-testid={`input-edit-discussion-${index}`}
+                                    value={discussion}
+                                    onChange={(e, data) => {
+                                      const updated = [...editedDiscussions];
+                                      updated[index] = data.value;
+                                      setEditedDiscussions(updated);
+                                    }}
+                                    style={{ flex: 1 }}
+                                  />
+                                  <Button
+                                    appearance="subtle"
+                                    size="small"
+                                    data-testid={`button-remove-discussion-${index}`}
+                                    onClick={() => {
+                                      const updated = editedDiscussions.filter((_, i) => i !== index);
+                                      setEditedDiscussions(updated);
+                                    }}
+                                  >
+                                    <XCircle className={styles.iconSmall} />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <ul className={styles.list}>
+                              {meeting.minutes.keyDiscussions.map((discussion, index) => (
+                                <li key={index} className={styles.listItem}>
+                                  <span style={{ color: tokens.colorNeutralForeground3 }}>•</span>
+                                  <span>{discussion}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
 
                         <Divider />
 
                         <div className={styles.contentSection}>
-                          <h4 className={styles.sectionTitle}>Decisions Made</h4>
-                          <ul className={styles.list}>
-                            {meeting.minutes.decisions.map((decision, index) => (
-                              <li key={index} className={styles.listItem}>
-                                <CheckCircle2 className={styles.iconDecision} />
-                                <span>{decision}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <h4 className={styles.sectionTitle}>Decisions Made</h4>
+                            {isEditMode && (
+                              <Button
+                                appearance="subtle"
+                                size="small"
+                                data-testid="button-add-decision"
+                                onClick={() => setEditedDecisions([...editedDecisions, ""])}
+                              >
+                                + Add
+                              </Button>
+                            )}
+                          </div>
+                          {isEditMode ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                              {editedDecisions.map((decision, index) => (
+                                <div key={index} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                  <Input
+                                    data-testid={`input-edit-decision-${index}`}
+                                    value={decision}
+                                    onChange={(e, data) => {
+                                      const updated = [...editedDecisions];
+                                      updated[index] = data.value;
+                                      setEditedDecisions(updated);
+                                    }}
+                                    style={{ flex: 1 }}
+                                  />
+                                  <Button
+                                    appearance="subtle"
+                                    size="small"
+                                    data-testid={`button-remove-decision-${index}`}
+                                    onClick={() => {
+                                      const updated = editedDecisions.filter((_, i) => i !== index);
+                                      setEditedDecisions(updated);
+                                    }}
+                                  >
+                                    <XCircle className={styles.iconSmall} />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <ul className={styles.list}>
+                              {meeting.minutes.decisions.map((decision, index) => (
+                                <li key={index} className={styles.listItem}>
+                                  <CheckCircle2 className={styles.iconDecision} />
+                                  <span>{decision}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       </>
                     )}

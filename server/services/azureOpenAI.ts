@@ -225,57 +225,46 @@ export async function extractActionItems(transcript: string, attendees?: string[
           messages: [
             {
               role: "system",
-              content: `You are an expert at extracting ONLY explicitly assigned action items from meeting transcripts.
+              content: `You are an AI operations analyst that extracts ONLY explicitly assigned action items from a Microsoft Teams meeting transcript.
 
-WHAT IS AN ACTION ITEM:
-An action item is a SPECIFIC TASK explicitly assigned to a SPECIFIC PERSON with a CLEAR DELIVERABLE.
-Look for these patterns:
-- "[Person], please [do task]" - EXPLICIT assignment
-- "[Person], can you [do task]" followed by agreement - EXPLICIT assignment
-- "Please [do task] by [date]" directed at someone - EXPLICIT assignment
-- "[Person] will [do task]" as a commitment - EXPLICIT assignment
+DEFINITION — ACTION ITEM (all must hold):
+1. A specific person is directly tasked ("<Name>, please…", "<Name> will…", "<Name>, can you…" followed by acceptance).
+2. The statement creates a new responsibility with a concrete deliverable.
+3. Generic status updates, questions, or past/ongoing work DO NOT count.
 
-WHAT IS NOT AN ACTION ITEM (DO NOT EXTRACT):
-- General discussions or status updates ("we discussed X", "the team is working on Y")
-- Questions without task assignments ("have you looked at this?")
-- Vague references ("someone should look into this")
-- Past actions already completed ("Abdul and I have been on it")
-- Ongoing work without new assignment ("we're proceeding with testing")
-- Group responsibilities without individual assignment
-
-ASSIGNEE MATCHING RULES - CRITICAL:
-1. When a first name is mentioned (e.g., "Vamsi, can you..."), find the FULL NAME from the attendee list that starts with that first name
-2. Example: "Vamsi, can you work with James" + attendee "Vamsi Pathri" → assignee = "Vamsi Pathri"
-3. Example: "Ban, please write up" + attendee "Ban Chou" → assignee = "Ban Chou"
-4. Example: "Ricky, please provide final approval" + attendee "Ricky" → assignee = "Ricky"
-5. The meeting leader/moderator (usually "Chris" in this format) assigns tasks - they are NOT the assignee unless explicitly taking a task
-6. NEVER use usernames, emails, or identifiers - only use names from the attendee list
-7. If you cannot match the name to someone in the attendee list, use "Unassigned"
+ASSIGNEE RULES:
+- You will be given MEETING ATTENDEES. Every assignee MUST be copied exactly from that list (case-sensitive) – never invent or shorten.
+- Match first-name mentions to the attendee whose name starts with that first name ("Vamsi" → "Vamsi Pathri", "Ban" → "Ban Chou").
+- If only a first name exists in the attendee list (e.g., "Ricky"), use that exact first name.
+- If multiple people are assigned within one sentence, emit a separate item per person.
+- Only output "Unassigned" when absolutely no attendee name can be inferred.
 ${attendeeList}
 
-DUE DATE RULES - CONVERT ALL RELATIVE DATES:
-Use the MEETING DATE provided as reference:
-- "Wednesday, December 17th" or "December 17th" → "2023-12-17"
-- "Thursday, December 18th" → "2023-12-18"  
-- "Friday, December 19th" → "2023-12-19"
-- "by [day], [month] [date]" → extract the actual date
-- "EOD" = end of day (include in task description)
-- "10 AM EST" = include time in task description
-- "immediately after this meeting" → use meeting date with note in task
-- If no specific date, use null
+DUE DATE RULES (use MEETING DATE as reference):
+- Parse explicit calendar dates ("Wednesday, December 17th" → extract year from meeting date context).
+- "immediately after this meeting" → use the meeting date.
+- Preserve time qualifiers inside the task text ("by Thursday 10 AM EST" → include "by 10 AM EST" in task).
+- "EOD" means end of day - include in task text.
+- "before noon" → include in task text.
+- If no deadline is given, set dueDate to null.
 ${dateContext}
 
-PRIORITY RULES:
-- "high": Urgent, blocking, or has tight deadline
-- "medium": Standard importance, clear deadline but not urgent
-- "low": Nice-to-have or flexible timing
+PRIORITY HEURISTICS:
+- high → urgent, deadline ≤ 2 days, or flagged as critical.
+- medium → normal commitments with a clear date.
+- low → flexible or no deadline.
 
-Output as JSON:
+EXTRACTION PROCESS:
+1. Read the transcript sequentially. Capture ONLY sentences that satisfy the ACTION ITEM definition.
+2. Split joint assignments into individual items (e.g., "David, please send... Ricky, please provide..." produces two entries).
+3. Ensure the final list mirrors the exact commitments present—no more, no less.
+
+OUTPUT FORMAT:
 {
   "items": [
     {
-      "task": "Clear, actionable task description",
-      "assignee": "EXACT full name from attendee list",
+      "task": "Clear instruction including any time qualifiers",
+      "assignee": "Exact name from attendee list or 'Unassigned'",
       "dueDate": "YYYY-MM-DD or null",
       "priority": "high|medium|low"
     }

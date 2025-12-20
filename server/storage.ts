@@ -8,6 +8,8 @@ import {
   meetingEvents,
   dismissedMeetings,
   shareLinks,
+  shareLinkAuditLog,
+  jobQueue,
   type Meeting,
   type InsertMeeting,
   type MeetingMinutes,
@@ -23,7 +25,9 @@ import {
   type InsertMeetingEvent,
   type DismissedMeeting,
   type ShareLink,
-  type InsertShareLink
+  type InsertShareLink,
+  type ShareLinkAuditLog,
+  type InsertShareLinkAuditLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte, isNull, sql } from "drizzle-orm";
@@ -80,7 +84,17 @@ export interface IStorage {
   getShareLinksByMeetingId(meetingId: string): Promise<ShareLink[]>;
   updateShareLink(id: string, updates: Partial<ShareLink>): Promise<ShareLink>;
   deactivateShareLink(id: string): Promise<void>;
-  incrementShareLinkAccess(id: string): Promise<void>;
+  incrementShareLinkAccess(id: string, accessorEmail?: string): Promise<void>;
+  
+  // Share Link Audit
+  createShareLinkAuditLog(entry: Omit<InsertShareLinkAuditLog, 'id' | 'accessedAt'>): Promise<ShareLinkAuditLog>;
+  getShareLinkAuditLog(shareLinkId: string): Promise<ShareLinkAuditLog[]>;
+  
+  // Job Queue Admin
+  getJobsByStatus(status: string, limit?: number): Promise<any[]>;
+  getJobById(id: string): Promise<any | undefined>;
+  retryJob(id: string, resolvedBy: string): Promise<any>;
+  getJobStats(): Promise<{ pending: number; processing: number; failed: number; deadLetter: number; completed: number }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -416,13 +430,95 @@ export class DatabaseStorage implements IStorage {
       .where(eq(shareLinks.id, id));
   }
 
-  async incrementShareLinkAccess(id: string): Promise<void> {
+  async incrementShareLinkAccess(id: string, accessorEmail?: string): Promise<void> {
     await db.update(shareLinks)
       .set({
         accessCount: sql`${shareLinks.accessCount} + 1`,
-        lastAccessedAt: new Date()
+        lastAccessedAt: new Date(),
+        ...(accessorEmail ? { lastAccessorEmail: accessorEmail } : {})
       })
       .where(eq(shareLinks.id, id));
+  }
+  
+  // Share Link Audit
+  async createShareLinkAuditLog(entry: Omit<InsertShareLinkAuditLog, 'id' | 'accessedAt'>): Promise<ShareLinkAuditLog> {
+    const [created] = await db.insert(shareLinkAuditLog).values(entry).returning();
+    return created;
+  }
+  
+  async getShareLinkAuditLog(shareLinkId: string): Promise<ShareLinkAuditLog[]> {
+    return db.select()
+      .from(shareLinkAuditLog)
+      .where(eq(shareLinkAuditLog.shareLinkId, shareLinkId))
+      .orderBy(desc(shareLinkAuditLog.accessedAt));
+  }
+  
+  // Job Queue Admin
+  async getJobsByStatus(status: string, limit: number = 50): Promise<any[]> {
+    if (status === 'dead_letter') {
+      // Dead letter jobs have deadLetteredAt set
+      return db.select()
+        .from(jobQueue)
+        .where(sql`${jobQueue.deadLetteredAt} IS NOT NULL`)
+        .orderBy(desc(jobQueue.createdAt))
+        .limit(limit);
+    }
+    return db.select()
+      .from(jobQueue)
+      .where(eq(jobQueue.status, status))
+      .orderBy(desc(jobQueue.createdAt))
+      .limit(limit);
+  }
+  
+  async getJobById(id: string): Promise<any | undefined> {
+    const [job] = await db.select().from(jobQueue).where(eq(jobQueue.id, id));
+    return job;
+  }
+  
+  async retryJob(id: string, resolvedBy: string): Promise<any> {
+    // Reset job for retry: clear dead letter status, reset attempts, set to pending
+    // Also reset scheduling metadata so the durable queue worker picks it up
+    const [updated] = await db.update(jobQueue)
+      .set({
+        status: 'pending',
+        attempts: 0,
+        deadLetteredAt: null,
+        resolvedAt: new Date(),
+        resolvedBy,
+        lastError: null,
+        // Reset scheduling metadata for the durable queue worker
+        scheduledFor: new Date(), // Schedule for immediate processing
+        processedAt: null,        // Clear processed timestamp
+        startedAt: null           // Clear started timestamp
+      })
+      .where(eq(jobQueue.id, id))
+      .returning();
+    return updated;
+  }
+  
+  async getJobStats(): Promise<{ pending: number; processing: number; failed: number; deadLetter: number; completed: number }> {
+    const stats = await db.select({
+      status: jobQueue.status,
+      count: sql<number>`count(*)::int`
+    })
+      .from(jobQueue)
+      .groupBy(jobQueue.status);
+    
+    const deadLetterCount = await db.select({
+      count: sql<number>`count(*)::int`
+    })
+      .from(jobQueue)
+      .where(sql`${jobQueue.deadLetteredAt} IS NOT NULL`);
+    
+    const statusMap = new Map(stats.map(s => [s.status, s.count]));
+    
+    return {
+      pending: statusMap.get('pending') || 0,
+      processing: statusMap.get('processing') || 0,
+      failed: statusMap.get('failed') || 0,
+      deadLetter: deadLetterCount[0]?.count || 0,
+      completed: statusMap.get('completed') || 0
+    };
   }
 }
 

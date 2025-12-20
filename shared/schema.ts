@@ -130,6 +130,14 @@ export const processingDecisionEnum = pgEnum("processing_decision", [
   "manual_override"    // Admin manually triggered processing
 ]);
 
+// Archival status for SharePoint upload tracking (compliance)
+export const archivalStatusEnum = pgEnum("archival_status", [
+  "pending",    // Not yet attempted
+  "uploading",  // Upload in progress
+  "success",    // Successfully archived
+  "failed"      // Upload failed (see archivalError)
+]);
+
 // Detail level for meeting minutes generation
 // Low = High-level executive summary only
 // Medium = Medium and high-level topics
@@ -155,6 +163,9 @@ export const meetings = pgTable("meetings", {
   recordingUrl: text("recording_url"),
   transcriptUrl: text("transcript_url"),
   transcriptContent: text("transcript_content"), // Full transcript text for AI processing
+  
+  // Multi-tenant isolation (CRITICAL for security)
+  tenantId: text("tenant_id"), // Azure AD tenant ID - nullable for migration, enforced in queries
   
   // Microsoft Graph Calendar Integration
   // Note: Uniqueness enforced via partial indexes (only for canonical meetings where parent_meeting_id IS NULL)
@@ -205,6 +216,7 @@ export const meetings = pgTable("meetings", {
   iCalUidIdx: index("meeting_ical_uid_idx").on(table.iCalUid),
   organizerIdx: index("meeting_organizer_idx").on(table.organizerEmail),
   parentMeetingIdx: index("meeting_parent_idx").on(table.parentMeetingId),
+  tenantIdx: index("meeting_tenant_idx").on(table.tenantId),
 }));
 
 // Meeting Minutes schema
@@ -233,9 +245,21 @@ export const meetingMinutes = pgTable("meeting_minutes", {
   // Detail level for this generated minutes
   generatedDetailLevel: detailLevelEnum("generated_detail_level").default("medium"), // Level used when generating
   
+  // Multi-tenant isolation (CRITICAL for security)
+  tenantId: text("tenant_id"), // Azure AD tenant ID - nullable for migration
+  
+  // SharePoint archival tracking (compliance)
+  archivalStatus: archivalStatusEnum("archival_status").default("pending"),
+  archivalError: text("archival_error"), // Error message if archival failed
+  archivedAt: timestamp("archived_at"), // When successfully archived
+  archivalAttempts: integer("archival_attempts").default(0), // Number of attempts
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  tenantIdx: index("meeting_minutes_tenant_idx").on(table.tenantId),
+  archivalStatusIdx: index("meeting_minutes_archival_status_idx").on(table.archivalStatus),
+}));
 
 // Action Items schema
 export const actionItems = pgTable("action_items", {
@@ -248,8 +272,14 @@ export const actionItems = pgTable("action_items", {
   dueDate: timestamp("due_date"),
   priority: priorityEnum("priority").notNull().default("medium"),
   status: actionItemStatusEnum("status").notNull().default("pending"),
+  
+  // Multi-tenant isolation (CRITICAL for security)
+  tenantId: text("tenant_id"), // Azure AD tenant ID - nullable for migration
+  
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  tenantIdx: index("action_items_tenant_idx").on(table.tenantId),
+}));
 
 // Meeting Templates schema
 export const meetingTemplates = pgTable("meeting_templates", {
@@ -533,10 +563,25 @@ export const jobQueue = pgTable("job_queue", {
   scheduledFor: timestamp("scheduled_for").defaultNow().notNull(), // When to process (for retry backoff)
   processedAt: timestamp("processed_at"), // When successfully completed
   
+  // Multi-tenant isolation (CRITICAL for security)
+  tenantId: text("tenant_id"), // Azure AD tenant ID - nullable for migration
+  
+  // Meeting reference for admin dashboard visibility
+  meetingId: varchar("meeting_id").references(() => meetings.id, { onDelete: "set null" }),
+  
+  // Dead letter tracking
+  deadLetteredAt: timestamp("dead_lettered_at"), // When moved to dead letter queue
+  resolvedAt: timestamp("resolved_at"), // When manually resolved/retried
+  resolvedBy: text("resolved_by"), // Email of admin who resolved
+  
   // Metadata
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  tenantIdx: index("job_queue_tenant_idx").on(table.tenantId),
+  statusIdx: index("job_queue_status_idx").on(table.status),
+  meetingIdx: index("job_queue_meeting_idx").on(table.meetingId),
+}));
 
 // ==================================================
 // Job Worker Leases schema (distributed locking without superuser)
@@ -700,9 +745,18 @@ export const shareLinks = pgTable("share_links", {
   expiresAt: timestamp("expires_at"), // null = never expires
   isActive: boolean("is_active").notNull().default(true),
   
+  // Security: Clearance level required to access (must match or exceed)
+  requiredClearanceLevel: classificationLevelEnum("required_clearance_level").default("UNCLASSIFIED"),
+  
+  // Revocation tracking
+  revokedAt: timestamp("revoked_at"), // When link was manually revoked
+  revokedBy: text("revoked_by"), // Email of user who revoked
+  revokeReason: text("revoke_reason"), // Optional reason for audit
+  
   // Usage tracking
   accessCount: integer("access_count").notNull().default(0),
   lastAccessedAt: timestamp("last_accessed_at"),
+  lastAccessedBy: text("last_accessed_by"), // Email of last accessor
   
   // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -717,6 +771,47 @@ export const shareLinks = pgTable("share_links", {
 
 export type ShareLink = typeof shareLinks.$inferSelect;
 export type InsertShareLink = typeof shareLinks.$inferInsert;
+
+// ==================================================
+// Share Link Audit Log schema (access tracking for compliance)
+// ==================================================
+
+export const shareLinkAuditLog = pgTable("share_link_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Link reference
+  shareLinkId: varchar("share_link_id").notNull().references(() => shareLinks.id, { onDelete: "cascade" }),
+  
+  // Meeting reference (denormalized for fast queries)
+  meetingId: varchar("meeting_id").notNull(),
+  
+  // Tenant isolation
+  tenantId: text("tenant_id").notNull(),
+  
+  // Access details
+  accessorEmail: text("accessor_email"), // null if unauthenticated attempt
+  accessorName: text("accessor_name"),
+  accessorTenantId: text("accessor_tenant_id"), // Their tenant (for cross-tenant detection)
+  accessorClearanceLevel: classificationLevelEnum("accessor_clearance_level"),
+  
+  // Request metadata
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  
+  // Access result
+  accessGranted: boolean("access_granted").notNull(),
+  denialReason: text("denial_reason"), // "expired", "revoked", "tenant_mismatch", "clearance_insufficient"
+  
+  // Timestamps
+  accessedAt: timestamp("accessed_at").defaultNow().notNull(),
+}, (table) => ({
+  shareLinkIdx: index("share_link_audit_link_idx").on(table.shareLinkId),
+  tenantIdx: index("share_link_audit_tenant_idx").on(table.tenantId),
+  accessedAtIdx: index("share_link_audit_accessed_at_idx").on(table.accessedAt),
+}));
+
+export type ShareLinkAuditLog = typeof shareLinkAuditLog.$inferSelect;
+export type InsertShareLinkAuditLog = typeof shareLinkAuditLog.$inferInsert;
 
 // Insert schemas with strict validation
 export const insertMeetingSchema = createInsertSchema(meetings).omit({

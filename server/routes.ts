@@ -1867,6 +1867,69 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // ========== ADMIN JOB QUEUE MANAGEMENT ==========
+  
+  // Get job queue statistics
+  app.get("/api/admin/jobs/stats", requireRole("admin"), async (req, res) => {
+    try {
+      const stats = await storage.getJobStats();
+      res.json(stats);
+    } catch (error: any) {
+      console.error("[Admin] Failed to get job stats:", error);
+      res.status(500).json({ error: "Failed to fetch job statistics" });
+    }
+  });
+  
+  // Get jobs by status
+  app.get("/api/admin/jobs", requireRole("admin"), async (req, res) => {
+    try {
+      const status = req.query.status as string || 'failed';
+      const limit = parseInt(req.query.limit as string) || 50;
+      
+      const jobs = await storage.getJobsByStatus(status, limit);
+      res.json({ jobs, status, count: jobs.length });
+    } catch (error: any) {
+      console.error("[Admin] Failed to get jobs:", error);
+      res.status(500).json({ error: "Failed to fetch jobs" });
+    }
+  });
+  
+  // Get single job details
+  app.get("/api/admin/jobs/:id", requireRole("admin"), async (req, res) => {
+    try {
+      const job = await storage.getJobById(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      res.json(job);
+    } catch (error: any) {
+      console.error("[Admin] Failed to get job:", error);
+      res.status(500).json({ error: "Failed to fetch job" });
+    }
+  });
+  
+  // Retry a failed or dead-letter job
+  app.post("/api/admin/jobs/:id/retry", requireRole("admin"), async (req, res) => {
+    try {
+      const job = await storage.getJobById(req.params.id);
+      if (!job) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      
+      if (job.status !== 'failed' && !job.deadLetteredAt) {
+        return res.status(400).json({ error: "Only failed or dead-letter jobs can be retried" });
+      }
+      
+      const updated = await storage.retryJob(req.params.id, req.user?.email || 'admin');
+      
+      console.log(`[Admin] Job ${req.params.id} retried by ${req.user?.email}`);
+      res.json({ success: true, job: updated });
+    } catch (error: any) {
+      console.error("[Admin] Failed to retry job:", error);
+      res.status(500).json({ error: "Failed to retry job" });
+    }
+  });
+
   // ========== DEMO/TESTING ENDPOINTS (Mock Mode) ==========
 
   // Get list of available mock users (development only)
@@ -2398,12 +2461,22 @@ export function registerRoutes(app: Express): Server {
       const token = nanoid(21); // URL-safe unique ID
 
       const tenantId = (req.user as any).tenantId || 'default';
+      
+      // Get expiry from request (default 7 days, max 30 days)
+      const expiryDays = Math.min(Math.max(req.body.expiryDays || 7, 1), 30);
+      const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
+      
+      // Get required clearance level (defaults to meeting's classification)
+      const requiredClearanceLevel = req.body.requiredClearanceLevel || meeting.classificationLevel || 'UNCLASSIFIED';
+      
       const shareLink = await storage.createShareLink({
         token,
         meetingId: meeting.id,
         tenantId,
         createdByEmail: req.user.email,
         createdByName: req.user.displayName || req.user.email,
+        expiresAt,
+        requiredClearanceLevel,
         isActive: true,
         accessCount: 0
       });
@@ -2449,22 +2522,72 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Share link not found" });
       }
 
+      const userTenantId = (req.user as any).tenantId || 'default';
+      // Normalize clearance levels to uppercase for consistent comparison
+      const clearanceLevels = ['UNCLASSIFIED', 'CONFIDENTIAL', 'SECRET', 'TOP_SECRET'];
+      const userClearanceRaw = req.user.clearanceLevel || 'UNCLASSIFIED';
+      const userClearance = userClearanceRaw.toUpperCase();
+      const ipAddress = req.headers['x-forwarded-for'] as string || req.ip || 'unknown';
+      const userAgent = req.headers['user-agent'] || 'unknown';
+      
+      // Helper to log audit entry and return error
+      const denyAccess = async (reason: string, statusCode: number, message: string) => {
+        try {
+          await storage.createShareLinkAuditLog({
+            shareLinkId: shareLink.id,
+            meetingId: shareLink.meetingId,
+            tenantId: shareLink.tenantId,
+            accessorEmail: req.user?.email,
+            accessorName: req.user?.displayName,
+            accessorTenantId: userTenantId,
+            accessorClearanceLevel: userClearance,
+            ipAddress,
+            userAgent,
+            accessGranted: false,
+            denialReason: reason
+          });
+        } catch (auditError) {
+          console.error("[Share Link] Failed to log denied access:", auditError);
+        }
+        return res.status(statusCode).json({ error: message });
+      };
+
+      // Check if link is revoked
+      if (shareLink.revokedAt) {
+        return denyAccess("revoked", 410, "This share link has been revoked");
+      }
+
       // Check if link is active
       if (!shareLink.isActive) {
-        return res.status(410).json({ error: "This share link has been deactivated" });
+        return denyAccess("deactivated", 410, "This share link has been deactivated");
       }
 
       // Check expiry
       if (shareLink.expiresAt && new Date() > shareLink.expiresAt) {
-        return res.status(410).json({ error: "This share link has expired" });
+        return denyAccess("expired", 410, "This share link has expired");
       }
 
       // ORG-INTERNAL SECURITY: Verify user is from same tenant
-      const userTenantId = (req.user as any).tenantId || 'default';
       if (shareLink.tenantId !== userTenantId) {
-        return res.status(403).json({ 
-          error: "Access denied: This link is only accessible to users in the same organization" 
-        });
+        return denyAccess("tenant_mismatch", 403, "Access denied: This link is only accessible to users in the same organization");
+      }
+
+      // CLEARANCE CHECK: Verify user has sufficient clearance
+      // Normalize required clearance level (handle null, undefined, and case variations)
+      const requiredClearanceRaw = shareLink.requiredClearanceLevel || 'UNCLASSIFIED';
+      const requiredClearance = requiredClearanceRaw.toUpperCase();
+      
+      // Validate both clearance levels are recognized
+      const userClearanceIndex = clearanceLevels.indexOf(userClearance);
+      const requiredClearanceIndex = clearanceLevels.indexOf(requiredClearance);
+      
+      // If user's clearance is unrecognized, treat as UNCLASSIFIED (lowest)
+      const effectiveUserIndex = userClearanceIndex >= 0 ? userClearanceIndex : 0;
+      // If required clearance is unrecognized, treat as UNCLASSIFIED (allow access)
+      const effectiveRequiredIndex = requiredClearanceIndex >= 0 ? requiredClearanceIndex : 0;
+      
+      if (effectiveUserIndex < effectiveRequiredIndex) {
+        return denyAccess("clearance_insufficient", 403, `Access denied: This link requires ${requiredClearance} clearance or higher`);
       }
 
       const meeting = await storage.getMeeting(shareLink.meetingId);
@@ -2472,8 +2595,23 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Meeting no longer exists" });
       }
 
-      // Increment access count
-      await storage.incrementShareLinkAccess(shareLink.id);
+      // Log successful access
+      await storage.createShareLinkAuditLog({
+        shareLinkId: shareLink.id,
+        meetingId: shareLink.meetingId,
+        tenantId: shareLink.tenantId,
+        accessorEmail: req.user.email,
+        accessorName: req.user.displayName,
+        accessorTenantId: userTenantId,
+        accessorClearanceLevel: userClearance,
+        ipAddress,
+        userAgent,
+        accessGranted: true,
+        denialReason: null
+      });
+
+      // Increment access count and update last accessor
+      await storage.incrementShareLinkAccess(shareLink.id, req.user.email);
 
       res.json({
         meeting,

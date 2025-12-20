@@ -85,7 +85,7 @@ interface AppSettings {
 
 interface DocumentTemplateConfig {
   sections: Array<{ id: string; name: string; enabled: boolean; order: number }>;
-  branding: { organizationName: string; logoEnabled: boolean; primaryColor: string; secondaryColor: string };
+  branding: { organizationName: string; logoEnabled: boolean; logoUrl?: string; primaryColor: string; secondaryColor: string };
   styling: { fontFamily: string; titleSize: number; headingSize: number; bodySize: number; lineSpacing: number };
   headerText: string;
   footerText: string;

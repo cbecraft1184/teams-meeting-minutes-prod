@@ -2,6 +2,7 @@ import {
   Document,
   Paragraph,
   TextRun,
+  ImageRun,
   HeadingLevel,
   AlignmentType,
   BorderStyle,
@@ -20,6 +21,7 @@ import { PDFDocument, rgb, StandardFonts, PDFFont } from "pdf-lib";
 import type { MeetingWithMinutes, DocumentTemplateConfig, DocumentSection } from "@shared/schema";
 import { format } from "date-fns";
 import { templateService } from "./templateService";
+import { ObjectStorageService, ObjectNotFoundError } from "../replit_integrations/object_storage";
 
 interface ClassificationConfig {
   label: string;
@@ -45,7 +47,65 @@ const CLASSIFICATION_CONFIGS: Record<string, ClassificationConfig> = {
   }
 };
 
+type ImageType = 'png' | 'jpg' | 'gif' | 'bmp';
+
 export class DocumentExportService {
+  private objectStorage = new ObjectStorageService();
+
+  private detectImageType(buffer: Buffer): ImageType {
+    if (buffer.length < 4) return 'png';
+    
+    const header = buffer.slice(0, 8);
+    
+    if (header[0] === 0x89 && header[1] === 0x50 && header[2] === 0x4E && header[3] === 0x47) {
+      return 'png';
+    }
+    
+    if (header[0] === 0xFF && header[1] === 0xD8 && header[2] === 0xFF) {
+      return 'jpg';
+    }
+    
+    if (header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46) {
+      return 'gif';
+    }
+    
+    if (header[0] === 0x42 && header[1] === 0x4D) {
+      return 'bmp';
+    }
+    
+    return 'png';
+  }
+
+  private async fetchLogoImage(logoUrl: string): Promise<Buffer | null> {
+    if (!logoUrl) return null;
+    
+    try {
+      if (logoUrl.startsWith('/objects/')) {
+        const objectFile = await this.objectStorage.getObjectEntityFile(logoUrl);
+        const chunks: Buffer[] = [];
+        const stream = objectFile.createReadStream();
+        
+        return new Promise((resolve, reject) => {
+          stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+          stream.on('end', () => resolve(Buffer.concat(chunks)));
+          stream.on('error', (err) => {
+            console.error('Error reading logo from object storage:', err);
+            resolve(null);
+          });
+        });
+      } else if (logoUrl.startsWith('http://') || logoUrl.startsWith('https://')) {
+        const response = await fetch(logoUrl);
+        if (!response.ok) return null;
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching logo image:', error);
+      return null;
+    }
+  }
+
   private async getTemplateConfig(templateId?: string): Promise<DocumentTemplateConfig> {
     if (templateId) {
       const template = await templateService.getTemplateById(templateId);
@@ -77,8 +137,34 @@ export class DocumentExportService {
     const classification = CLASSIFICATION_CONFIGS[meeting.classificationLevel] || CLASSIFICATION_CONFIGS.UNCLASSIFIED;
     const enabledSections = this.getEnabledSections(config);
     
+    let logoImageBuffer: Buffer | null = null;
+    let logoImageType: ImageType = 'png';
+    if (config.branding.logoEnabled && config.branding.logoUrl) {
+      logoImageBuffer = await this.fetchLogoImage(config.branding.logoUrl);
+      if (logoImageBuffer) {
+        logoImageType = this.detectImageType(logoImageBuffer);
+      }
+    }
+    
     const headerContent: Paragraph[] = [];
     const footerContent: Paragraph[] = [];
+
+    if (logoImageBuffer) {
+      headerContent.push(new Paragraph({
+        children: [
+          new ImageRun({
+            data: logoImageBuffer,
+            transformation: {
+              width: 80,
+              height: 40,
+            },
+            type: logoImageType,
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 100 },
+      }));
+    }
 
     headerContent.push(new Paragraph({
       children: [new TextRun(classification.label)],
@@ -338,10 +424,27 @@ export class DocumentExportService {
     
     const fonts = await this.loadFonts(pdfDoc, config.styling.fontFamily);
 
+    let logoImage: any = null;
+    if (config.branding.logoEnabled && config.branding.logoUrl) {
+      const logoBuffer = await this.fetchLogoImage(config.branding.logoUrl);
+      if (logoBuffer) {
+        try {
+          const imageType = this.detectImageType(logoBuffer);
+          if (imageType === 'jpg') {
+            logoImage = await pdfDoc.embedJpg(logoBuffer);
+          } else {
+            logoImage = await pdfDoc.embedPng(logoBuffer);
+          }
+        } catch (error) {
+          console.error('Error embedding logo in PDF:', error);
+        }
+      }
+    }
+
     const pageWidth = 612;
     const pageHeight = 792;
     const margin = 50;
-    const topMargin = 70;
+    const topMargin = logoImage ? 90 : 70;
     const bottomMargin = 70;
     const maxWidth = pageWidth - (2 * margin);
 
@@ -350,11 +453,25 @@ export class DocumentExportService {
     let pageNumber = 1;
 
     const addClassificationHeader = (page: any) => {
+      let headerYOffset = 30;
+      
+      if (logoImage) {
+        const logoWidth = 60;
+        const logoHeight = (logoImage.height / logoImage.width) * logoWidth;
+        page.drawImage(logoImage, {
+          x: pageWidth / 2 - logoWidth / 2,
+          y: pageHeight - 25 - logoHeight,
+          width: logoWidth,
+          height: logoHeight,
+        });
+        headerYOffset = 30 + logoHeight + 5;
+      }
+      
       page.drawRectangle({
         x: 0,
-        y: pageHeight - 30,
+        y: pageHeight - headerYOffset - 20,
         width: pageWidth,
-        height: 30,
+        height: 20,
         color: rgb(
           classification.backgroundColor.r / 255,
           classification.backgroundColor.g / 255,
@@ -362,9 +479,9 @@ export class DocumentExportService {
         ),
       });
       page.drawText(classification.label, {
-        x: pageWidth / 2 - (classification.label.length * 6),
-        y: pageHeight - 22,
-        size: 12,
+        x: pageWidth / 2 - (classification.label.length * 5),
+        y: pageHeight - headerYOffset - 14,
+        size: 10,
         font: fonts.bold,
         color: rgb(
           classification.color.r / 255,
@@ -376,7 +493,7 @@ export class DocumentExportService {
       if (config.headerText) {
         page.drawText(config.headerText, {
           x: margin,
-          y: pageHeight - 45,
+          y: pageHeight - headerYOffset - 35,
           size: 9,
           font: fonts.regular,
           color: rgb(0.3, 0.3, 0.3),

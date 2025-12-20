@@ -176,10 +176,12 @@ Output JSON format:
         const response = await client.chat.completions.create(createParams);
         const content = response.choices[0]?.message?.content || "{}";
         const parsed = JSON.parse(content);
-        // Ensure simulatedSpeakers is always an array
+        // BUGFIX: Ensure all fields are proper types - AI may return non-arrays
         return {
-          ...parsed,
-          simulatedSpeakers: parsed.simulatedSpeakers || []
+          summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+          keyDiscussions: Array.isArray(parsed.keyDiscussions) ? parsed.keyDiscussions : [],
+          decisions: Array.isArray(parsed.decisions) ? parsed.decisions : [],
+          simulatedSpeakers: Array.isArray(parsed.simulatedSpeakers) ? parsed.simulatedSpeakers : []
         };
       } catch (error: any) {
         console.error("Azure OpenAI error:", error);
@@ -297,7 +299,10 @@ Output your response as JSON in this exact format:
         const response = await client.chat.completions.create(createParams);
         const content = response.choices[0]?.message?.content || '{"items":[]}';
         const parsed = JSON.parse(content);
-        return parsed.items || parsed.actionItems || [];
+        // BUGFIX: Ensure result is always an array - AI may return non-arrays
+        const items = Array.isArray(parsed.items) ? parsed.items : 
+                      Array.isArray(parsed.actionItems) ? parsed.actionItems : [];
+        return items;
       } catch (error: any) {
         console.error("Azure OpenAI error:", error);
         if (isRateLimitError(error)) {

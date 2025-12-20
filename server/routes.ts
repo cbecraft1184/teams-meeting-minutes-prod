@@ -73,8 +73,9 @@ export function registerRoutes(app: Express): Server {
   // Apply authentication middleware to ALL /api/* routes EXCEPT bot endpoint
   // In mock mode: Uses config/mockUsers.json
   // In production: Validates Azure AD JWT tokens
+  // BUGFIX: Use req.originalUrl instead of req.path - Express strips prefix under /api/* mount
   app.use("/api/*", (req, res, next) => {
-    if (req.path === "/api/teams/messages") {
+    if (req.originalUrl === "/api/teams/messages") {
       return next();
     }
     return authenticateUser(req, res, next);
@@ -83,8 +84,14 @@ export function registerRoutes(app: Express): Server {
   // Teams Bot Framework endpoint
   // PUBLIC endpoint - Bot Framework validates with appId/appPassword
   // Security: JWT validation by Bot Framework SDK
-  app.post("/api/teams/messages", async (req, res) => {
-    await teamsBotAdapter.processActivity(req, res);
+  // BUGFIX: Wrap in try-catch to prevent unhandled promise rejections
+  app.post("/api/teams/messages", async (req, res, next) => {
+    try {
+      await teamsBotAdapter.processActivity(req, res);
+    } catch (err) {
+      console.error('[Teams Bot] Error processing activity:', err);
+      next(err);
+    }
   });
   
   // Register admin webhook subscription management endpoints

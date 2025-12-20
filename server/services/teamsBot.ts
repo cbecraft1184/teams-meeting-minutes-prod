@@ -143,7 +143,9 @@ class TeamsMeetingBot extends TeamsActivityHandler {
     context: TurnContext,
     query: MessagingExtensionQuery
   ): Promise<MessagingExtensionResponse> {
-    const searchQuery = query.parameters?.[0]?.value?.trim() || '';
+    // BUGFIX: Safely extract and normalize search query - handle non-string values
+    const rawValue = query.parameters?.[0]?.value;
+    const searchQuery = typeof rawValue === "string" ? rawValue.trim() : String(rawValue ?? "").trim();
 
     if (!searchQuery || searchQuery.length < 2) {
       return {
@@ -187,6 +189,14 @@ class TeamsMeetingBot extends TeamsActivityHandler {
       const attachments = results
         .filter(r => r.minutes)
         .map(({ meeting, minutes }) => {
+          // BUGFIX: attendeesPresent is now array of {name, email} objects, not strings
+          // Extract names safely and handle empty arrays
+          const attendeeNames = Array.isArray(minutes?.attendeesPresent) 
+            ? minutes.attendeesPresent.map((a: any) => a?.name?.trim?.() || a?.name || '').filter(Boolean) 
+            : [];
+          const attendeeCount = attendeeNames.length;
+          const attendeeList = attendeeCount > 0 ? attendeeNames.join(', ') : 'Not recorded';
+          
           const previewCard = CardFactory.heroCard(
             meeting.title,
             minutes!.summary.substring(0, 150) + '...',
@@ -194,7 +204,7 @@ class TeamsMeetingBot extends TeamsActivityHandler {
             [],
             {
               subtitle: new Date(meeting.scheduledAt).toLocaleDateString(),
-              text: `${minutes!.attendeesPresent.length} attendees • ${meeting.duration}`,
+              text: `${attendeeCount} attendees • ${meeting.duration}`,
             }
           );
 
@@ -213,7 +223,7 @@ class TeamsMeetingBot extends TeamsActivityHandler {
                 facts: [
                   { title: 'Date', value: new Date(meeting.scheduledAt).toLocaleString() },
                   { title: 'Duration', value: meeting.duration },
-                  { title: 'Attendees', value: minutes!.attendeesPresent.join(', ') },
+                  { title: 'Attendees', value: attendeeList },
                 ],
               },
               {

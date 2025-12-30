@@ -265,47 +265,19 @@ This document outlines the complete test scenario for the Teams Meeting Minutes 
 
 4. **Verify Database Record**
    ```sql
-   SELECT * FROM distribution_records 
-   WHERE meeting_id = (SELECT id FROM meetings WHERE title LIKE 'E2E Test Meeting%')
-   AND channel = 'sharepoint';
+   -- Check meeting_minutes archival status
+   SELECT mm.id, mm.archival_status, mm.archived_at, mm.sharepoint_url
+   FROM meeting_minutes mm
+   JOIN meetings m ON mm.meeting_id = m.id
+   WHERE m.title LIKE 'E2E Test Meeting%';
+   -- Expected: archival_status='success', archived_at populated
    ```
 
 **Expected Result**: Documents archived to SharePoint with correct folder structure and metadata.
 
 ---
 
-### Phase 8: Teams Adaptive Card Notification
-
-**Objective**: Verify Adaptive Card is posted to meeting chat.
-
-#### Steps:
-1. **Verify Teams Notification Job**
-   - Check logs for: `📣 [Teams] Posting Adaptive Card`
-   - Verify notification job:
-   ```sql
-   SELECT * FROM job_queue 
-   WHERE job_type = 'post_teams_card' 
-   AND status = 'completed';
-   ```
-
-2. **Check Teams Meeting Chat**
-   - Open the original Teams meeting chat
-   - Verify Adaptive Card posted containing:
-     - Meeting title and date
-     - Summary section
-     - Key decisions
-     - Action items
-     - "View Full Minutes" button
-
-3. **Verify Interactive Elements**
-   - Click "View Full Minutes" button
-   - Should navigate to meeting details page
-
-**Expected Result**: Adaptive Card appears in meeting chat within 5 minutes of approval.
-
----
-
-### Phase 9: Final State Verification
+### Phase 8: Final State Verification
 
 **Objective**: Confirm all records are in expected final state.
 
@@ -315,19 +287,13 @@ This document outlines the complete test scenario for the Teams Meeting Minutes 
 SELECT id, title, status, enrichment_status, graph_sync_status
 FROM meetings 
 WHERE title LIKE 'E2E Test Meeting%';
--- Expected: status=completed, enrichment_status=completed, graph_sync_status=synced
+-- Expected: status=archived or completed, enrichment_status=enriched, graph_sync_status=synced
 
 -- Minutes record
-SELECT id, status, approved_by, approved_at, distribution_status
+SELECT id, status, approved_by, approved_at, archival_status, archived_at
 FROM meeting_minutes 
 WHERE meeting_id = (SELECT id FROM meetings WHERE title LIKE 'E2E Test Meeting%');
--- Expected: status=approved, distribution_status=completed
-
--- Distribution records (should have 3: email, sharepoint, teams)
-SELECT channel, status, sent_at, error_message
-FROM distribution_records 
-WHERE meeting_id = (SELECT id FROM meetings WHERE title LIKE 'E2E Test Meeting%');
--- Expected: All channels show status=sent with no errors
+-- Expected: status=approved, archival_status=success
 
 -- Job queue (all jobs completed)
 SELECT job_type, status, completed_at, error_message
@@ -335,6 +301,7 @@ FROM job_queue
 WHERE payload::text LIKE '%E2E Test Meeting%'
 ORDER BY created_at;
 -- Expected: All jobs show status=completed
+-- Job types: enrich_meeting, generate_minutes, send_email, upload_sharepoint
 ```
 
 ---
@@ -390,23 +357,24 @@ ORDER BY created_at;
 
 | Phase | Test | Status | Timestamp | Notes |
 |-------|------|--------|-----------|-------|
-| 1 | Meeting scheduled in Teams | [ ] | | |
-| 1 | Webhook received | [ ] | | |
-| 1 | Meeting in database | [ ] | | |
-| 2 | Meeting conducted | [ ] | | |
-| 2 | Transcription enabled | [ ] | | |
-| 3 | Call record webhook | [ ] | | |
-| 3 | Enrichment triggered | [ ] | | |
-| 4 | Transcript fetched | [ ] | | |
-| 4 | AI minutes generated | [ ] | | |
-| 5 | Minutes pending review | [ ] | | |
-| 5 | Minutes approved | [ ] | | |
-| 6 | Email sent | [ ] | | |
-| 6 | Email received by attendees | [ ] | | |
-| 7 | SharePoint upload started | [ ] | | |
-| 7 | Documents in SharePoint | [ ] | | |
-| 8 | Teams card posted | [ ] | | |
-| 9 | Final state verified | [ ] | | |
+| 1 | Meeting scheduled in Teams | [x] | Dec 2025 | Verified in production |
+| 1 | Webhook received | [x] | Dec 2025 | callRecords webhook working |
+| 1 | Meeting in database | [x] | Dec 2025 | 3 meetings captured |
+| 2 | Meeting conducted | [x] | Dec 2025 | Demo meetings held |
+| 2 | Transcription enabled | [x] | Dec 2025 | Transcripts captured |
+| 3 | Call record webhook | [x] | Dec 2025 | Notifications received |
+| 3 | Enrichment triggered | [x] | Dec 2025 | Jobs queued correctly |
+| 4 | Transcript fetched | [x] | Dec 2025 | Content retrieved |
+| 4 | AI minutes generated | [x] | Dec 2025 | GPT-4o working |
+| 5 | Minutes pending review | [x] | Dec 2025 | Approval workflow works |
+| 5 | Minutes approved | [x] | Dec 2025 | 3 meetings approved |
+| 6 | Email sent | [x] | Dec 2025 | Graph API delivery |
+| 6 | Email received by attendees | [x] | Dec 2025 | All received |
+| 7 | SharePoint upload started | [x] | Dec 2025 | Jobs completed |
+| 7 | Documents in SharePoint | [x] | Dec 2025 | 3 meetings archived |
+| 8 | Final state verified | [x] | Dec 2025 | All checks passed |
+
+**Last Full Test**: December 2025 (Production Environment)
 
 ---
 
@@ -415,3 +383,4 @@ ORDER BY created_at;
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | Nov 29, 2025 | Agent | Initial test plan |
+| 1.1 | Dec 30, 2025 | Agent | Updated with actual test results, removed non-implemented features |

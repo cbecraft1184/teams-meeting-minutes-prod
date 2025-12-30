@@ -83,10 +83,21 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 
 ### Key Documents
 - **docs/DEMO_USER_SETUP_GUIDE.md**: Internal tenant member setup for demos (replaces old B2B guest guide)
+- **docs/TEST_EXECUTION_RESULTS.md**: Production test results (100% pass rate, 18/18 tests on 3 meetings)
+- **docs/END_TO_END_TEST_PLAN.md**: Complete E2E test plan (updated to match actual implementation)
+- **docs/EMAIL_ARCHIVE_FINAL_REPORT.md**: Email/SharePoint feature verification (PRODUCTION VERIFIED)
 - **docs/ARCHITECTURE.md**: System architecture overview
 - **docs/PROCESSING_VALIDATION.md**: Processing thresholds (2 min duration, 25 words minimum)
 - **docs/DEPLOYMENT_CHECKLIST.md**: Azure deployment procedures
 - **docs/TEAMS_SSO_CHECKLIST.md**: Teams SSO configuration
+
+### Job Queue Types (Actual Implementation)
+- `process_call_record`: Handle call record webhook notifications
+- `enrich_meeting`: Fetch transcript and attendee data from Graph
+- `generate_minutes`: AI processing with Azure OpenAI GPT-4o
+- `send_email`: Email distribution via Graph API
+- `upload_sharepoint`: Document archival to SharePoint
+- `sync_azure_groups`: Azure AD group synchronization
 
 ### Reference Information
 - **App ID**: 6d94baf3-1ed6-4d34-8401-71c724305571

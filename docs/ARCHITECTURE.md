@@ -1,7 +1,7 @@
 # Teams Meeting Minutes AI - Architecture Documentation
 
 **Version:** 1.0  
-**Date:** December 2024  
+**Date:** December 2025  
 **Classification:** Unclassified  
 
 ---

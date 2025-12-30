@@ -100,16 +100,16 @@ Authorization: Bearer <token>
   },
   "processingValidation": {
     "decision": "skipped_duration",
-    "reason": "Meeting duration (180s) below minimum threshold (300s)",
+    "reason": "Meeting duration (90s) below minimum threshold (120s)",
     "decisionAt": "2025-12-01T18:30:00Z",
-    "actualDurationSeconds": 180,
-    "actualDurationMinutes": 3,
-    "transcriptWordCount": 75
+    "actualDurationSeconds": 90,
+    "actualDurationMinutes": 1.5,
+    "transcriptWordCount": 15
   },
   "thresholds": {
-    "minDurationSeconds": 300,
-    "minDurationMinutes": 5,
-    "minTranscriptWords": 50
+    "minDurationSeconds": 120,
+    "minDurationMinutes": 2,
+    "minTranscriptWords": 25
   },
   "canForceProcess": true
 }
@@ -140,8 +140,8 @@ All processing decisions are logged with clear console output:
 📊 [Enrichment] Fetching call record details for duration...
    Duration: 180s (3m)
    Transcript words: 75
-📝 [Validation] Meeting abc123: skipped_duration - Meeting duration (180s) below minimum threshold (300s)
-⏭️ [Enrichment] Skipping AI processing: Meeting duration (180s) below minimum threshold (300s)
+📝 [Validation] Meeting abc123: skipped_duration - Meeting duration (90s) below minimum threshold (120s)
+⏭️ [Enrichment] Skipping AI processing: Meeting duration (90s) below minimum threshold (120s)
 ```
 
 For manual overrides:
@@ -159,7 +159,7 @@ For manual overrides:
 - Expected: `processed` - AI minutes generated
 
 ### Scenario 2: Accidental Open (Fails Duration)
-- Duration: 2 minutes
+- Duration: 1 minute
 - Transcript: 40 words
 - Expected: `skipped_duration` - No AI processing
 

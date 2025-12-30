@@ -78,3 +78,21 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 - **API path matching**: Use `req.originalUrl` for auth bypass checks under `/api/*` mount paths
 - **AI response validation**: Always use `Array.isArray()` before array operations on AI-generated data
 - **Azure SDK errors**: Check `error.status` for HTTP status codes, not just string parsing
+
+## Documentation (December 30, 2025)
+
+### Key Documents
+- **docs/DEMO_USER_SETUP_GUIDE.md**: Internal tenant member setup for demos (replaces old B2B guest guide)
+- **docs/ARCHITECTURE.md**: System architecture overview
+- **docs/PROCESSING_VALIDATION.md**: Processing thresholds (2 min duration, 25 words minimum)
+- **docs/DEPLOYMENT_CHECKLIST.md**: Azure deployment procedures
+- **docs/TEAMS_SSO_CHECKLIST.md**: Teams SSO configuration
+
+### Reference Information
+- **App ID**: 6d94baf3-1ed6-4d34-8401-71c724305571
+- **App Version**: 1.0.24
+- **Tenant Domain**: ChrisBecraft.onmicrosoft.com
+- **Production URL**: https://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io
+
+### Demo User Setup
+Demo participants should be set up as **internal tenant members** (not B2B guests) with Microsoft 365 Business Basic licenses for full Teams app access. See `docs/DEMO_USER_SETUP_GUIDE.md` for detailed instructions.

@@ -1294,11 +1294,37 @@ export function registerRoutes(app: Express): Server {
 
   // ========== STATS API ==========
 
-  app.get("/api/stats", async (_req, res) => {
+  app.get("/api/stats", async (req, res) => {
     try {
-      const meetings = await storage.getAllMeetings();
-      const allMinutes = await storage.getAllMinutes();
-      const actionItems = await storage.getAllActionItems();
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // CRITICAL: Multi-tenant isolation - only show stats for user's tenant
+      const tenantId = (req.user as any).tenantId || 'default';
+      const isAdmin = accessControlService.isAdmin(req.user);
+      
+      // Get tenant-filtered data
+      let meetings;
+      let allMinutes;
+      let actionItems;
+      
+      if (tenantId !== 'default' && !isAdmin) {
+        // Tenant-isolated queries for non-admin users
+        meetings = await storage.getMeetingsByTenant(tenantId);
+        allMinutes = await storage.getMinutesByTenant(tenantId);
+        actionItems = await storage.getActionItemsByTenant(tenantId);
+      } else if (isAdmin) {
+        // Admin users can see all data (for cross-tenant admin scenarios)
+        meetings = await storage.getAllMeetings();
+        allMinutes = await storage.getAllMinutes();
+        actionItems = await storage.getAllActionItems();
+      } else {
+        // Fallback for 'default' tenant - empty stats for safety
+        meetings = [];
+        allMinutes = [];
+        actionItems = [];
+      }
 
       const stats = {
         totalMeetings: meetings.length,

@@ -56,11 +56,12 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 - **AI**: OpenAI SDK.
 - **Documents**: `docx`, `pdf-lib`.
 
-## Production Bug Fixes (December 2025)
+## Production Bug Fixes (December 2025 - January 2026)
 
 ### Security Critical
 1. **Teams Bot Tenant Isolation** (`teamsBot.ts`): Messaging extension query now filters by `tenantId` to prevent cross-tenant data leakage. Extracts tenant from `channelData.tenant.id` or `conversation.tenantId`.
 2. **Restore Endpoint Auth Bypass** (`routes.ts`): Added `canViewMeeting()` check to `/api/meetings/:id/restore` to prevent users from restoring meetings they cannot access.
+3. **Stats Endpoint Tenant Isolation** (`routes.ts`): CRITICAL FIX (Jan 2026) - `/api/stats` endpoint was calling `storage.getAllMeetings()` without tenant filtering, exposing cross-tenant meeting counts. Now properly filters by user's tenant using `getMeetingsByTenant()`, `getMinutesByTenant()`, and new `getActionItemsByTenant()` methods.
 
 ### Reliability Improvements  
 3. **Rate Limit Detection** (`azureOpenAI.ts`): `isRateLimitError()` now checks `error.status` and `error.response.status` fields for Azure SDK 429 responses, not just message strings.

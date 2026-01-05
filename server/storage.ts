@@ -54,6 +54,7 @@ export interface IStorage {
   getActionItem(id: string): Promise<ActionItem | undefined>;
   getActionItemsByMeetingId(meetingId: string): Promise<ActionItem[]>;
   getAllActionItems(): Promise<ActionItem[]>;
+  getActionItemsByTenant(tenantId: string): Promise<ActionItem[]>;
   createActionItem(item: InsertActionItem): Promise<ActionItem>;
   updateActionItem(id: string, updates: Partial<ActionItem>): Promise<ActionItem>;
   deleteActionItem(id: string): Promise<void>;
@@ -261,6 +262,13 @@ export class DatabaseStorage implements IStorage {
 
   async getAllActionItems(): Promise<ActionItem[]> {
     return await db.select().from(actionItems).orderBy(desc(actionItems.createdAt));
+  }
+
+  async getActionItemsByTenant(tenantId: string): Promise<ActionItem[]> {
+    return await db.select()
+      .from(actionItems)
+      .where(eq(actionItems.tenantId, tenantId))
+      .orderBy(desc(actionItems.createdAt));
   }
 
   async createActionItem(insertItem: InsertActionItem): Promise<ActionItem> {

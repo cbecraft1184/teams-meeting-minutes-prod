@@ -60,6 +60,10 @@ CREATE INDEX IF NOT EXISTS meeting_graph_event_idx ON meetings(graph_event_id);
 CREATE INDEX IF NOT EXISTS meeting_ical_uid_idx ON meetings(ical_uid);
 CREATE INDEX IF NOT EXISTS meeting_organizer_idx ON meetings(organizer_email);
 
+-- IMPORTANT: Drop problematic unique index on online_meeting_id
+-- Multi-session meetings share the same online_meeting_id, so uniqueness constraint is wrong
+DROP INDEX IF EXISTS meetings_online_meeting_id_canonical_idx;
+
 -- Create job_worker_leases table if not exists
 CREATE TABLE IF NOT EXISTS job_worker_leases (
   worker_name varchar(100) PRIMARY KEY,

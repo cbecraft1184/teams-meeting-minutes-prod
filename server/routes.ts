@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema, insertMeetingEventSchema, users, meetings } from "@shared/schema";
+import { nanoid } from "nanoid";
+import { enqueueJob } from "./services/durableQueue";
 import { eq, sql } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
@@ -17,7 +19,7 @@ import { uploadToSharePoint } from "./services/sharepointClient";
 import { enqueueMeetingEnrichment } from "./services/callRecordEnrichment";
 import { teamsBotAdapter } from "./services/teamsBot";
 import { graphCalendarSync } from "./services/graphCalendarSync";
-import { ZodError } from "zod";
+import { ZodError, z } from "zod";
 import { serveStatic as setupProductionStatic } from "./static";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
@@ -1802,6 +1804,111 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("[SyncNow] Sync failed:", error);
       res.status(500).json({ error: "Sync failed", details: error.message });
+    }
+  });
+
+  // Manual Meeting Import - for meetings not captured by webhooks/polling (e.g., 1:1 chat calls)
+  app.post("/api/meetings/import", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Validate input with Zod schema
+      const importSchema = z.object({
+        title: z.string().min(1, "Title is required").max(500, "Title too long"),
+        transcript: z.string().min(10, "Transcript too short").max(500000, "Transcript too long (max 500KB)"),
+        scheduledAt: z.string().datetime().optional(),
+        teamsJoinLink: z.string().url().optional().nullable(),
+        attendees: z.array(z.union([
+          z.string(),
+          z.object({ name: z.string(), email: z.string().email().or(z.literal("")) })
+        ])).optional()
+      });
+
+      const parseResult = importSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ 
+          error: "Validation failed",
+          details: parseResult.error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join(", ")
+        });
+      }
+
+      const { title, scheduledAt, transcript, teamsJoinLink, attendees } = parseResult.data;
+
+      console.log(`[ManualImport] User ${req.user.email} importing meeting: ${title}`);
+
+      // Parse attendees - accept array of {name, email} objects or simple strings
+      let parsedAttendees: Array<{name: string, email: string}> = [];
+      if (Array.isArray(attendees)) {
+        parsedAttendees = attendees.map((a: any) => {
+          if (typeof a === 'string') {
+            return { name: a, email: '' };
+          }
+          return { name: a.name || '', email: a.email || '' };
+        });
+      }
+
+      // Add organizer as first attendee if not present
+      const organizerEmail = req.user.email;
+      const organizerName = req.user.displayName || req.user.email.split('@')[0];
+      if (!parsedAttendees.some(a => a.email === organizerEmail)) {
+        parsedAttendees.unshift({ name: organizerName, email: organizerEmail });
+      }
+
+      // Create the meeting record
+      const now = new Date();
+      const meetingTime = scheduledAt ? new Date(scheduledAt) : now;
+
+      const [newMeeting] = await db.insert(meetings).values({
+        title: title.slice(0, 500),
+        description: `Manually imported by ${req.user.email}`,
+        scheduledAt: meetingTime,
+        duration: "Unknown",
+        attendees: parsedAttendees,
+        status: "completed",
+        classificationLevel: (req.user.clearanceLevel as any) || "UNCLASSIFIED",
+        teamsJoinLink: teamsJoinLink || null,
+        transcriptContent: transcript,
+        transcriptWordCount: transcript.split(/\s+/).length,
+        enrichmentStatus: "enriched",
+        sourceType: "manual",
+        organizerEmail: organizerEmail,
+        organizerAadId: req.user.azureAdId || req.user.id,
+        tenantId: req.user.tenantId || "default",
+        processingDecision: "process",
+        processingDecisionReason: "Manual import with transcript",
+        processingDecisionAt: now,
+      }).returning();
+
+      const meetingId = newMeeting.id;
+      console.log(`[ManualImport] Created meeting ${meetingId}, enqueueing minutes generation`);
+
+      // Enqueue minutes generation job
+      await enqueueJob({
+        jobType: "generate_minutes",
+        idempotencyKey: `manual:generate:${meetingId}`,
+        payload: {
+          meetingId: meetingId,
+          source: "manual_import"
+        },
+        maxRetries: 3
+      });
+
+      res.json({
+        success: true,
+        message: "Meeting imported successfully. Minutes generation has been queued.",
+        meeting: {
+          id: meetingId,
+          title: newMeeting.title,
+          scheduledAt: newMeeting.scheduledAt,
+          transcriptWordCount: newMeeting.transcriptWordCount,
+        }
+      });
+
+    } catch (error: any) {
+      console.error("[ManualImport] Failed:", error);
+      res.status(500).json({ error: "Failed to import meeting", details: error.message });
     }
   });
 

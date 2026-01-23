@@ -4,8 +4,8 @@ import { Link } from "wouter";
 import { StatsCard } from "@/components/stats-card";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
-import { Button, SearchBox, makeStyles, tokens, shorthands, Switch, Badge, useToastController, Toast, ToastTitle, ToastBody, Spinner } from "@fluentui/react-components";
-import { Settings24Regular, Search24Regular, ArrowSync24Regular } from "@fluentui/react-icons";
+import { Button, SearchBox, makeStyles, tokens, shorthands, Switch, Badge, useToastController, Toast, ToastTitle, ToastBody, Spinner, Dialog, DialogTrigger, DialogSurface, DialogTitle, DialogBody, DialogActions, DialogContent, Input, Textarea, Label, Field } from "@fluentui/react-components";
+import { Settings24Regular, Search24Regular, ArrowSync24Regular, Add24Regular } from "@fluentui/react-icons";
 import { Pagination } from "@/components/Pagination";
 import { FileText, Calendar, Archive, CheckCircle2, AlertCircle, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -166,6 +166,9 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [showDismissed, setShowDismissed] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importTitle, setImportTitle] = useState("");
+  const [importTranscript, setImportTranscript] = useState("");
   
   const canFetch = isInitialized && (hasToken || !isInTeams);
 
@@ -280,6 +283,49 @@ export default function Dashboard() {
     },
   });
 
+  const importMeetingMutation = useMutation({
+    mutationFn: async (data: { title: string; transcript: string }) => {
+      return apiRequest('POST', '/api/meetings/import', data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      setImportDialogOpen(false);
+      setImportTitle("");
+      setImportTranscript("");
+      dispatchToast(
+        <Toast data-testid="toast-import-success">
+          <ToastTitle>Meeting Imported</ToastTitle>
+          <ToastBody>Minutes generation has been queued</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: () => {
+      dispatchToast(
+        <Toast data-testid="toast-import-error">
+          <ToastTitle>Import Failed</ToastTitle>
+          <ToastBody>Could not import meeting</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    },
+  });
+
+  const handleImportMeeting = () => {
+    if (!importTitle.trim() || !importTranscript.trim()) {
+      dispatchToast(
+        <Toast data-testid="toast-import-validation">
+          <ToastTitle>Missing Fields</ToastTitle>
+          <ToastBody>Please enter both title and transcript</ToastBody>
+        </Toast>,
+        { intent: "warning" }
+      );
+      return;
+    }
+    importMeetingMutation.mutate({ title: importTitle, transcript: importTranscript });
+  };
+
   const meetings = meetingsData?.meetings || [];
   const pagination = meetingsData?.pagination;
   const dismissedCount = meetingsData?.dismissedCount || 0;
@@ -322,6 +368,14 @@ export default function Dashboard() {
             data-testid="button-sync-now"
           >
             {syncNowMutation.isPending ? "Syncing..." : "Sync Now"}
+          </Button>
+          <Button 
+            appearance="secondary" 
+            icon={<Add24Regular />}
+            onClick={() => setImportDialogOpen(true)}
+            data-testid="button-import-meeting"
+          >
+            Import Meeting
           </Button>
           <Link href="/settings">
             <Button 
@@ -483,6 +537,51 @@ export default function Dashboard() {
         open={!!selectedMeeting}
         onOpenChange={(open) => !open && setSelectedMeeting(null)}
       />
+
+      <Dialog open={importDialogOpen} onOpenChange={(_, data) => setImportDialogOpen(data.open)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Import Meeting</DialogTitle>
+            <DialogContent>
+              <p style={{ marginBottom: "16px", color: tokens.colorNeutralForeground3 }}>
+                For meetings not automatically captured (e.g., 1:1 chat calls), you can manually import by pasting the transcript content.
+              </p>
+              <Field label="Meeting Title" required style={{ marginBottom: "16px" }}>
+                <Input 
+                  value={importTitle}
+                  onChange={(_, data) => setImportTitle(data.value)}
+                  placeholder="e.g., Meeting with Christopher Becraft"
+                  data-testid="input-import-title"
+                />
+              </Field>
+              <Field label="Transcript Content" required>
+                <Textarea 
+                  value={importTranscript}
+                  onChange={(_, data) => setImportTranscript(data.value)}
+                  placeholder="Paste the meeting transcript here..."
+                  rows={10}
+                  style={{ width: "100%" }}
+                  data-testid="input-import-transcript"
+                />
+              </Field>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setImportDialogOpen(false)} data-testid="button-import-cancel">
+                Cancel
+              </Button>
+              <Button 
+                appearance="primary" 
+                onClick={handleImportMeeting}
+                disabled={importMeetingMutation.isPending}
+                icon={importMeetingMutation.isPending ? <Spinner size="tiny" /> : undefined}
+                data-testid="button-import-submit"
+              >
+                {importMeetingMutation.isPending ? "Importing..." : "Import & Generate Minutes"}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </div>
   );
 }

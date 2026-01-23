@@ -1305,9 +1305,9 @@ export function registerRoutes(app: Express): Server {
       const isAdmin = accessControlService.isAdmin(req.user);
       
       // Get tenant-filtered data
-      let meetings;
-      let allMinutes;
-      let actionItems;
+      let meetings: any[] = [];
+      let allMinutes: any[] = [];
+      let actionItems: any[] = [];
       
       if (tenantId !== 'default' && !isAdmin) {
         // Tenant-isolated queries for non-admin users
@@ -1766,6 +1766,55 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("[CalendarSync] Sync-all failed:", error);
       res.status(500).json({ error: "Calendar sync failed" });
+    }
+  });
+
+  // Admin: Re-enrich a meeting (fetch transcript from Graph API)
+  app.post("/api/admin/meetings/:id/enrich", requireRole("admin"), async (req, res) => {
+    try {
+      const meetingId = req.params.id;
+      console.log(`[Admin] Re-enrich meeting ${meetingId} requested by ${req.user?.email}`);
+      
+      // Get meeting to verify it exists
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      // Check if meeting has an onlineMeetingId (required for Graph API)
+      if (!meeting.onlineMeetingId) {
+        return res.status(400).json({ 
+          error: "Meeting has no onlineMeetingId",
+          hint: "This meeting may not have been created through Teams or the ID wasn't captured"
+        });
+      }
+      
+      // Import enrichment service
+      const { callRecordEnrichmentService } = await import("./services/callRecordEnrichment");
+      
+      // Trigger enrichment (fetches transcript from Graph API)
+      try {
+        await callRecordEnrichmentService.enrichMeeting(meetingId, meeting.onlineMeetingId, 1);
+        
+        // Get updated meeting
+        const updatedMeeting = await storage.getMeeting(meetingId);
+        
+        res.json({ 
+          success: true, 
+          message: "Meeting enriched successfully",
+          hasTranscript: !!updatedMeeting?.transcriptContent,
+          transcriptLength: updatedMeeting?.transcriptContent?.length || 0
+        });
+      } catch (enrichError: any) {
+        console.error(`[Admin] Enrichment failed for ${meetingId}:`, enrichError);
+        res.status(500).json({ 
+          error: "Enrichment failed", 
+          details: enrichError.message 
+        });
+      }
+    } catch (error: any) {
+      console.error("[Admin] Re-enrich failed:", error);
+      res.status(500).json({ error: "Failed to enrich meeting" });
     }
   });
 

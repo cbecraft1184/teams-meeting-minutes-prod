@@ -1769,6 +1769,36 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // TEMP DEBUG: Open endpoint to fix stuck meeting - REMOVE AFTER USE
+  app.post("/api/debug/enrich/:id", async (req, res) => {
+    try {
+      const meetingId = req.params.id;
+      console.log(`[DEBUG] Enrich meeting ${meetingId}`);
+      
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      if (!meeting.onlineMeetingId) {
+        return res.status(400).json({ error: "No onlineMeetingId" });
+      }
+      
+      const { callRecordEnrichmentService } = await import("./services/callRecordEnrichment");
+      await callRecordEnrichmentService.enrichMeeting(meetingId, meeting.onlineMeetingId, 1);
+      
+      const updated = await storage.getMeeting(meetingId);
+      res.json({ 
+        success: true, 
+        hasTranscript: !!updated?.transcriptContent,
+        transcriptLength: updated?.transcriptContent?.length || 0
+      });
+    } catch (error: any) {
+      console.error("[DEBUG] Enrich failed:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Admin: Re-enrich a meeting (fetch transcript from Graph API)
   app.post("/api/admin/meetings/:id/enrich", requireRole("admin"), async (req, res) => {
     try {

@@ -1898,10 +1898,12 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ error: "Meeting not found" });
       }
       
-      // If onlineMeetingId provided in body, set it first
+      // If onlineMeetingId provided in body, set it first using raw SQL
       if (providedId && !meeting.onlineMeetingId) {
         try {
-          meeting = await storage.updateMeeting(meetingId, { onlineMeetingId: providedId });
+          const { sql } = await import("drizzle-orm");
+          await db.execute(sql`UPDATE meetings SET online_meeting_id = ${providedId} WHERE id = ${meetingId}`);
+          meeting = await storage.getMeeting(meetingId);
           console.log(`[DEBUG] Set onlineMeetingId to ${providedId}`);
         } catch (updateErr: any) {
           console.error(`[DEBUG] Failed to set onlineMeetingId:`, updateErr);

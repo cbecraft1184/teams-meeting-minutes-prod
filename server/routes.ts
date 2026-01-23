@@ -1783,8 +1783,29 @@ export function registerRoutes(app: Express): Server {
         status: m.status,
         scheduledAt: m.scheduledAt,
         hasTranscript: !!m.transcriptContent,
-        onlineMeetingId: m.onlineMeetingId
+        onlineMeetingId: m.onlineMeetingId,
+        organizerAadId: m.organizerAadId
       })));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // TEMP DEBUG: Set onlineMeetingId directly - REMOVE AFTER USE
+  app.post("/api/debug/set-meeting-id/:id", async (req, res) => {
+    try {
+      const meetingId = req.params.id;
+      const { onlineMeetingId } = req.body;
+      
+      if (!onlineMeetingId) {
+        return res.status(400).json({ error: "onlineMeetingId required in body" });
+      }
+      
+      await db.update(meetings)
+        .set({ onlineMeetingId })
+        .where(eq(meetings.id, meetingId));
+      
+      res.json({ success: true, message: "onlineMeetingId set" });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -1869,15 +1890,25 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/debug/enrich/:id", async (req, res) => {
     try {
       const meetingId = req.params.id;
-      console.log(`[DEBUG] Enrich meeting ${meetingId}`);
+      const { onlineMeetingId: providedId } = req.body || {};
+      console.log(`[DEBUG] Enrich meeting ${meetingId}, providedId: ${providedId}`);
       
-      const meeting = await storage.getMeeting(meetingId);
+      let meeting = await storage.getMeeting(meetingId);
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
       
-      if (!meeting.onlineMeetingId) {
-        return res.status(400).json({ error: "No onlineMeetingId" });
+      // If onlineMeetingId provided in body, set it first
+      if (providedId && !meeting.onlineMeetingId) {
+        await db.update(meetings)
+          .set({ onlineMeetingId: providedId })
+          .where(eq(meetings.id, meetingId));
+        meeting = await storage.getMeeting(meetingId);
+        console.log(`[DEBUG] Set onlineMeetingId to ${providedId}`);
+      }
+      
+      if (!meeting?.onlineMeetingId) {
+        return res.status(400).json({ error: "No onlineMeetingId - provide one in request body" });
       }
       
       const { callRecordEnrichmentService } = await import("./services/callRecordEnrichment");

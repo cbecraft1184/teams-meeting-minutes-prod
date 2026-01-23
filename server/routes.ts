@@ -78,6 +78,10 @@ export function registerRoutes(app: Express): Server {
     if (req.originalUrl === "/api/teams/messages") {
       return next();
     }
+    // TEMP: Allow debug endpoint without auth
+    if (req.originalUrl.startsWith("/api/debug/")) {
+      return next();
+    }
     return authenticateUser(req, res, next);
   });
 

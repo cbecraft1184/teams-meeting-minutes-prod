@@ -74,6 +74,9 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 8. **Attendee Content Comparison** (`minutesGenerator.ts`): `hasAttendeesChanged` logic now compares actual names, not just array length, to detect when attendee list content changes.
 9. **Transaction Wrapping** (`minutesGenerator.ts`): All DB operations (meeting update, minutes insert, action items insert, status update) are now wrapped in a single `db.transaction()` for atomicity - if any operation fails, all changes are rolled back.
 
+### Database Schema Fixes (January 2026)
+10. **Multi-Session Meeting ID Conflict** (`sync-prod-schema.sql`): CRITICAL FIX - Dropped unique index `meetings_online_meeting_id_canonical_idx` that prevented multi-session meetings from sharing the same `online_meeting_id`. Multi-session meetings (recurring Teams meetings) legitimately share the same Teams meeting ID across multiple database records. The sync script now includes `DROP INDEX IF EXISTS meetings_online_meeting_id_canonical_idx` to prevent this issue on fresh deployments.
+
 ## Debugging Lessons Learned
 - **attendeesPresent format**: Always `{name, email}[]` - map to `.name` before `.join()` for display
 - **API path matching**: Use `req.originalUrl` for auth bypass checks under `/api/*` mount paths

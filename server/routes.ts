@@ -1773,6 +1773,23 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // TEMP DEBUG: List all meetings - REMOVE AFTER USE
+  app.get("/api/debug/meetings", async (req, res) => {
+    try {
+      const allMeetings = await storage.getAllMeetings();
+      res.json(allMeetings.map(m => ({
+        id: m.id,
+        title: m.title,
+        status: m.status,
+        scheduledAt: m.scheduledAt,
+        hasTranscript: !!m.transcriptContent,
+        onlineMeetingId: m.onlineMeetingId
+      })));
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // TEMP DEBUG: Open endpoint to fix stuck meeting - REMOVE AFTER USE
   app.post("/api/debug/enrich/:id", async (req, res) => {
     try {

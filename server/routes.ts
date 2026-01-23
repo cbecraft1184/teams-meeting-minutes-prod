@@ -1765,9 +1765,23 @@ export function registerRoutes(app: Express): Server {
       const { callRecordPollingService } = await import("./services/callRecordPolling");
 
       const [calendarResult, callRecordResult] = await Promise.all([
-        graphCalendarSync.syncUserCalendar(req.user.email, req.user.azureAdId || req.user.id).catch(e => ({ synced: 0, created: 0, updated: 0, errors: [e.message] })),
-        callRecordPollingService.pollForNewCallRecords().catch(e => ({ found: 0, processed: 0, error: e.message }))
+        graphCalendarSync.syncUserCalendar(req.user.email, req.user.azureAdId || req.user.id).catch(e => ({ synced: 0, created: 0, updated: 0, errors: [e.message], failed: true })),
+        callRecordPollingService.pollForNewCallRecords().catch(e => ({ found: 0, processed: 0, error: e.message, failed: true }))
       ]);
+
+      const calendarFailed = (calendarResult as any).failed;
+      const callRecordFailed = (callRecordResult as any).failed;
+      const bothFailed = calendarFailed && callRecordFailed;
+
+      if (bothFailed) {
+        return res.status(500).json({
+          success: false,
+          message: "Sync failed",
+          calendar: { error: (calendarResult as any).errors?.[0] || "Calendar sync failed" },
+          callRecords: { error: (callRecordResult as any).error || "Call record polling failed" },
+          timestamp: new Date().toISOString()
+        });
+      }
 
       res.json({
         success: true,
@@ -1776,10 +1790,12 @@ export function registerRoutes(app: Express): Server {
           synced: calendarResult.synced,
           created: calendarResult.created,
           updated: calendarResult.updated,
+          error: calendarFailed ? (calendarResult as any).errors?.[0] : undefined,
         },
         callRecords: {
           found: callRecordResult.found,
           processed: callRecordResult.processed,
+          error: callRecordFailed ? (callRecordResult as any).error : undefined,
         },
         timestamp: new Date().toISOString()
       });

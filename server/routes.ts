@@ -1907,7 +1907,12 @@ export function registerRoutes(app: Express): Server {
           console.log(`[DEBUG] Set onlineMeetingId to ${providedId}`);
         } catch (updateErr: any) {
           console.error(`[DEBUG] Failed to set onlineMeetingId:`, updateErr);
-          return res.status(500).json({ error: `Failed to set meeting ID: ${updateErr.message}` });
+          return res.status(500).json({ 
+            error: `Failed to set meeting ID: ${updateErr.message}`,
+            code: updateErr.code,
+            cause: updateErr.cause?.message || null,
+            stack: updateErr.stack?.split('\n').slice(0, 5)
+          });
         }
       }
       

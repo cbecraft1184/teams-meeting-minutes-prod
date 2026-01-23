@@ -77,6 +77,10 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 ### Database Schema Fixes (January 2026)
 10. **Multi-Session Meeting ID Conflict** (`sync-prod-schema.sql`): CRITICAL FIX - Dropped unique index `meetings_online_meeting_id_canonical_idx` that prevented multi-session meetings from sharing the same `online_meeting_id`. Multi-session meetings (recurring Teams meetings) legitimately share the same Teams meeting ID across multiple database records. The sync script now includes `DROP INDEX IF EXISTS meetings_online_meeting_id_canonical_idx` to prevent this issue on fresh deployments.
 
+### Manual Meeting Import (January 2026)
+14. **Manual Import Feature** (`routes.ts`, `dashboard.tsx`): Users can manually import meetings not captured by webhooks/polling (e.g., 1:1 chat calls). POST `/api/meetings/import` endpoint accepts title, transcript, optional scheduledAt/attendees/teamsJoinLink. Includes Zod validation (title max 500 chars, transcript max 500KB), tenant isolation, and automatic minutes generation via job queue.
+    - **Microsoft Graph Limitation**: The `/communications/callRecords` API does NOT return 1:1 instant calls started from Chat, regardless of recording/transcription status. This is a platform limitation affecting peer-to-peer calls, ad-hoc meetings, and calls under 5 minutes.
+
 ### Performance Improvements (January 2026)
 11. **Active Call Record Polling** (`callRecordPolling.ts`): Added active polling service that queries Microsoft Graph API every 2 minutes for new call records. This ensures meetings are captured even if webhook delivery is delayed or fails. Previously relied solely on webhooks which could be unreliable for instant/ad-hoc calls.
 12. **Sync Now Feature** (`routes.ts`, `dashboard.tsx`): Added "Sync Now" button to dashboard header that triggers both calendar sync AND call record polling immediately. Users no longer need to wait for background polling - they can manually sync to see new meetings instantly.

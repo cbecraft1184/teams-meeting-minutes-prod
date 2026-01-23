@@ -2,7 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema, insertMeetingEventSchema, users } from "@shared/schema";
+import { insertMeetingSchema, insertMeetingMinutesSchema, insertActionItemSchema, insertMeetingTemplateSchema, insertAppSettingsSchema, insertMeetingEventSchema, users, meetings } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { generateMeetingMinutes, extractActionItems } from "./services/azureOpenAI";
 import { authenticateUser, requireAuth, requireRole } from "./middleware/authenticateUser";
@@ -1786,6 +1786,81 @@ export function registerRoutes(app: Express): Server {
         onlineMeetingId: m.onlineMeetingId
       })));
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // TEMP DEBUG: Lookup onlineMeetingId from Graph and update meeting - REMOVE AFTER USE
+  app.post("/api/debug/fix-meeting/:id", async (req, res) => {
+    try {
+      const meetingId = req.params.id;
+      const meeting = await storage.getMeeting(meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      // Get organizer's Azure AD ID
+      const organizerId = meeting.organizerAadId;
+      if (!organizerId) {
+        return res.status(400).json({ error: "No organizer Azure AD ID" });
+      }
+      
+      // Get Graph client
+      const { acquireTokenByClientCredentials, getGraphClient } = await import('./services/microsoftIdentity');
+      
+      const accessToken = await acquireTokenByClientCredentials(['https://graph.microsoft.com/.default']);
+      if (!accessToken) {
+        return res.status(500).json({ error: "Failed to get Graph token" });
+      }
+      
+      const graphClient = await getGraphClient(accessToken);
+      if (!graphClient) {
+        return res.status(500).json({ error: "Failed to create Graph client" });
+      }
+      
+      // Look up online meetings for this organizer around this time
+      const meetingDate = meeting.scheduledAt;
+      const startDate = new Date(meetingDate);
+      startDate.setHours(startDate.getHours() - 2);
+      const endDate = new Date(meetingDate);
+      endDate.setHours(endDate.getHours() + 2);
+      
+      console.log(`[DEBUG] Looking up meetings for ${organizerId} around ${meetingDate}`);
+      
+      // Try to get recent online meetings
+      const onlineMeetingsResponse = await graphClient.get(
+        `/users/${organizerId}/onlineMeetings?$filter=startDateTime ge ${startDate.toISOString()} and startDateTime le ${endDate.toISOString()}`
+      );
+      
+      const onlineMeetings = onlineMeetingsResponse?.value || [];
+      console.log(`[DEBUG] Found ${onlineMeetings.length} online meetings`);
+      
+      // Find matching meeting by title
+      const matchingMeeting = onlineMeetings.find((om: any) => 
+        om.subject?.toLowerCase().includes(meeting.title.toLowerCase()) ||
+        meeting.title.toLowerCase().includes(om.subject?.toLowerCase() || '')
+      );
+      
+      if (matchingMeeting) {
+        // Update meeting with onlineMeetingId
+        await db.update(meetings)
+          .set({ onlineMeetingId: matchingMeeting.id })
+          .where(eq(meetings.id, meetingId));
+        
+        res.json({ 
+          success: true, 
+          onlineMeetingId: matchingMeeting.id,
+          message: "Meeting updated with onlineMeetingId. Now run enrich."
+        });
+      } else {
+        res.json({ 
+          success: false, 
+          foundMeetings: onlineMeetings.map((om: any) => ({ id: om.id, subject: om.subject })),
+          message: "Could not find matching meeting. See foundMeetings for options."
+        });
+      }
+    } catch (error: any) {
+      console.error("[DEBUG] Fix meeting failed:", error);
       res.status(500).json({ error: error.message });
     }
   });

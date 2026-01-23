@@ -1886,6 +1886,34 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // TEMP DEBUG: Query DB constraints - REMOVE AFTER USE
+  app.get("/api/debug/constraints", async (req, res) => {
+    try {
+      const { sql } = await import("drizzle-orm");
+      const result = await db.execute(sql`
+        SELECT con.conname, con.contype, pg_get_constraintdef(con.oid) as definition
+        FROM pg_constraint con
+        JOIN pg_class rel ON rel.oid = con.conrelid
+        WHERE rel.relname = 'meetings'
+      `);
+      res.json(result.rows);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // TEMP DEBUG: Drop a constraint - REMOVE AFTER USE
+  app.post("/api/debug/drop-constraint/:name", async (req, res) => {
+    try {
+      const constraintName = req.params.name;
+      const { sql } = await import("drizzle-orm");
+      await db.execute(sql.raw(`ALTER TABLE meetings DROP CONSTRAINT IF EXISTS "${constraintName}"`));
+      res.json({ success: true, message: `Dropped constraint ${constraintName}` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // TEMP DEBUG: Open endpoint to fix stuck meeting - REMOVE AFTER USE
   app.post("/api/debug/enrich/:id", async (req, res) => {
     try {

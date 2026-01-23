@@ -1753,6 +1753,42 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Sync Now - triggers both calendar sync AND call record polling for immediate capture
+  app.post("/api/sync-now", async (req, res) => {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      console.log(`[SyncNow] Manual sync triggered by ${req.user.email}`);
+
+      const { callRecordPollingService } = await import("./services/callRecordPolling");
+
+      const [calendarResult, callRecordResult] = await Promise.all([
+        graphCalendarSync.syncUserCalendar(req.user.email, req.user.azureAdId || req.user.id).catch(e => ({ synced: 0, created: 0, updated: 0, errors: [e.message] })),
+        callRecordPollingService.pollForNewCallRecords().catch(e => ({ found: 0, processed: 0, error: e.message }))
+      ]);
+
+      res.json({
+        success: true,
+        message: "Sync completed",
+        calendar: {
+          synced: calendarResult.synced,
+          created: calendarResult.created,
+          updated: calendarResult.updated,
+        },
+        callRecords: {
+          found: callRecordResult.found,
+          processed: callRecordResult.processed,
+        },
+        timestamp: new Date().toISOString()
+      });
+    } catch (error: any) {
+      console.error("[SyncNow] Sync failed:", error);
+      res.status(500).json({ error: "Sync failed", details: error.message });
+    }
+  });
+
   // Admin: Sync all users' calendars
   app.post("/api/admin/calendar/sync-all", requireRole("admin"), async (req, res) => {
     try {

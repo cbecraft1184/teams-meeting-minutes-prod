@@ -4,8 +4,8 @@ import { Link } from "wouter";
 import { StatsCard } from "@/components/stats-card";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
-import { Button, SearchBox, makeStyles, tokens, shorthands, Switch, Badge, useToastController, Toast, ToastTitle, ToastBody } from "@fluentui/react-components";
-import { Settings24Regular, Search24Regular } from "@fluentui/react-icons";
+import { Button, SearchBox, makeStyles, tokens, shorthands, Switch, Badge, useToastController, Toast, ToastTitle, ToastBody, Spinner } from "@fluentui/react-components";
+import { Settings24Regular, Search24Regular, ArrowSync24Regular } from "@fluentui/react-icons";
 import { Pagination } from "@/components/Pagination";
 import { FileText, Calendar, Archive, CheckCircle2, AlertCircle, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -225,6 +225,35 @@ export default function Dashboard() {
     },
   });
 
+  // Sync Now mutation
+  const syncNowMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('POST', '/api/sync-now');
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meetings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      const created = data?.calendar?.created || 0;
+      const found = data?.callRecords?.processed || 0;
+      dispatchToast(
+        <Toast data-testid="toast-sync-complete">
+          <ToastTitle>Sync Complete</ToastTitle>
+          <ToastBody>{created + found > 0 ? `Found ${created + found} new meeting(s)` : 'No new meetings found'}</ToastBody>
+        </Toast>,
+        { intent: "success" }
+      );
+    },
+    onError: () => {
+      dispatchToast(
+        <Toast data-testid="toast-sync-error">
+          <ToastTitle>Sync Failed</ToastTitle>
+          <ToastBody>Could not sync meetings from Teams</ToastBody>
+        </Toast>,
+        { intent: "error" }
+      );
+    },
+  });
+
   // Restore mutation
   const restoreMutation = useMutation({
     mutationFn: async (meetingId: string) => {
@@ -284,15 +313,26 @@ export default function Dashboard() {
             Meetings are automatically captured from Microsoft Teams
           </p>
         </div>
-        <Link href="/settings">
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
           <Button 
-            appearance="subtle" 
-            icon={<Settings24Regular />}
-            data-testid="button-settings"
+            appearance="primary" 
+            icon={syncNowMutation.isPending ? <Spinner size="tiny" /> : <ArrowSync24Regular />}
+            onClick={() => syncNowMutation.mutate()}
+            disabled={syncNowMutation.isPending}
+            data-testid="button-sync-now"
           >
-            Teams Integration
+            {syncNowMutation.isPending ? "Syncing..." : "Sync Now"}
           </Button>
-        </Link>
+          <Link href="/settings">
+            <Button 
+              appearance="subtle" 
+              icon={<Settings24Regular />}
+              data-testid="button-settings"
+            >
+              Teams Integration
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <div className={styles.statsGrid}>

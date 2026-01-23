@@ -19,7 +19,7 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 - **Frontend**: React + TypeScript with Vite, using TanStack Query for state management and Wouter for routing.
 - **Backend**: Node.js + Express (TypeScript, ESM) with Azure AD JWT validation via MSAL for authentication. A PostgreSQL-backed durable queue manages background jobs.
 - **Data Storage**: PostgreSQL (Neon for development, Azure Database for PostgreSQL for production) managed by Drizzle ORM, with a schema supporting `meetings`, `meeting_minutes`, `action_items`, and `job_queue`.
-- **Microsoft Graph Integration**: Uses Microsoft Graph v1.0 for real-time meeting completion capture via webhooks, calendar delta sync, and transcript access, including specific handling for multi-session meetings and organizer ID retrieval.
+- **Microsoft Graph Integration**: Uses Microsoft Graph v1.0 for meeting capture via three complementary methods: (1) webhooks for real-time call record notifications, (2) active polling every 2 minutes as a backup to webhooks, and (3) calendar delta sync for scheduled meetings. Includes specific handling for multi-session meetings and organizer ID retrieval.
 - **AI Integration**: Leverages Azure OpenAI Service (GPT-4o for minutes, Whisper for transcription) for processing transcripts, generating structured minutes, and identifying action items.
 - **Document Generation**: Supports DOCX (using `docx`) and PDF (using `pdf-lib`) formats for exporting minutes.
 
@@ -76,6 +76,11 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 
 ### Database Schema Fixes (January 2026)
 10. **Multi-Session Meeting ID Conflict** (`sync-prod-schema.sql`): CRITICAL FIX - Dropped unique index `meetings_online_meeting_id_canonical_idx` that prevented multi-session meetings from sharing the same `online_meeting_id`. Multi-session meetings (recurring Teams meetings) legitimately share the same Teams meeting ID across multiple database records. The sync script now includes `DROP INDEX IF EXISTS meetings_online_meeting_id_canonical_idx` to prevent this issue on fresh deployments.
+
+### Performance Improvements (January 2026)
+11. **Active Call Record Polling** (`callRecordPolling.ts`): Added active polling service that queries Microsoft Graph API every 2 minutes for new call records. This ensures meetings are captured even if webhook delivery is delayed or fails. Previously relied solely on webhooks which could be unreliable for instant/ad-hoc calls.
+12. **Sync Now Feature** (`routes.ts`, `dashboard.tsx`): Added "Sync Now" button to dashboard header that triggers both calendar sync AND call record polling immediately. Users no longer need to wait for background polling - they can manually sync to see new meetings instantly.
+13. **Faster Enrichment Catch-up** (`backgroundJobs.ts`): Reduced stuck enrichment check interval from 30 minutes to 5 minutes for faster recovery.
 
 ## Debugging Lessons Learned
 - **attendeesPresent format**: Always `{name, email}[]` - map to `.name` before `.join()` for display

@@ -9,13 +9,13 @@
 
 import { graphSubscriptionManager } from './graphSubscriptionManager';
 import { callRecordEnrichmentService } from './callRecordEnrichment';
+import { callRecordPollingService } from './callRecordPolling';
 import { getConfig } from './configValidator';
 
-// Job intervals (in milliseconds)
 const INTERVALS = {
   WEBHOOK_RENEWAL: 60 * 60 * 1000, // 1 hour
   AD_GROUP_SYNC: 15 * 60 * 1000,   // 15 minutes (for future use)
-  CALL_RECORD_ENRICHMENT: 30 * 60 * 1000, // 30 minutes (for future use)
+  CALL_RECORD_ENRICHMENT: 5 * 60 * 1000, // 5 minutes - faster catch-up
 };
 
 // Track running intervals for cleanup
@@ -35,8 +35,8 @@ export function startBackgroundJobs(): void {
   // Job 2: CallRecord enrichment catch-up
   startCallRecordEnrichmentJob();
   
-  // Job 3: Azure AD group sync (future - Task 4)
-  // startADGroupSyncJob();
+  // Job 3: Active call record polling (backup to webhooks)
+  callRecordPollingService.startCallRecordPolling();
   
   console.log('✅ Background jobs started');
 }
@@ -52,6 +52,9 @@ export function stopBackgroundJobs(): void {
     clearInterval(interval);
   }
   runningIntervals.length = 0;
+  
+  // Stop call record polling
+  callRecordPollingService.stopCallRecordPolling();
   
   // Clear all enrichment retry timers
   callRecordEnrichmentService.clearAllRetryTimers();

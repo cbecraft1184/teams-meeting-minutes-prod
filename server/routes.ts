@@ -1900,11 +1900,13 @@ export function registerRoutes(app: Express): Server {
       
       // If onlineMeetingId provided in body, set it first
       if (providedId && !meeting.onlineMeetingId) {
-        await db.update(meetings)
-          .set({ onlineMeetingId: providedId })
-          .where(eq(meetings.id, meetingId));
-        meeting = await storage.getMeeting(meetingId);
-        console.log(`[DEBUG] Set onlineMeetingId to ${providedId}`);
+        try {
+          meeting = await storage.updateMeeting(meetingId, { onlineMeetingId: providedId });
+          console.log(`[DEBUG] Set onlineMeetingId to ${providedId}`);
+        } catch (updateErr: any) {
+          console.error(`[DEBUG] Failed to set onlineMeetingId:`, updateErr);
+          return res.status(500).json({ error: `Failed to set meeting ID: ${updateErr.message}` });
+        }
       }
       
       if (!meeting?.onlineMeetingId) {

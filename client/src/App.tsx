@@ -270,11 +270,10 @@ function AppWithProviders() {
       <ThemeProvider defaultTheme="light">
         <Toaster 
           toasterId={APP_TOASTER_ID} 
-          position="top-end"
+          position="top"
           timeout={4000}
           pauseOnHover={true}
           data-testid="app-toaster"
-          style={{ zIndex: 10000000 }}
         />
         <AppContent />
       </ThemeProvider>

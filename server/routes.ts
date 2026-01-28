@@ -1876,7 +1876,7 @@ export function registerRoutes(app: Express): Server {
         organizerEmail: organizerEmail,
         organizerAadId: req.user.azureAdId || req.user.id,
         tenantId: req.user.tenantId || "default",
-        processingDecision: "process",
+        processingDecision: "processed",
         processingDecisionReason: "Manual import with transcript",
         processingDecisionAt: now,
       }).returning();

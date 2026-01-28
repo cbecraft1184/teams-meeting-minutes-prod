@@ -9,9 +9,10 @@ let replitAIClient: OpenAI | null = null;
 function getAIClient(): AzureOpenAI | OpenAI {
   // Production: Use Azure OpenAI Government Cloud
   // Check both _PROD suffix (Azure Container Apps) and non-suffixed (local dev) variants
+  // BUGFIX: Also check AZURE_OPENAI_DEPLOYMENT_NAME which is used by some deployment scripts
   const apiKey = process.env.AZURE_OPENAI_API_KEY_PROD || process.env.AZURE_OPENAI_API_KEY;
   const endpoint = process.env.AZURE_OPENAI_ENDPOINT_PROD || process.env.AZURE_OPENAI_ENDPOINT;
-  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT_PROD || process.env.AZURE_OPENAI_DEPLOYMENT;
+  const deployment = process.env.AZURE_OPENAI_DEPLOYMENT_PROD || process.env.AZURE_OPENAI_DEPLOYMENT || process.env.AZURE_OPENAI_DEPLOYMENT_NAME;
   
   if (apiKey && endpoint) {
     if (!azureClient) {

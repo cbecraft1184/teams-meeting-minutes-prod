@@ -86,6 +86,14 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 12. **Sync Now Feature** (`routes.ts`, `dashboard.tsx`): Added "Sync Now" button to dashboard header that triggers both calendar sync AND call record polling immediately. Users no longer need to wait for background polling - they can manually sync to see new meetings instantly.
 13. **Faster Enrichment Catch-up** (`backgroundJobs.ts`): Reduced stuck enrichment check interval from 30 minutes to 5 minutes for faster recovery.
 
+### Production Deployment Fixes (January 28, 2026)
+15. **Azure OpenAI Deployment Name Mismatch** (`azureOpenAI.ts`, `deploy-production-config.sh`, `appservice.bicep`): CRITICAL FIX - Deployment script was setting `AZURE_OPENAI_DEPLOYMENT_NAME` but code expected `AZURE_OPENAI_DEPLOYMENT`. This caused AI minutes generation to fail silently in production. Fixed by:
+    - Updated code to also check `AZURE_OPENAI_DEPLOYMENT_NAME` as fallback
+    - Fixed deploy script to use correct variable name `AZURE_OPENAI_DEPLOYMENT`
+    - Added `AZURE_OPENAI_DEPLOYMENT` to bicep infrastructure template
+16. **Missing Job Worker in Production** (`deploy-production-config.sh`, `appservice.bicep`): CRITICAL FIX - `ENABLE_JOB_WORKER=true` was missing from deployment configuration, causing background jobs (including AI minutes generation) to never run. Added to both deployment script and bicep template.
+17. **ProcessingDecision Enum Fix** (`routes.ts`): Fixed manual import using wrong enum value `"process"` instead of `"processed"` for the processingDecision field.
+
 ## Debugging Lessons Learned
 - **attendeesPresent format**: Always `{name, email}[]` - map to `.name` before `.join()` for display
 - **API path matching**: Use `req.originalUrl` for auth bypass checks under `/api/*` mount paths

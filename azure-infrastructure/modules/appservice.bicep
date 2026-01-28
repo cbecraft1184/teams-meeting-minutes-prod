@@ -93,6 +93,14 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
           value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/openai-api-key)'
         }
         {
+          name: 'AZURE_OPENAI_DEPLOYMENT'
+          value: '@Microsoft.KeyVault(SecretUri=https://${keyVaultName}.vault.azure.net/secrets/openai-deployment-name)'
+        }
+        {
+          name: 'ENABLE_JOB_WORKER'
+          value: 'true'
+        }
+        {
           name: 'GRAPH_API_ENDPOINT'
           value: 'https://graph.microsoft.com'
         }

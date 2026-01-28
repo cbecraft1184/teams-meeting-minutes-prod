@@ -107,7 +107,10 @@ ENV_VARS=(
     # Azure OpenAI Configuration
     "AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}"
     "AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}"
-    "AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME}"
+    "AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT_NAME}"
+    
+    # Enable background job processing (required for AI minutes generation)
+    "ENABLE_JOB_WORKER=true"
     
     # SharePoint & Email Configuration
     "SHAREPOINT_SITE_URL=${SHAREPOINT_SITE_URL}"

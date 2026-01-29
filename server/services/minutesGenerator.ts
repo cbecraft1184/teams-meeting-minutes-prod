@@ -276,6 +276,7 @@ export async function autoGenerateMinutes(
     // Store attendees as objects with both name and email
     const minutesPayload = {
       meetingId: meeting.id,
+      tenantId: meeting.tenantId, // CRITICAL: Set tenant_id for multi-tenant isolation
       summary: minutesData.summary,
       keyDiscussions: minutesData.keyDiscussions,
       decisions: minutesData.decisions,
@@ -408,6 +409,7 @@ export async function autoGenerateMinutes(
       
       const fallbackPayload = {
         meetingId: meetingId,
+        tenantId: meeting.tenantId, // CRITICAL: Set tenant_id for multi-tenant isolation
         summary: "Failed to generate meeting minutes. Please regenerate or create manually.",
         keyDiscussions: ["Minutes generation failed - no discussions captured"],
         decisions: ["Minutes generation failed - no decisions captured"],

@@ -989,7 +989,7 @@ export function MeetingDetailsModal({ meeting, open, onOpenChange }: MeetingDeta
                     {meeting.attendees.map((attendee, index) => (
                       <Badge key={index} appearance="outline" data-testid={`badge-attendee-${index}`}>
                         <User className={mergeClasses(styles.iconSmall, styles.iconWithSmallMargin)} />
-                        {attendee}
+                        {typeof attendee === 'string' ? attendee : (attendee as any).name || (attendee as any).email || 'Unknown'}
                       </Badge>
                     ))}
                   </div>

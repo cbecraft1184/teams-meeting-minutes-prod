@@ -56,6 +56,7 @@ integrations = ["sharepoint:1.0.0", "javascript_openai_ai_integrations:1.0.0", "
 USE_MOCK_SERVICES = "true"
 
 [userenv.shared]
+ENABLE_JOB_WORKER = "true"
 
 [userenv.production]
 USE_MOCK_SERVICES = "false"

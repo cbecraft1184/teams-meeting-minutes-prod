@@ -94,6 +94,11 @@ The frontend utilizes React with Fluent UI React Components to offer a native Mi
 16. **Missing Job Worker in Production** (`deploy-production-config.sh`, `appservice.bicep`): CRITICAL FIX - `ENABLE_JOB_WORKER=true` was missing from deployment configuration, causing background jobs (including AI minutes generation) to never run. Added to both deployment script and bicep template.
 17. **ProcessingDecision Enum Fix** (`routes.ts`): Fixed manual import using wrong enum value `"process"` instead of `"processed"` for the processingDecision field.
 
+### Minutes Display Fixes (January 29, 2026)
+18. **Meeting Minutes Tenant ID Bug** (`meetingOrchestrator.ts`, `minutesGenerator.ts`): CRITICAL FIX - Meeting minutes records were being created without `tenant_id`, causing them to be invisible in tenant-filtered API queries. The storage layer's `getMeetingsByTenant()` filtered minutes by tenant_id, but newly created minutes had NULL tenant_id. Fixed by setting `tenantId: meeting.tenantId` when inserting minutes records.
+19. **Attendee Object Rendering Bug** (`meeting-details-modal.tsx`): React error "Objects are not valid as React child" occurred because attendees were stored as `{name, email}` objects but rendered directly as text. Fixed by checking type and extracting `.name` property.
+20. **Attendee Array Normalization** (`meetingOrchestrator.ts`): Backend code assumed `meeting.attendees` was always string[], but it could be object[]. Fixed by normalizing to strings before processing.
+
 ## Debugging Lessons Learned
 - **attendeesPresent format**: Always `{name, email}[]` - map to `.name` before `.join()` for display
 - **API path matching**: Use `req.originalUrl` for auth bypass checks under `/api/*` mount paths

@@ -354,15 +354,25 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
   const { meetingId } = job.payload;
   if (!meetingId) throw new Error("meetingId required");
 
+  // Get meeting first to access tenant_id and transcript data
+  const meeting = await db.query.meetings.findFirst({
+    where: (m, { eq }) => eq(m.id, meetingId),
+  });
+
+  if (!meeting) {
+    throw new Error(`Meeting not found: ${meetingId}`);
+  }
+
   // Get or create meeting minutes record
   let minutes = await db.query.meetingMinutes.findFirst({
     where: (minutes, { eq }) => eq(minutes.meetingId, meetingId),
   });
 
   if (!minutes) {
-    // Create new minutes record
+    // Create new minutes record - BUGFIX: include tenantId from meeting
     const [newMinutes] = await db.insert(meetingMinutes).values({
       meetingId,
+      tenantId: meeting.tenantId, // CRITICAL: Set tenant_id for multi-tenant isolation
       summary: "",
       keyDiscussions: [],
       decisions: [],
@@ -372,22 +382,16 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
     minutes = newMinutes;
   } else {
     // Update existing minutes to generating status
+    // Also fix tenantId if it was missing (for existing records)
     await db.update(meetingMinutes)
       .set({
         processingStatus: "generating",
+        tenantId: meeting.tenantId, // BUGFIX: ensure tenantId is set
       })
       .where(eq(meetingMinutes.id, minutes.id));
   }
 
   try {
-    // Get meeting to access transcript data (persisted by callRecordEnrichment)
-    const meeting = await db.query.meetings.findFirst({
-      where: (m, { eq }) => eq(m.id, meetingId),
-    });
-
-    if (!meeting) {
-      throw new Error(`Meeting not found: ${meetingId}`);
-    }
 
     // Use persisted transcript content from enrichment
     const transcript = meeting.transcriptContent;
@@ -409,7 +413,11 @@ async function processMinutesGenerationJob(job: Job): Promise<void> {
 
     // Get invitees from Graph calendar sync (the authoritative list)
     const invitees = (meeting as any).invitees || [];
-    const existingAttendees = meeting.attendees || [];
+    // Normalize existing attendees to strings (they may be {name, email} objects or strings)
+    const rawAttendees = meeting.attendees || [];
+    const existingAttendees: string[] = rawAttendees.map((a: any) => 
+      typeof a === 'string' ? a : (a.name || a.email || '')
+    ).filter(Boolean);
     
     // Extract speakers from WEBVTT transcript format: <v Speaker Name>...</v>
     // Also handles class qualifiers like <v.identifier Name>

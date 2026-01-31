@@ -1,4 +1,5 @@
 import { Card, makeStyles, tokens, shorthands } from "@fluentui/react-components";
+import { Link } from "wouter";
 import { LucideIcon } from "lucide-react";
 
 interface StatsCardProps {
@@ -6,11 +7,30 @@ interface StatsCardProps {
   value: string | number;
   icon: LucideIcon;
   description?: string;
+  href?: string;
 }
 
 const useStyles = makeStyles({
   card: {
     ...shorthands.padding("24px"),
+  },
+  clickableCard: {
+    ...shorthands.padding("24px"),
+    cursor: "pointer",
+    transitionProperty: "box-shadow, transform",
+    transitionDuration: "0.15s",
+    transitionTimingFunction: "ease-out",
+    ":hover": {
+      boxShadow: tokens.shadow8,
+    },
+    ":active": {
+      transform: "scale(0.98)",
+    },
+  },
+  link: {
+    textDecoration: "none",
+    color: "inherit",
+    display: "block",
   },
   content: {
     display: "flex",
@@ -48,11 +68,15 @@ const useStyles = makeStyles({
   },
 });
 
-export function StatsCard({ title, value, icon: Icon, description }: StatsCardProps) {
+export function StatsCard({ title, value, icon: Icon, description, href }: StatsCardProps) {
   const styles = useStyles();
+  const testId = `card-stat-${title.toLowerCase().replace(/\s+/g, '-')}`;
   
-  return (
-    <Card className={styles.card} data-testid={`card-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+  const cardContent = (
+    <Card 
+      className={href ? styles.clickableCard : styles.card} 
+      data-testid={testId}
+    >
       <div className={styles.content}>
         <div className={styles.textContainer}>
           <p className={styles.title}>{title}</p>
@@ -69,4 +93,14 @@ export function StatsCard({ title, value, icon: Icon, description }: StatsCardPr
       </div>
     </Card>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className={styles.link} data-testid={`link-stat-${title.toLowerCase().replace(/\s+/g, '-')}`}>
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 }

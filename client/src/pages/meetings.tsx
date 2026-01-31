@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useSearch } from "wouter";
 import { MeetingCard } from "@/components/meeting-card";
 import { MeetingDetailsModal } from "@/components/meeting-details-modal";
 import { 
@@ -152,11 +153,17 @@ const useStyles = makeStyles({
 export default function Meetings() {
   const styles = useStyles();
   const qc = useQueryClient();
+  const searchString = useSearch();
   const { dispatchToast } = useToastController(APP_TOASTER_ID);
   const { isInitialized, hasToken, isInTeams } = useTeams();
   const [selectedMeeting, setSelectedMeeting] = useState<MeetingWithMinutes | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const params = new URLSearchParams(searchString);
+    const status = params.get("status");
+    const validStatuses = ["all", "scheduled", "in_progress", "completed", "archived", "pending_minutes"];
+    return status && validStatuses.includes(status) ? status : "all";
+  });
   const [classificationFilter, setClassificationFilter] = useState<string>("all");
   const [isSyncing, setIsSyncing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -263,7 +270,15 @@ export default function Meetings() {
   const filteredMeetings = meetings.filter((meeting) => {
     const matchesSearch = meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          meeting.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || meeting.status === statusFilter;
+    
+    let matchesStatus = statusFilter === "all" || meeting.status === statusFilter;
+    if (statusFilter === "pending_minutes") {
+      matchesStatus = meeting.minutes?.processingStatus === "pending" || 
+                      meeting.minutes?.processingStatus === "transcribing" ||
+                      meeting.minutes?.processingStatus === "generating" ||
+                      !meeting.minutes;
+    }
+    
     const matchesClassification = classificationFilter === "all" || 
                                   meeting.classificationLevel === classificationFilter;
     
@@ -314,6 +329,7 @@ export default function Meetings() {
           data-testid="select-status-filter"
         >
           <Option value="all">All Statuses</Option>
+          <Option value="pending_minutes">Pending Minutes</Option>
           <Option value="scheduled">Scheduled</Option>
           <Option value="in_progress">In Progress</Option>
           <Option value="completed">Completed</Option>

@@ -410,24 +410,28 @@ export default function Dashboard() {
               value={stats?.totalMeetings || 0}
               icon={Calendar}
               description="All recorded meetings"
+              href="/meetings"
             />
             <StatsCard
               title="Pending Minutes"
               value={stats?.pendingMinutes || 0}
               icon={FileText}
               description="Awaiting generation"
+              href="/meetings?status=pending_minutes"
             />
             <StatsCard
               title="Completed"
               value={stats?.completedMeetings || 0}
               icon={CheckCircle2}
               description="Fully processed"
+              href="/meetings?status=completed"
             />
             <StatsCard
               title="Archived"
               value={stats?.archivedMeetings || 0}
               icon={Archive}
               description="In SharePoint"
+              href="/meetings?status=archived"
             />
           </>
         )}

@@ -169,6 +169,15 @@ export default function Meetings() {
   const [currentPage, setCurrentPage] = useState(1);
   const [showDismissed, setShowDismissed] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const status = params.get("status");
+    const validStatuses = ["all", "scheduled", "in_progress", "completed", "archived", "pending_minutes"];
+    if (status && validStatuses.includes(status)) {
+      setStatusFilter(status);
+    }
+  }, [searchString]);
+
   const canFetch = isInitialized && (hasToken || !isInTeams);
   const offset = (currentPage - 1) * PAGE_SIZE;
 

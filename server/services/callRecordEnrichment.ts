@@ -183,7 +183,7 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       }
     }
     
-    // Fallback: Look up organizer ID from email if still not available
+    // Fallback 1: Look up organizer ID from email if still not available
     if (!organizerId && meetingRecord?.organizerEmail) {
       try {
         console.log(`👤 [Enrichment] Looking up organizer by email: ${meetingRecord.organizerEmail}`);
@@ -201,8 +201,86 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       }
     }
     
+    // Fallback 2: Look up meeting by JoinWebUrl to get organizer ID
+    if (!organizerId && meetingRecord?.teamsJoinLink) {
+      try {
+        console.log(`🔗 [Enrichment] Looking up meeting by JoinWebUrl: ${meetingRecord.teamsJoinLink.substring(0, 80)}...`);
+        // Need a user context to query - use a known user ID or the app's service principal
+        // Try to get any user in the tenant to use as the context
+        const usersResponse = await graphClient.get(`/users?$top=1&$select=id`);
+        const anyUserId = usersResponse?.value?.[0]?.id;
+        
+        if (anyUserId) {
+          const encodedJoinUrl = encodeURIComponent(meetingRecord.teamsJoinLink);
+          const meetingLookupResponse = await graphClient.get(
+            `/users/${anyUserId}/onlineMeetings?$filter=JoinWebUrl eq '${meetingRecord.teamsJoinLink}'`
+          );
+          
+          const foundMeeting = meetingLookupResponse?.value?.[0];
+          if (foundMeeting?.participants?.organizer?.identity?.user?.id) {
+            organizerId = foundMeeting.participants.organizer.identity.user.id;
+            // Persist for future use
+            await db.update(meetings)
+              .set({ organizerAadId: organizerId })
+              .where(eq(meetings.id, meetingId));
+            console.log(`✅ [Enrichment] Found organizer ID from JoinWebUrl lookup: ${organizerId}`);
+          }
+        }
+      } catch (joinUrlLookupError: any) {
+        console.warn(`⚠️ [Enrichment] Could not lookup meeting by JoinWebUrl:`, joinUrlLookupError?.message);
+      }
+    }
+    
+    // Fallback 3: Try to get transcripts using getAllTranscripts for the tenant
+    // This requires iterating through users but can find transcripts
     if (!organizerId) {
-      throw new Error(`Cannot fetch transcripts: organizer ID not available for meeting ${meetingId}. organizerEmail: ${meetingRecord?.organizerEmail || 'not set'}, callRecordId: ${meetingRecord?.callRecordId || 'not set'}`);
+      console.log(`🔍 [Enrichment] No organizer ID found - attempting getAllTranscripts search...`);
+      try {
+        // Get the authenticated user (app's service principal context)
+        const usersResponse = await graphClient.get(`/users?$top=10&$select=id,displayName,userPrincipalName`);
+        const users = usersResponse?.value || [];
+        
+        for (const user of users) {
+          try {
+            console.log(`   Checking transcripts for user: ${user.displayName || user.id}`);
+            const transcriptsResponse = await graphClient.get(
+              `/users/${user.id}/onlineMeetings/getAllTranscripts(meetingOrganizerUserId='${user.id}')?$top=20`
+            );
+            const allTranscripts = transcriptsResponse?.value || [];
+            
+            if (allTranscripts.length > 0) {
+              // Check if any transcript matches our meeting's timeframe
+              const meetingDate = meetingRecord?.scheduledAt || meetingRecord?.createdAt;
+              if (meetingDate) {
+                const meetingTime = new Date(meetingDate).getTime();
+                const matchingTranscript = allTranscripts.find((t: any) => {
+                  const transcriptTime = new Date(t.createdDateTime).getTime();
+                  // Within 24 hours of meeting time
+                  return Math.abs(transcriptTime - meetingTime) < 24 * 60 * 60 * 1000;
+                });
+                
+                if (matchingTranscript) {
+                  organizerId = user.id;
+                  await db.update(meetings)
+                    .set({ organizerAadId: organizerId })
+                    .where(eq(meetings.id, meetingId));
+                  console.log(`✅ [Enrichment] Found matching transcript for user ${user.displayName}, using as organizer`);
+                  break;
+                }
+              }
+            }
+          } catch (userTranscriptError: any) {
+            // Skip this user, try next
+            console.log(`   No transcripts accessible for ${user.displayName || user.id}`);
+          }
+        }
+      } catch (allTranscriptsError: any) {
+        console.warn(`⚠️ [Enrichment] getAllTranscripts search failed:`, allTranscriptsError?.message);
+      }
+    }
+    
+    if (!organizerId) {
+      throw new Error(`Cannot fetch transcripts: organizer ID not available for meeting ${meetingId}. Tried: organizerEmail=${meetingRecord?.organizerEmail || 'not set'}, callRecordId=${meetingRecord?.callRecordId || 'not set'}, teamsJoinLink=${meetingRecord?.teamsJoinLink ? 'set' : 'not set'}`);
     }
     
     console.log(`👤 [Enrichment] Using organizer ID: ${organizerId}`);

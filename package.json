@@ -13,6 +13,7 @@
   "dependencies": {
     "@azure/identity": "^4.13.0",
     "@azure/keyvault-secrets": "^4.10.0",
+    "@azure/msal-browser": "^3.6.0",
     "@azure/msal-node": "^3.8.1",
     "@fluentui/react-components": "^9.72.7",
     "@fluentui/react-datepicker-compat": "^0.6.20",

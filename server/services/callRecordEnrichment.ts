@@ -325,11 +325,32 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
         const allTranscripts = allTranscriptsResponse?.value || [];
         console.log(`   Found ${allTranscripts.length} total transcripts for organizer`);
         
-        // Filter to find transcripts that might match this meeting's timeframe
-        if (allTranscripts.length > 0) {
-          // Get the most recent transcript as a fallback
-          transcripts = allTranscripts.slice(0, 1);
-          console.log(`   Using most recent transcript as fallback`);
+        // Filter to find transcripts that match this specific meeting
+        // The meeting ID appears in the transcriptContentUrl in base64-encoded form
+        const targetMeetingId = onlineMeetingId.replace(/[@:]/g, ''); // Normalize for matching
+        const matchingTranscripts = allTranscripts.filter((t: any) => {
+          if (!t.transcriptContentUrl) return false;
+          // Check if the URL contains a reference to this meeting
+          // The meeting thread ID is base64-encoded in the URL
+          const urlContainsMeeting = t.transcriptContentUrl.includes(encodedMeetingId) ||
+            t.transcriptContentUrl.includes(encodeURIComponent(onlineMeetingId)) ||
+            (t.meetingId && t.meetingId.includes(targetMeetingId));
+          if (urlContainsMeeting) {
+            console.log(`   ✅ Found matching transcript: ${t.id}`);
+          }
+          return urlContainsMeeting;
+        });
+        
+        if (matchingTranscripts.length > 0) {
+          transcripts = matchingTranscripts;
+          console.log(`   Using ${matchingTranscripts.length} matching transcript(s) for this meeting`);
+        } else {
+          console.log(`   ⚠️ No transcripts match this specific meeting ID`);
+          // Log first transcript URL for debugging
+          if (allTranscripts[0]?.transcriptContentUrl) {
+            console.log(`   First transcript URL: ${allTranscripts[0].transcriptContentUrl}`);
+            console.log(`   Looking for: ${encodedMeetingId}`);
+          }
         }
       } catch (allTranscriptsError: any) {
         console.warn(`   ⚠️ getAllTranscripts also failed:`, allTranscriptsError?.message || allTranscriptsError);

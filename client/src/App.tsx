@@ -126,7 +126,7 @@ const useStyles = makeStyles({
 });
 
 function AppContent() {
-  const { context, isInitialized, error, ssoError, isInTeams } = useTeams();
+  const { context, isInitialized, error, ssoError, isInTeams, hasToken, msalAccount } = useTeams();
   const styles = useStyles();
   const [navOpen, setNavOpen] = useState(true);
 
@@ -230,6 +230,11 @@ function AppContent() {
         </main>
       </div>
     );
+  }
+
+  // Browser mode - require authentication
+  if (!isInTeams && !hasToken && !msalAccount) {
+    return <LoginPrompt />;
   }
 
   return (

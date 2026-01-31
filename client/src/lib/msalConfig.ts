@@ -13,7 +13,7 @@ const getRedirectUri = () => {
 export const msalConfig: Configuration = {
   auth: {
     clientId: CLIENT_ID,
-    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    authority: 'https://login.microsoftonline.com/organizations',
     redirectUri: getRedirectUri(),
     postLogoutRedirectUri: getRedirectUri(),
     navigateToLoginRequestUrl: true,

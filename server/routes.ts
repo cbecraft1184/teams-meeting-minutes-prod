@@ -1865,7 +1865,7 @@ export function registerRoutes(app: Express): Server {
         description: `Manually imported by ${req.user.email}`,
         scheduledAt: meetingTime,
         duration: "Unknown",
-        attendees: parsedAttendees,
+        attendees: parsedAttendees.map(a => a.email),
         status: "completed",
         classificationLevel: (req.user.clearanceLevel as any) || "UNCLASSIFIED",
         teamsJoinLink: teamsJoinLink || null,
@@ -2011,12 +2011,46 @@ export function registerRoutes(app: Express): Server {
       const { meetings: meetingsTable, meetingMinutes } = await import("@shared/schema");
       
       // Check if meeting has transcript content (required for processing)
-      // No minimum length - just needs to exist
-      if (!meeting.transcriptContent || meeting.transcriptContent.trim().length === 0) {
-        return res.status(400).json({ 
-          error: "Cannot reprocess: Meeting has no transcript content",
-          hint: "Transcript is required for AI minutes generation" 
-        });
+      // If no transcript, attempt to fetch it from Microsoft Graph API first
+      let hasTranscript = meeting.transcriptContent && meeting.transcriptContent.trim().length > 0;
+      
+      if (!hasTranscript) {
+        console.log(`[Admin] Meeting ${meetingId} has no transcript - attempting to fetch from Graph API`);
+        
+        // Check if meeting has onlineMeetingId (required for Graph API)
+        if (!meeting.onlineMeetingId) {
+          return res.status(400).json({ 
+            error: "Cannot reprocess: Meeting has no transcript and no onlineMeetingId",
+            hint: "This meeting cannot be enriched because it lacks a Teams meeting ID. Use manual import to add transcript content." 
+          });
+        }
+        
+        // Attempt to enrich the meeting (fetch transcript from Graph API)
+        try {
+          const { callRecordEnrichmentService } = await import("./services/callRecordEnrichment");
+          await callRecordEnrichmentService.enrichMeeting(meetingId, meeting.onlineMeetingId, 1);
+          
+          // Re-fetch meeting to check if transcript was obtained
+          const enrichedMeeting = await storage.getMeeting(meetingId);
+          if (enrichedMeeting?.transcriptContent && enrichedMeeting.transcriptContent.trim().length > 0) {
+            console.log(`[Admin] Successfully fetched transcript for meeting ${meetingId} (${enrichedMeeting.transcriptContent.length} chars)`);
+            hasTranscript = true;
+          } else {
+            console.log(`[Admin] Enrichment completed but no transcript content available for meeting ${meetingId}`);
+          }
+        } catch (enrichError: any) {
+          console.error(`[Admin] Failed to enrich meeting ${meetingId}:`, enrichError.message);
+          // Continue to check if we now have transcript anyway
+          const checkMeeting = await storage.getMeeting(meetingId);
+          hasTranscript = !!(checkMeeting?.transcriptContent && checkMeeting.transcriptContent.trim().length > 0);
+        }
+        
+        if (!hasTranscript) {
+          return res.status(400).json({ 
+            error: "Cannot reprocess: Meeting has no transcript content",
+            hint: "Transcript could not be fetched from Microsoft Graph API. The transcript may not be available in Teams yet, or the meeting may not have been recorded with transcription enabled." 
+          });
+        }
       }
       
       // Delete existing minutes if any (so we can regenerate)

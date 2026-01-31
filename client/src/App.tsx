@@ -9,6 +9,7 @@ import { UserSwitcher } from "@/components/user-switcher";
 import { AppMenu } from "@/components/app-menu";
 import { FluentNavigation } from "@/components/FluentNavigation";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { LoginPrompt } from "@/components/login-prompt";
 import { TeamsProvider, useTeams } from "@/contexts/TeamsContext";
 import Dashboard from "@/pages/dashboard";
 import Meetings from "@/pages/meetings";

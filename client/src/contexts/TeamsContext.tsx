@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { app, authentication } from '@microsoft/teams-js';
 import { setAuthToken, clearAuthToken, getAuthToken as getStoredToken } from '@/lib/authToken';
+import { getMsalInstance, loginRequest, apiScopes } from '@/lib/msalConfig';
+import type { AccountInfo } from '@azure/msal-browser';
 
 const APP_ID_URI = 'api://teams-minutes-app.orangemushroom-b6a1517d.eastus2.azurecontainerapps.io/71383692-c5c6-40cc-94cf-96c97fed146c';
 
@@ -25,6 +27,10 @@ export interface TeamsContextValue {
   error: string | null;
   ssoError: any | null;
   hasToken: boolean;
+  msalAccount: AccountInfo | null;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
+  isLoggingIn: boolean;
 }
 
 const TeamsContext = createContext<TeamsContextValue | undefined>(undefined);
@@ -37,6 +43,8 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const [ssoError, setSsoError] = useState<any | null>(null);
   const [isInTeams, setIsInTeams] = useState(false);
   const [hasToken, setHasToken] = useState(false);
+  const [msalAccount, setMsalAccount] = useState<AccountInfo | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   useEffect(() => {
     async function initializeTeams() {
@@ -185,7 +193,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         logAuth('INIT_COMPLETE_IN_TEAMS');
         
       } catch (err: any) {
-        // Teams SDK initialization failed - running in standalone mode
+        // Teams SDK initialization failed - running in standalone mode with MSAL
         const errorDetails = {
           message: err?.message || String(err),
           name: err?.name,
@@ -193,10 +201,51 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         };
         
         logAuth('TEAMS_SDK_ERROR', errorDetails);
-        console.warn('[Teams SDK] Not running in Teams, using standalone mode', err);
+        console.warn('[Teams SDK] Not running in Teams, using standalone mode with MSAL', err);
         
         setIsInTeams(false);
-        clearAuthToken();
+        
+        // Initialize MSAL for browser-based authentication
+        try {
+          const msalInstance = await getMsalInstance();
+          
+          // Handle redirect response if returning from login
+          const response = await msalInstance.handleRedirectPromise();
+          if (response) {
+            logAuth('MSAL_REDIRECT_RESPONSE', { account: response.account?.username });
+            setMsalAccount(response.account);
+            setAuthToken(response.accessToken);
+            setHasToken(true);
+          } else {
+            // Check for existing accounts
+            const accounts = msalInstance.getAllAccounts();
+            if (accounts.length > 0) {
+              logAuth('MSAL_EXISTING_ACCOUNT', { account: accounts[0].username });
+              setMsalAccount(accounts[0]);
+              
+              // Try to get a token silently
+              try {
+                const tokenResponse = await msalInstance.acquireTokenSilent({
+                  ...apiScopes,
+                  account: accounts[0],
+                });
+                setAuthToken(tokenResponse.accessToken);
+                setHasToken(true);
+                logAuth('MSAL_SILENT_TOKEN_SUCCESS');
+              } catch (silentErr) {
+                logAuth('MSAL_SILENT_TOKEN_FAILED', { error: String(silentErr) });
+                // Token expired or unavailable, user will need to login again
+              }
+            } else {
+              logAuth('MSAL_NO_ACCOUNTS');
+              clearAuthToken();
+            }
+          }
+        } catch (msalErr) {
+          logAuth('MSAL_INIT_ERROR', { error: String(msalErr) });
+          clearAuthToken();
+        }
+        
         setIsInitialized(true);
         logAuth('INIT_COMPLETE_STANDALONE');
       }
@@ -206,28 +255,105 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getAuthToken = async (): Promise<string> => {
-    logAuth('GET_AUTH_TOKEN_CALLED', { isInTeams });
+    logAuth('GET_AUTH_TOKEN_CALLED', { isInTeams, hasMsalAccount: !!msalAccount });
     
-    if (!isInTeams) {
-      logAuth('GET_AUTH_TOKEN_NOT_IN_TEAMS');
-      throw new Error('Not running in Teams - cannot get SSO token');
+    if (isInTeams) {
+      try {
+        const token = await authentication.getAuthToken({ 
+          resources: [APP_ID_URI],
+          silent: true 
+        });
+        logAuth('GET_AUTH_TOKEN_SUCCESS', { tokenLength: token?.length });
+        setAuthToken(token);
+        return token;
+      } catch (err: any) {
+        logAuth('GET_AUTH_TOKEN_ERROR', { 
+          error: err?.message,
+          errorCode: err?.errorCode 
+        });
+        console.error('[Teams SSO] Failed to get auth token:', err);
+        throw new Error(`Failed to authenticate with Teams SSO: ${err?.message}`);
+      }
     }
     
+    // Use MSAL for browser-based auth
+    if (msalAccount) {
+      try {
+        const msalInstance = await getMsalInstance();
+        const tokenResponse = await msalInstance.acquireTokenSilent({
+          ...apiScopes,
+          account: msalAccount,
+        });
+        logAuth('MSAL_GET_TOKEN_SUCCESS', { tokenLength: tokenResponse.accessToken?.length });
+        setAuthToken(tokenResponse.accessToken);
+        return tokenResponse.accessToken;
+      } catch (err: any) {
+        logAuth('MSAL_GET_TOKEN_ERROR', { error: err?.message });
+        throw new Error(`Failed to get MSAL token: ${err?.message}`);
+      }
+    }
+    
+    throw new Error('Not authenticated - please sign in');
+  };
+
+  const login = async (): Promise<void> => {
+    logAuth('LOGIN_CALLED');
+    setIsLoggingIn(true);
+    setError(null);
+    
     try {
-      const token = await authentication.getAuthToken({ 
-        resources: [APP_ID_URI],
-        silent: true 
+      const msalInstance = await getMsalInstance();
+      
+      // Use popup for better UX (redirect is also available)
+      const response = await msalInstance.loginPopup({
+        ...loginRequest,
+        prompt: 'select_account',
       });
-      logAuth('GET_AUTH_TOKEN_SUCCESS', { tokenLength: token?.length });
-      setAuthToken(token);
-      return token;
+      
+      logAuth('LOGIN_SUCCESS', { account: response.account?.username });
+      setMsalAccount(response.account);
+      
+      // Get access token for API
+      const tokenResponse = await msalInstance.acquireTokenSilent({
+        ...apiScopes,
+        account: response.account!,
+      });
+      
+      setAuthToken(tokenResponse.accessToken);
+      setHasToken(true);
+      logAuth('LOGIN_TOKEN_ACQUIRED');
+      
+      // Reload the page to refresh all queries with new token
+      window.location.reload();
     } catch (err: any) {
-      logAuth('GET_AUTH_TOKEN_ERROR', { 
-        error: err?.message,
-        errorCode: err?.errorCode 
-      });
-      console.error('[Teams SSO] Failed to get auth token:', err);
-      throw new Error(`Failed to authenticate with Teams SSO: ${err?.message}`);
+      logAuth('LOGIN_ERROR', { error: err?.message });
+      setError(`Login failed: ${err?.message}`);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const logout = async (): Promise<void> => {
+    logAuth('LOGOUT_CALLED');
+    
+    try {
+      const msalInstance = await getMsalInstance();
+      
+      if (msalAccount) {
+        await msalInstance.logoutPopup({
+          account: msalAccount,
+          postLogoutRedirectUri: window.location.origin,
+        });
+      }
+      
+      setMsalAccount(null);
+      clearAuthToken();
+      setHasToken(false);
+      logAuth('LOGOUT_SUCCESS');
+      
+      window.location.reload();
+    } catch (err: any) {
+      logAuth('LOGOUT_ERROR', { error: err?.message });
     }
   };
 
@@ -242,6 +368,10 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         error,
         ssoError,
         hasToken,
+        msalAccount,
+        login,
+        logout,
+        isLoggingIn,
       }}
     >
       {children}

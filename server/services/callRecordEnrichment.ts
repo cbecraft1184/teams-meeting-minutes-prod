@@ -183,8 +183,26 @@ async function enrichMeeting(meetingId: string, onlineMeetingId: string, attempt
       }
     }
     
+    // Fallback: Look up organizer ID from email if still not available
+    if (!organizerId && meetingRecord?.organizerEmail) {
+      try {
+        console.log(`👤 [Enrichment] Looking up organizer by email: ${meetingRecord.organizerEmail}`);
+        const userResponse = await graphClient.get(`/users/${encodeURIComponent(meetingRecord.organizerEmail)}`);
+        if (userResponse?.id) {
+          organizerId = userResponse.id;
+          // Persist for future use
+          await db.update(meetings)
+            .set({ organizerAadId: organizerId })
+            .where(eq(meetings.id, meetingId));
+          console.log(`✅ [Enrichment] Found organizer ID from email: ${organizerId}`);
+        }
+      } catch (emailLookupError: any) {
+        console.warn(`⚠️ [Enrichment] Could not lookup organizer by email:`, emailLookupError?.message);
+      }
+    }
+    
     if (!organizerId) {
-      throw new Error(`Cannot fetch transcripts: organizer ID not available for meeting ${meetingId}`);
+      throw new Error(`Cannot fetch transcripts: organizer ID not available for meeting ${meetingId}. organizerEmail: ${meetingRecord?.organizerEmail || 'not set'}, callRecordId: ${meetingRecord?.callRecordId || 'not set'}`);
     }
     
     console.log(`👤 [Enrichment] Using organizer ID: ${organizerId}`);
